@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".scratch/crm-insurance/prototypes/PROTOTYPE-sitemap-nav.html"
+        ],
+        "createdAt": "2026-11-15T13:21:15.048Z",
+        "reason": "Claude: throwaway wireframe prototype for the wayfinder sitemap ticket, not shipping UI"
+      }
+    ]
+  }
+}

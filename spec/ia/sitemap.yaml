@@ -1,0 +1,107 @@
+# Single source for Fortify's navigation. The real sidebar and the Product menu both read this file.
+# visibleTo: roles that see the item (omit = all roles). Roles: producer, account-manager, principal, admin.
+
+topBar:
+  - { id: office, label: Office }
+  - { id: search, label: Search, shortcut: "⌘K" }
+  - { id: notifications, label: Notifications }
+  - { id: view-as, label: View as, demo: true }
+  - { id: demo-controls, label: Demo controls, demo: true }
+  - { id: avatar, label: Account menu }
+
+sidebar:
+  - id: today
+    label: Today
+    route: /today
+    note: Home content differs by role.
+  - id: inbox
+    label: Inbox
+    route: /inbox
+  - group: Customers
+    items:
+      - id: accounts
+        label: Accounts
+        route: /accounts
+        savedViews: [All, Prospects, Clients, Former clients, Households, Businesses]
+        record: /accounts/:id
+        tabs: [Overview, Policies, Renewals, Sales, Service, Activity, Documents]
+      - id: contacts
+        label: Contacts
+        route: /contacts
+        record: /contacts/:id
+      - id: leads
+        label: Leads
+        route: /leads
+        savedViews: [Open, Unassigned, Qualified, Disqualified]
+        record: /leads/:id
+  - group: Sales
+    items:
+      - id: pipeline
+        label: Pipeline
+        route: /pipeline
+        views: [Board, List]
+        savedViews: [My open, Closing this month, Cross-sell, Remarket]
+        record: /pipeline/:id
+      - id: x-dates
+        label: X-dates
+        route: /x-dates
+        savedViews: [Next 90 days, All]
+  - group: Book
+    items:
+      - id: policies
+        label: Policies
+        route: /policies
+        savedViews: [Active, Pending cancellation, Expired, Canceled, Recent production]
+        record: /policies/:id
+      - id: renewals
+        label: Renewals
+        route: /renewals
+        savedViews: [Due in window, At risk, Remarketing]
+        record: /renewals/:id
+      - id: service
+        label: Service
+        route: /service
+        views: [Board, List]
+        savedViews: [My open, Overdue, Waiting on carrier, Waiting on client, Done last 30 days]
+        record: /service/:id
+      - id: certificates
+        label: Certificates
+        route: /certificates
+        savedViews: [All, Needs review]
+        record: /certificates/:id
+      - id: claims
+        label: Claims
+        route: /claims
+        savedViews: [Open, Closed]
+        record: /claims/:id
+  - group: Work
+    items:
+      - id: tasks
+        label: Tasks
+        route: /tasks
+        savedViews: [My open, Due today, Overdue]
+      - id: calendar
+        label: Calendar
+        route: /calendar
+  - group: Insights
+    items:
+      - id: reports
+        label: Reports
+        route: /reports
+        note: Producers see their own reports; Account Managers see office service reports.
+
+footer:
+  - id: product
+    label: Product
+    route: /product
+    flag: VITE_SHOW_PRODUCT
+    pages: [/product, /product/sitemap, /product/object-model, /product/roles, /product/glossary, /product/backlog, /product/backlog/map, /product/epics/:code, /product/stories/:id]
+  - id: settings
+    label: Settings
+    route: /settings
+    visibleTo: [principal, admin]
+    pages: [/settings/users, /settings/offices, /settings/roles, /settings/pipeline, /settings/templates, /settings/carriers, /settings/licenses, /settings/integrations, /settings/data-sync]
+
+system:
+  - { id: access-denied, route: /403 }
+  - { id: not-found, route: /404 }

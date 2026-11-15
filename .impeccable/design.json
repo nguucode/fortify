@@ -1,0 +1,539 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T14:45:52+00:00",
+  "title": "Design System: Fortify",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Console Grey",
+        "canonical": "oklch(98.75% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#fff",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "recessed": {
+        "role": "neutral",
+        "displayName": "Well Grey",
+        "canonical": "oklch(96.5% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "fill": {
+        "role": "neutral",
+        "displayName": "Divider Grey",
+        "canonical": "oklch(92.2% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Ring Line",
+        "canonical": "oklch(14.5% 0 0 / 0.1)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "line-control": {
+        "role": "neutral",
+        "displayName": "Control Line",
+        "canonical": "oklch(14.5% 0 0 / 0.45)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "strong": {
+        "role": "neutral",
+        "displayName": "Strong",
+        "canonical": "oklch(14.5% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(20.5% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "label": {
+        "role": "neutral",
+        "displayName": "Label",
+        "canonical": "oklch(43.9% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted (also placeholder)",
+        "canonical": "oklch(55.6% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "inactive": {
+        "role": "neutral",
+        "displayName": "Inactive",
+        "canonical": "oklch(87% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(50% 0 0)",
+          "oklch(62% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Action Blue",
+        "canonical": "oklch(57.72% 0.2324 260)",
+        "tonalRamp": [
+          "oklch(15% 0.093 260)",
+          "oklch(25% 0.139 260)",
+          "oklch(38% 0.198 260)",
+          "oklch(50% 0.232 260)",
+          "oklch(62% 0.209 260)",
+          "oklch(75% 0.139 260)",
+          "oklch(87% 0.07 260)",
+          "oklch(95% 0.028 260)"
+        ]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Pressed Blue",
+        "canonical": "oklch(48.8% 0.243 264.4)",
+        "tonalRamp": [
+          "oklch(15% 0.097 264.4)",
+          "oklch(25% 0.146 264.4)",
+          "oklch(38% 0.207 264.4)",
+          "oklch(50% 0.243 264.4)",
+          "oklch(62% 0.219 264.4)",
+          "oklch(75% 0.146 264.4)",
+          "oklch(87% 0.073 264.4)",
+          "oklch(95% 0.029 264.4)"
+        ]
+      },
+      "link": {
+        "role": "primary",
+        "displayName": "Ink Blue",
+        "canonical": "oklch(42.4% 0.199 265.6)",
+        "tonalRamp": [
+          "oklch(15% 0.08 265.6)",
+          "oklch(25% 0.119 265.6)",
+          "oklch(38% 0.169 265.6)",
+          "oklch(50% 0.199 265.6)",
+          "oklch(62% 0.179 265.6)",
+          "oklch(75% 0.119 265.6)",
+          "oklch(87% 0.06 265.6)",
+          "oklch(95% 0.024 265.6)"
+        ]
+      },
+      "selection": {
+        "role": "primary",
+        "displayName": "Selection Wash",
+        "canonical": "oklch(93.2% 0.032 255.6)",
+        "tonalRamp": [
+          "oklch(15% 0.08 255.6)",
+          "oklch(25% 0.12 255.6)",
+          "oklch(38% 0.17 255.6)",
+          "oklch(50% 0.2 255.6)",
+          "oklch(62% 0.18 255.6)",
+          "oklch(75% 0.12 255.6)",
+          "oklch(87% 0.06 255.6)",
+          "oklch(95% 0.024 255.6)"
+        ]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Success",
+        "canonical": "oklch(59.6% 0.145 163.2)",
+        "tonalRamp": [
+          "oklch(15% 0.058 163.2)",
+          "oklch(25% 0.087 163.2)",
+          "oklch(38% 0.123 163.2)",
+          "oklch(50% 0.145 163.2)",
+          "oklch(62% 0.131 163.2)",
+          "oklch(75% 0.087 163.2)",
+          "oklch(87% 0.043 163.2)",
+          "oklch(95% 0.017 163.2)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "oklch(63.7% 0.237 25.3)",
+        "tonalRamp": [
+          "oklch(15% 0.095 25.3)",
+          "oklch(25% 0.142 25.3)",
+          "oklch(38% 0.201 25.3)",
+          "oklch(50% 0.237 25.3)",
+          "oklch(62% 0.213 25.3)",
+          "oklch(75% 0.142 25.3)",
+          "oklch(87% 0.071 25.3)",
+          "oklch(95% 0.028 25.3)"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Warning",
+        "canonical": "oklch(73.9% 0.177 58.2)",
+        "tonalRamp": [
+          "oklch(15% 0.071 58.2)",
+          "oklch(25% 0.106 58.2)",
+          "oklch(38% 0.15 58.2)",
+          "oklch(50% 0.177 58.2)",
+          "oklch(62% 0.159 58.2)",
+          "oklch(75% 0.106 58.2)",
+          "oklch(87% 0.053 58.2)",
+          "oklch(95% 0.021 58.2)"
+        ]
+      },
+      "warning-text": {
+        "role": "status",
+        "displayName": "Warning Text",
+        "canonical": "oklch(55% 0.13 57.5)",
+        "tonalRamp": [
+          "oklch(15% 0.052 57.5)",
+          "oklch(25% 0.078 57.5)",
+          "oklch(38% 0.111 57.5)",
+          "oklch(50% 0.13 57.5)",
+          "oklch(62% 0.117 57.5)",
+          "oklch(75% 0.078 57.5)",
+          "oklch(87% 0.039 57.5)",
+          "oklch(95% 0.016 57.5)"
+        ]
+      },
+      "info": {
+        "role": "status",
+        "displayName": "Info",
+        "canonical": "oklch(62.3% 0.214 259.8)",
+        "tonalRamp": [
+          "oklch(15% 0.086 259.8)",
+          "oklch(25% 0.128 259.8)",
+          "oklch(38% 0.182 259.8)",
+          "oklch(50% 0.214 259.8)",
+          "oklch(62% 0.193 259.8)",
+          "oklch(75% 0.128 259.8)",
+          "oklch(87% 0.064 259.8)",
+          "oklch(95% 0.026 259.8)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Page Title",
+        "purpose": "The page H1 only."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Empty/error state titles, palette input."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default for cells, buttons, nav, descriptions; 500 for names and button labels."
+      },
+      "table-header": {
+        "displayName": "Table Header",
+        "purpose": "Column headers."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Status labels, meta line, tooltips, filter chips, secondary tokens."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Nav group labels, count pills, kbd hints."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Reference IDs only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ring",
+        "value": "0 0 0 1px var(--color-line)",
+        "purpose": "Edge for every resting surface."
+      },
+      {
+        "name": "control",
+        "value": "0 0 0 1px var(--color-line-control)",
+        "purpose": "Form control edges (WCAG 1.4.11); hover on the global search entry."
+      },
+      {
+        "name": "pop",
+        "value": "0 0 0 1px var(--color-line), 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        "purpose": "Popovers, menus, toasts, command palette, hover-expanded sidebar."
+      },
+      {
+        "name": "focus",
+        "value": "outline: 2px solid var(--color-primary); outline-offset: 2px",
+        "purpose": "Universal focus-visible ring."
+      }
+    ],
+    "motion": [
+      {
+        "name": "row-hover",
+        "value": "100ms",
+        "purpose": "Table row background."
+      },
+      {
+        "name": "state",
+        "value": "150ms",
+        "purpose": "Buttons, nav, tabs, toggles, rail width."
+      },
+      {
+        "name": "intent-delay",
+        "value": "150ms",
+        "purpose": "Rail expand, tooltip open, skeleton appearance."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "All durations under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ],
+    "layout": {
+      "topBar": "58px",
+      "sidebarRail": "56px",
+      "sidebarExpanded": "240px",
+      "gutter": "32px",
+      "row": "40px",
+      "control": "36px",
+      "ribbonWidth": "120px"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one blue action per toolbar, far right.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg> New account</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border:0; border-radius:8px; background:var(--color-primary, oklch(57.72% 0.2324 260)); color:#fff; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; font-weight:500; transition:background-color 150ms; cursor:pointer; } .ds-btn-primary:hover { background:var(--color-primary-hover, oklch(48.8% 0.243 264.4)); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White ringed toolbar button with a leading icon.",
+      "html": "<button class=\"ds-btn-secondary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 3H2l8 9.46V19l4 2v-8.54L22 3z\"/></svg> Filters</button>",
+      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; font-weight:500; transition:background-color 150ms; cursor:pointer; } .ds-btn-secondary:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Toolbar Search",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "36px search field with the 0.45 control line.",
+      "html": "<label class=\"ds-search\"><span class=\"ds-search-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg></span><input class=\"ds-search-input\" placeholder=\"Search accounts\"></label>",
+      "css": ".ds-search { position:relative; display:block; width:320px; } .ds-search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--color-muted, oklch(55.6% 0 0)); display:flex; pointer-events:none; } .ds-search-input { width:100%; height:36px; padding:0 12px 0 32px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line-control, oklch(14.5% 0 0 / 0.45)); font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; caret-color:var(--color-primary, oklch(57.72% 0.2324 260)); outline:none; box-sizing:border-box; } .ds-search-input::placeholder { color:var(--color-muted, oklch(55.6% 0 0)); opacity:1; } .ds-search-input:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Cell",
+      "kind": "chip",
+      "refersTo": "status-cell",
+      "description": "Dot plus 13px label; never a filled pill.",
+      "html": "<span class=\"ds-status\"><span class=\"ds-status-dot ds-ok\"></span>Client</span> <span class=\"ds-status\"><span class=\"ds-status-dot ds-warn\"></span>Remarketing</span> <span class=\"ds-status\"><span class=\"ds-status-dot ds-bad\"></span>Canceled</span>",
+      "css": ".ds-status { display:inline-flex; align-items:center; gap:6px; margin-right:16px; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:13px; line-height:18px; color:var(--color-ink, oklch(20.5% 0 0)); } .ds-status-dot { width:8px; height:8px; border-radius:9999px; } .ds-ok { background:var(--color-success, oklch(59.6% 0.145 163.2)); } .ds-warn { background:var(--color-warning, oklch(73.9% 0.177 58.2)); } .ds-bad { background:var(--color-danger, oklch(63.7% 0.237 25.3)); }"
+    },
+    {
+      "name": "Count Pill",
+      "kind": "chip",
+      "refersTo": "count-pill",
+      "description": "The only pill: counts and the Sample data badge.",
+      "html": "<span class=\"ds-pill\">206</span> <span class=\"ds-pill\">Sample data</span>",
+      "css": ".ds-pill { display:inline-block; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:12px; line-height:20px; font-weight:500; font-variant-numeric:tabular-nums; }"
+    },
+    {
+      "name": "Sidebar Nav",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "32px items; active is white with a ring, never blue.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"/><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4\"/></svg><span>Today</span></a><a class=\"ds-nav-item ds-active\" href=\"#\" aria-current=\"page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"/><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4\"/></svg><span>Accounts</span></a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"/><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4\"/></svg><span>Policies</span></a></nav>",
+      "css": ".ds-nav { display:flex; flex-direction:column; gap:2px; width:224px; padding:12px 8px; background:var(--color-canvas, oklch(98.75% 0 0)); } .ds-nav-item { display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; border-radius:8px; color:var(--color-label, oklch(43.9% 0 0)); text-decoration:none; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; font-weight:500; transition:background-color 150ms, color 150ms; } .ds-nav-item svg { opacity:.6; } .ds-nav-item:hover { background:var(--color-recessed, oklch(96.5% 0 0)); color:var(--color-strong, oklch(14.5% 0 0)); } .ds-nav-item:hover svg, .ds-active svg { opacity:1; } .ds-active, .ds-active:hover { background:var(--color-surface, #fff); color:var(--color-strong, oklch(14.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-nav-item:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Data Table Row",
+      "kind": "card",
+      "refersTo": "table-row",
+      "description": "40px header and rows, fill dividers, recessed hover, tabular numbers.",
+      "html": "<div class=\"ds-table\"><table><thead><tr><th>Account</th><th>Status</th><th class=\"ds-num\">Annual premium</th></tr></thead><tbody><tr><td><span class=\"ds-name\">Barton Household</span> <span class=\"ds-token\">Ima Barton</span></td><td><span class=\"ds-dot\"></span>Client</td><td class=\"ds-num\">$15,840</td></tr><tr><td><span class=\"ds-name\">Beatty Household</span> <span class=\"ds-token\">Loraine Beatty · Houston TX</span></td><td><span class=\"ds-dot ds-dot-b\"></span>Prospect</td><td class=\"ds-num ds-empty\">—</td></tr></tbody></table></div>",
+      "css": ".ds-table { background:var(--color-surface, #fff); border-radius:8px 8px 0 0; box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); overflow:hidden; } .ds-table table { width:560px; border-collapse:collapse; text-align:left; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; color:var(--color-ink, oklch(20.5% 0 0)); } .ds-table th { height:40px; padding:0 12px; font-weight:600; color:var(--color-strong, oklch(14.5% 0 0)); border-bottom:1px solid var(--color-fill, oklch(92.2% 0 0)); } .ds-table td { height:40px; padding:0 12px; border-bottom:1px solid var(--color-fill, oklch(92.2% 0 0)); } .ds-table tbody tr { transition:background-color 100ms; cursor:pointer; } .ds-table tbody tr:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-num { text-align:right; font-variant-numeric:tabular-nums; } .ds-name { font-weight:500; color:var(--color-strong, oklch(14.5% 0 0)); } .ds-token, .ds-empty { font-size:13px; color:var(--color-muted, oklch(55.6% 0 0)); } .ds-dot { display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; background:var(--color-success, oklch(59.6% 0.145 163.2)); } .ds-dot-b { background:oklch(54.6% 0.245 262.9); }"
+    },
+    {
+      "name": "Term Ribbon",
+      "kind": "custom",
+      "refersTo": "term-ribbon",
+      "description": "Signature 12-month strip: blue renewal ticks, hollow X-date rings, strong 2px today marker, warning inside 30 days.",
+      "html": "<span class=\"ds-ribbon\" role=\"img\" aria-label=\"Renewal in 3 weeks, 2 renewals and 1 X-date later in the year\"><span class=\"ds-rb-band\"></span><span class=\"ds-rb-base\"></span><span class=\"ds-rb-q\" style=\"left:30px\"></span><span class=\"ds-rb-q\" style=\"left:60px\"></span><span class=\"ds-rb-q\" style=\"left:90px\"></span><span class=\"ds-rb-today\"></span><span class=\"ds-rb-tick ds-rb-near\" style=\"left:7px\"></span><span class=\"ds-rb-tick\" style=\"left:48px\"></span><span class=\"ds-rb-x\" style=\"left:70px\"></span><span class=\"ds-rb-tick\" style=\"left:112px\"></span></span>",
+      "css": ".ds-ribbon { position:relative; display:block; width:120px; height:20px; } .ds-ribbon > span { position:absolute; } .ds-rb-band { top:2px; left:0; width:10px; height:16px; border-radius:4px; background:oklch(73.9% 0.177 58.2 / .25); } .ds-rb-base { left:0; right:0; top:50%; height:1px; background:var(--color-fill, oklch(92.2% 0 0)); } .ds-rb-q { top:7px; width:1px; height:6px; background:var(--color-inactive, oklch(87% 0 0)); } .ds-rb-today { top:0; left:0; width:2px; height:20px; border-radius:9999px; background:var(--color-strong, oklch(14.5% 0 0)); } .ds-rb-tick { top:3px; width:3px; height:14px; border-radius:1px; transform:translateX(-50%); background:var(--color-primary, oklch(57.72% 0.2324 260)); } .ds-rb-near { background:var(--color-warning-text, oklch(55% 0.13 57.5)); } .ds-rb-x { top:6px; width:8px; height:8px; border-radius:9999px; transform:translateX(-50%); background:var(--color-surface, #fff); box-shadow:0 0 0 1.5px var(--color-primary, oklch(57.72% 0.2324 260)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Console",
+    "overview": "Fortify reads like a calm infrastructure console that happens to run an insurance agency. The grammar is the Cloudflare dashboard's (neutral canvas, white working surfaces, hairline rings, one blue, dense 40px tables) with none of Cloudflare's brand: no orange, no cloud, no borrowed name. Neutrals carry nearly the whole interface; color appears only where it means something: the one action blue, and status hues that encode state.\n\nDensity is a feature. A Producer or Account Manager should scan forty Accounts and know what is due next without opening one, so rows stay at 40px, numbers sit in tabular figures, and nothing is padded to look airy. The one expressive move is the Term ribbon, a 12-month micro-timeline drawn from data in every row; everything around it stays quiet so it can be read.\n\nThe rejected category default is the card grid with colored stage pills and an oversized KPI hero. Light mode only; WCAG 2.2 AA is a floor, and the contrast-corrected tokens below are part of the system, not exceptions to it.",
+    "keyCharacteristics": [
+      "Neutral canvas, white surfaces, 1px ring edges instead of borders.",
+      "One accent: action blue, which is also the brand hue.",
+      "Inter Variable throughout, 14px base, -0.16px tracking, weights 400/500/600 only.",
+      "40px rows, 36px controls, 8px radius.",
+      "Status as dot plus label; pills only for counts and plan-like badges.",
+      "The Term ribbon as the signature data glyph."
+    ],
+    "rules": [
+      {
+        "name": "The One Blue Rule",
+        "body": "Action Blue is the only accent. It appears on the primary action, focus, links, selection, ribbon ticks and the logomark; nowhere else. Active tabs and active nav use strong neutrals, not blue.",
+        "section": "colors"
+      },
+      {
+        "name": "The State-Only Color Rule",
+        "body": "Status hues appear only where they encode state (pipeline stage, policy status, renewal risk) and always beside a text label or icon.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Weights Rule",
+        "body": "400, 500 and 600 only. Nothing light, nothing bold beyond 600.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Numbers Rule",
+        "body": "Counts, money, dates and the meta line use tabular figures; numeric columns align right.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Airy-Table Rule",
+        "body": "Rows are 40px, header row 40px. Never pad a table to look spacious.",
+        "section": "layout"
+      },
+      {
+        "name": "The Ring Not Border Rule",
+        "body": "Surfaces get edges from a ring shadow, never a CSS border. 1px `line` borders are reserved for structural shell dividers (top bar bottom, sidebar edge, tab strip, sidebar footer), and `fill` borders for table row dividers.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Two-Edge Rule",
+        "body": "Cards and tables keep the 0.1 hairline; only form controls get the 0.45 control line.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Glyph Rule",
+        "body": "The ribbon is the only expressive element on a list surface. It stays a data glyph: no labels inside it, no color outside blue, warning and neutrals.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do use Action Blue only for the primary action, focus, links, selection, ribbon ticks and the logomark.",
+      "Do give surfaces a 1px ring at 0.1 alpha, and form controls the 0.45 control line.",
+      "Do keep rows at 40px and controls at 36px with an 8px radius; 12px only for the global search entry and large panels.",
+      "Do show status as a dot plus a 13px label, and keep pills for counts and plan-like badges.",
+      "Do use tabular figures and right alignment for numbers, and a muted \"—\" for empty cells.",
+      "Do keep rows in place on refetch with the 2px progress line; show skeletons only on first load after 150ms.",
+      "Do carry Office as a \"Contact · Office\" token for agency-scope roles rather than adding a column."
+    ],
+    "donts": [
+      "Don't introduce a second accent, an orange brand color, or Cloudflare's name or mark.",
+      "Don't use filled colored pills for stage or policy status.",
+      "Don't put CSS borders on cards, tables, controls or popovers; borders are for shell dividers and row dividers only.",
+      "Don't use gradients, glass, or shadows outside the Ring, Control and Pop recipes.",
+      "Don't use weights other than 400, 500 and 600, or a second display face.",
+      "Don't pad tables to look airy, or add entrance animations."
+    ]
+  }
+}
