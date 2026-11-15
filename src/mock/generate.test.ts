@@ -78,4 +78,37 @@ describe('generateDataset', () => {
     expect(data.accounts.some((a) => a.name.length > 40)).toBe(true)
     expect(data.accounts.some((a) => a.primaryContactId === null)).toBe(true)
   })
+
+  it('generates the selling, retention, and service objects at the mock-data.md scale', () => {
+    const near = (n: number, target: number) => expect(Math.abs(n - target) / target).toBeLessThan(0.2)
+    near(data.leads.length, 180)
+    near(data.opportunities.length, 220)
+    near(data.quotes.length, 450)
+    near(data.serviceRequests.length, 300)
+    near(data.tasks.length, 600)
+    expect(data.activities.length).toBeGreaterThan(1500)
+  })
+
+  it('opens Renewals only for Active Terms inside their window, one per Term', () => {
+    const terms = new Map(data.terms.map((t) => [t.id, t]))
+    const windows = { personal: 45, 'fl-residential-property': 120, 'small-commercial': 60, 'large-commercial': 90 }
+    expect(data.renewals.length).toBeGreaterThan(80)
+    for (const r of data.renewals) {
+      const t = terms.get(r.termId)!
+      expect(t.status).toBe('Active')
+      expect(t.expirationOffset).toBeLessThanOrEqual(windows[r.segment])
+    }
+    expect(new Set(data.renewals.map((r) => r.termId)).size).toBe(data.renewals.length)
+  })
+
+  it('keeps loop references intact', () => {
+    const accounts = new Set(data.accounts.map((a) => a.id))
+    const opps = new Set(data.opportunities.map((o) => o.id))
+    for (const o of data.opportunities) expect(accounts.has(o.accountId)).toBe(true)
+    for (const q of data.quotes) expect(opps.has(q.opportunityId)).toBe(true)
+    for (const s of data.serviceRequests) expect(accounts.has(s.accountId)).toBe(true)
+    for (const a of data.activities) expect(accounts.has(a.accountId)).toBe(true)
+    for (const l of data.leads.filter((x) => x.status === 'Qualified')) expect(accounts.has(l.qualifiedAccountId!)).toBe(true)
+    expect(data.serviceRequests.every((s) => /^SR-\d{5}$/.test(s.id))).toBe(true)
+  })
 })

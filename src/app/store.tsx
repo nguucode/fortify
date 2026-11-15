@@ -1,13 +1,27 @@
 import { createContext, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
-import seed from '@/mock/data/dataset.json'
 import { createMockApi, type DemoControls } from '@/mock/api'
 import { buildAccountRows } from '@/domain/accounts'
+import { createDataStore, type DataStore } from './data'
 import type { Dataset, User } from '@/domain/types'
 
-const dataset = seed as Dataset
+// The dataset is code-split and loaded once by main.tsx before the first render (initData).
+let store: DataStore
+let seedSnapshot: Dataset
+export let viewAsUsers: User[] = []
 // View as presets (US-FND-004, spec/ia/mock-data.md shared seed list).
 const PRESET_NAMES = ['Dana Whitfield', 'Marisol Reyes', 'Grant Holloway', 'Priya Nair']
-export const viewAsUsers: User[] = PRESET_NAMES.map((n) => dataset.users.find((u) => u.name === n)!)
+
+export function initData(seed: Dataset) {
+  seedSnapshot = seed
+  store = createDataStore(seed, new Date())
+  viewAsUsers = PRESET_NAMES.map((n) => seed.users.find((u) => u.name === n)!)
+}
+/** The mutable store; use useData() in components so they re-render on change. */
+export const dataStore = () => store
+export const resetData = () => store.reset(seedSnapshot)
+export function useData(): Dataset {
+  return useSyncExternalStore(store.subscribe, store.getState)
+}
 
 // Dev-only presenter links: ?as=account-manager&demo=error|empty (never shipped in a production build).
 const devParams = import.meta.env.DEV ? new URLSearchParams(location.search) : new URLSearchParams()
@@ -51,7 +65,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       /* storage blocked: the choice lasts until reload */
     }
   }
-  const value = useMemo(() => ({ data: dataset, user, setUser, officeFilter, setOfficeFilter, api }), [user, officeFilter])
+  const data = useData()
+  const value = useMemo(() => ({ data, user, setUser, officeFilter, setOfficeFilter, api }), [data, user, officeFilter])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
@@ -65,18 +80,16 @@ export function useDemoControls(): DemoControls {
   return useSyncExternalStore(api.subscribe, api.getControls)
 }
 
-let rowsCache: { day: string; rows: ReturnType<typeof buildAccountRows> } | null = null
-/** Rows are derived once per day; offsets resolve against today (decision D3). Call invalidateAccountRows() after a mutation. */
+let rowsCache: { day: string; state: Dataset; rows: ReturnType<typeof buildAccountRows> } | null = null
+/** Rows are rebuilt when the store changes or the day turns; offsets resolve against today (decision D3). */
 export function accountRows() {
   const day = new Date().toDateString()
-  if (rowsCache?.day !== day) rowsCache = { day, rows: buildAccountRows(dataset, new Date()) }
+  const state = store.getState()
+  if (rowsCache?.day !== day || rowsCache.state !== state) rowsCache = { day, state, rows: buildAccountRows(state, new Date()) }
   return rowsCache.rows
-}
-export function invalidateAccountRows() {
-  rowsCache = null
 }
 
 export function officeName(id: string) {
-  const o = dataset.offices.find((x) => x.id === id)
+  const o = store.getState().offices.find((x) => x.id === id)
   return o ? `${o.name} ${o.state}` : ''
 }

@@ -1,5 +1,12 @@
 import { Faker, en_US, en, base } from '@faker-js/faker'
 import type {
+  Activity,
+  Lead,
+  Opportunity,
+  Quote,
+  Renewal,
+  ServiceRequest,
+  Task,
   Account,
   Carrier,
   Contact,
@@ -285,5 +292,239 @@ export function generateDataset(seed = 20261115): Dataset {
   candidates.forEach((a, i) => (a.lifecycle = i < 3 ? 'archived' : 'merged'))
   noContact.lastActivityOffset = null
 
-  return { offices: OFFICES, users, carriers: CARRIERS, accounts, contacts, policies, terms, xDates }
+
+  // ---- Selling, retention, service, and work (P0 demo loop) ----
+  const leads: Lead[] = []
+  const opportunities: Opportunity[] = []
+  const quotes: Quote[] = []
+  const renewals: Renewal[] = []
+  const serviceRequests: ServiceRequest[] = []
+  const activities: Activity[] = []
+  const tasks: Task[] = []
+  const live = accounts.filter((a) => a.lifecycle === 'active')
+  const policiesByAccount = new Map<string, Policy[]>()
+  for (const p of policies) policiesByAccount.set(p.accountId, [...(policiesByAccount.get(p.accountId) ?? []), p])
+  const plLines: Line[] = ['Auto', 'Home', 'Umbrella', 'Renters', 'Condo', 'Flood', 'Boat']
+  const clLines: Line[] = ['BOP', 'GL', 'WC', 'Commercial auto', 'Commercial umbrella']
+  const carrierFor2 = (line: Line, state: UsState) => CARRIERS.filter((c) => c.lines.includes(line) && c.states.includes(state) && !c.note)
+
+  // Leads: 180, mostly open; qualified ones point at an Account.
+  const SOURCES = ['Web form', 'Phone', 'Referral', 'Trusted Choice', 'Purchased list'] as const
+  for (let i = 0; i < 180; i++) {
+    const office = officeFor()
+    const kind = f.datatype.boolean({ probability: 0.8 }) ? 'Household' : 'Business'
+    const name = f.person.fullName()
+    const roll = int(1, 100)
+    const status = roll <= 35 ? 'New' : roll <= 70 ? 'Contacted' : roll <= 85 ? 'Qualified' : 'Disqualified'
+    const target = status === 'Qualified' ? pick(live.filter((a) => a.officeId === office.id)) : null
+    const [city] = pick(CITIES[office.id])
+    leads.push({
+      id: id('lea', i + 1),
+      name,
+      kind,
+      businessName: kind === 'Business' ? `${name.split(' ').pop()} ${pick(BUSINESS_TRADE)} ${pick(BUSINESS_SUFFIX)}` : null,
+      email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`,
+      phone: `(555) 010-${String(int(0, 9999)).padStart(4, '0')}`,
+      state: office.state,
+      city,
+      officeId: office.id,
+      source: pick(SOURCES),
+      linesOfInterest: f.helpers.arrayElements(kind === 'Household' ? plLines.slice(0, 3) : clLines.slice(0, 4), int(1, 2)),
+      currentCarrier: f.datatype.boolean({ probability: 0.5 }) ? pick(CARRIERS).name : null,
+      xDateOffset: f.datatype.boolean({ probability: 0.35 }) ? int(20, 300) : null,
+      assigneeId: f.datatype.boolean({ probability: 0.85 }) ? pick(byOffice(office.id, 'producer')).id : null,
+      status,
+      disqualifyReason: status === 'Disqualified' ? pick(['No response', 'Not interested', 'Bought elsewhere', 'Price only']) : null,
+      createdOffset: -int(0, 40),
+      attempts: status === 'New' ? [] : Array.from({ length: int(1, 3) }, () => ({ offset: -int(0, 20), channel: pick(['Call', 'Email', 'SMS'] as const), outcome: pick(['Connected', 'Left voicemail', 'No answer']) })),
+      qualifiedAccountId: target?.id ?? null,
+      qualifiedOpportunityId: null,
+    })
+  }
+  // Two seeded duplicate scenarios for the Qualify demo: one matches Mike Torres by phone.
+  leads[0] = { ...leads[0], name: 'Michael Torres', kind: 'Business', businessName: 'Torres Roofing, L.L.C.', phone: contacts.find((c) => c.name === 'Mike Torres')!.phone, officeId: 'off-hou', state: 'TX', city: 'Houston', status: 'New', assigneeId: dana.id, linesOfInterest: ['BOP'], attempts: [], qualifiedAccountId: null, disqualifyReason: null, createdOffset: 0 }
+  leads[1] = { ...leads[1], name: 'Rosa Delgado', kind: 'Household', businessName: null, officeId: 'off-hou', state: 'TX', city: 'Houston', status: 'Contacted', assigneeId: dana.id, linesOfInterest: ['Auto', 'Home'], qualifiedAccountId: null, disqualifyReason: null }
+
+  // Opportunities: 220 across stages; Quotes about 2 per Opportunity past New.
+  const STAGES = ['New', 'Contacted', 'Gathering info', 'Quoting', 'Quoting', 'Quoting', 'Proposed', 'Proposed', 'Won', 'Lost'] as const
+  for (let i = 0; i < 220; i++) {
+    const a = pick(live)
+    const isClient = a.status === 'Client'
+    const owned = new Set((policiesByAccount.get(a.id) ?? []).map((p) => p.line))
+    const pool = (a.kind === 'Household' ? plLines.slice(0, 3) : clLines).filter((l) => !owned.has(l))
+    const lines = f.helpers.arrayElements(pool.length ? pool : a.kind === 'Household' ? ['Umbrella' as Line] : ['Commercial umbrella' as Line], int(1, Math.min(2, Math.max(1, pool.length))))
+    const stage = pick(STAGES)
+    const o: Opportunity = {
+      id: id('opp', i + 1),
+      accountId: a.id,
+      type: isClient ? (f.datatype.boolean({ probability: 0.25 }) ? 'Remarket' : 'Cross-sell') : 'New business',
+      stage,
+      stageEnteredOffset: -int(0, 25),
+      lines,
+      ownerId: a.producerId,
+      estimatedPremium: lines.reduce((sum, l) => sum + Math.round(int(...PREMIUM[l]) / 10) * 10, 0),
+      targetCloseOffset: stage === 'Won' || stage === 'Lost' ? -int(1, 60) : int(5, 75),
+      source: pick(['Referral', 'Web form', 'X-date', 'Renewal', 'Cross-sell review']),
+      lostReason: stage === 'Lost' ? pick(['Price', 'Coverage', 'Stayed with incumbent', 'No decision']) : null,
+      renewalId: null,
+      leadId: null,
+      createdOffset: -int(5, 90),
+      closedOffset: stage === 'Won' || stage === 'Lost' ? -int(1, 30) : null,
+    }
+    opportunities.push(o)
+    if (['New', 'Contacted', 'Gathering info'].includes(stage)) continue
+    const nQuotes = int(2, 4)
+    const usedCarriers = new Set<string>()
+    for (let k = 0; k < nQuotes; k++) {
+      const choices = [...new Set(lines.flatMap((l) => carrierFor2(l, a.state)))].filter((c) => !usedCarriers.has(c.id))
+      if (!choices.length) break
+      const c = pick(choices)
+      usedCarriers.add(c.id)
+      const quoted = stage !== 'Quoting' || f.datatype.boolean({ probability: 0.6 })
+      const declined = !quoted && f.datatype.boolean({ probability: 0.3 })
+      let status: Quote['status'] = declined ? 'Declined' : quoted ? 'Quoted' : 'Requested'
+      if (stage === 'Proposed' && status === 'Quoted') status = 'Presented'
+      if (stage === 'Won') status = k === 0 ? 'Accepted' : 'Not taken'
+      if (stage === 'Lost' && status !== 'Declined') status = 'Not taken'
+      quotes.push({
+        id: id('quo', quotes.length + 1),
+        opportunityId: o.id,
+        carrierId: c.id,
+        status,
+        lines: lines.map((line) => ({ line, premium: status === 'Requested' || status === 'Declined' ? null : Math.round(int(...PREMIUM[line]) / 10) * 10, accepted: status === 'Accepted' })),
+        fees: status === 'Requested' ? 0 : pick([0, 25, 50, 75]),
+        declineReason: status === 'Declined' ? pick(['Outside appetite', 'Loss history', 'Roof age over 15 years']) : null,
+        warnings: [],
+        requestedOffset: o.createdOffset + int(1, 5),
+        validUntilOffset: status === 'Quoted' || status === 'Presented' ? int(-3, 30) : null,
+        presentedOffset: status === 'Presented' ? -int(0, 10) : null,
+      })
+    }
+  }
+  // The showcase: Torres Household has an open Umbrella Cross-sell with two Quoted carriers.
+  {
+    const o: Opportunity = { id: id('opp', opportunities.length + 1), accountId: torresHH.id, type: 'Cross-sell', stage: 'Quoting', stageEnteredOffset: -3, lines: ['Umbrella'], ownerId: dana.id, estimatedPremium: 420, targetCloseOffset: 21, source: 'X-date', lostReason: null, renewalId: null, leadId: null, createdOffset: -12, closedOffset: null }
+    opportunities.push(o)
+    for (const [cid, prem] of [['car-lsm', 410], ['car-ghi', 455]] as const)
+      quotes.push({ id: id('quo', quotes.length + 1), opportunityId: o.id, carrierId: cid, status: 'Quoted', lines: [{ line: 'Umbrella', premium: prem, accepted: false }], fees: 25, declineReason: null, warnings: [], requestedOffset: -8, validUntilOffset: 22, presentedOffset: null })
+  }
+
+  // Renewals: every Active Term inside its window gets one (rules.md windows).
+  const policyById = new Map(policies.map((p) => [p.id, p]))
+  const accountById = new Map(accounts.map((a) => [a.id, a]))
+  const commercialPremium = new Map<string, number>()
+  for (const t of terms) {
+    if (t.status !== 'Active') continue
+    const p = policyById.get(t.policyId)!
+    if (clLines.includes(p.line)) commercialPremium.set(p.accountId, (commercialPremium.get(p.accountId) ?? 0) + t.premium)
+  }
+  const RSTAT = ['Upcoming', 'Upcoming', 'In review', 'In review', 'Remarketing', 'Presented', 'Decided'] as const
+  for (const t of terms) {
+    if (t.status !== 'Active') continue
+    const p = policyById.get(t.policyId)!
+    const a = accountById.get(p.accountId)!
+    if (a.lifecycle !== 'active') continue
+    const commercial = clLines.includes(p.line)
+    const segment: Renewal['segment'] = commercial
+      ? (commercialPremium.get(a.id) ?? 0) >= 25000 ? 'large-commercial' : 'small-commercial'
+      : a.state === 'FL' && ['Home', 'Condo'].includes(p.line) ? 'fl-residential-property' : 'personal'
+    const window = { personal: 45, 'fl-residential-property': 120, 'small-commercial': 60, 'large-commercial': 90 }[segment]
+    if (t.expirationOffset > window) continue
+    const status = t.expirationOffset > window - 10 ? 'Upcoming' : pick(RSTAT)
+    const change = f.number.float({ min: -0.06, max: 0.22 })
+    renewals.push({
+      id: id('ren', renewals.length + 1),
+      accountId: a.id,
+      policyId: p.id,
+      termId: t.id,
+      status,
+      segment,
+      ownerId: a.accountManagerId,
+      renewalPremium: status === 'Upcoming' && f.datatype.boolean({ probability: 0.5 }) ? null : Math.round((t.premium * (1 + change)) / 10) * 10,
+      decision: status === 'Decided' ? pick(['Renew as is', 'Renew as is', 'Rewrite'] as const) : null,
+      decisionCarrierId: null,
+      remarketOpportunityId: null,
+      createdOffset: t.expirationOffset - window,
+    })
+  }
+  // The +38% FL home renewal the stories reference (mock-data.md edge cases).
+  const flHome = renewals.find((r) => r.segment === 'fl-residential-property')
+  if (flHome) {
+    const t = terms.find((x) => x.id === flHome.termId)!
+    flHome.renewalPremium = Math.round((t.premium * 1.38) / 10) * 10
+    flHome.status = 'In review'
+  }
+
+  // Service Requests: 300 across types and statuses, sequential from SR-10183 so new ones start at SR-10483.
+  const TYPES = ['Policy change', 'Policy change', 'Policy change', 'Certificate request', 'Claim report', 'ID card / evidence', 'Billing question', 'Cancellation request', 'General'] as const
+  const SSTAT = ['New', 'In progress', 'In progress', 'Waiting on carrier', 'Waiting on client', 'Done', 'Done', 'Done'] as const
+  const SUBJECT: Record<string, string[]> = {
+    'Policy change': ['Add 2024 Ford F-150', 'Remove driver Kyle', 'Change mailing address', 'Add mortgagee', 'Raise liability limits'],
+    'Certificate request': ['COI for Lakeside Mall project', 'COI for Harris County job', 'COI with additional insured'],
+    'Claim report': ['Hail damage to roof', 'Rear-ended on I-10', 'Water leak in kitchen'],
+    'ID card / evidence': ['ID cards for new vehicle', 'Evidence of insurance for lender'],
+    'Billing question': ['Why did my premium go up?', 'Update card on file'],
+    'Cancellation request': ['Cancel boat policy, sold the boat', 'Cancel renters, moved out'],
+    General: ['Question about deductible', 'Review coverage before renewal'],
+  }
+  const withPolicies = live.filter((a) => policiesByAccount.has(a.id))
+  for (let i = 0; i < 300; i++) {
+    const a = pick(withPolicies)
+    const type = pick(TYPES)
+    const status = pick(SSTAT)
+    const created = -int(0, 60)
+    serviceRequests.push({
+      id: `SR-${10183 + i}`,
+      accountId: a.id,
+      policyId: pick(policiesByAccount.get(a.id)!).id,
+      type,
+      subject: pick(SUBJECT[type]),
+      description: 'Client called in; details captured by the Account Manager.',
+      priority: f.datatype.boolean({ probability: 0.2 }) ? 'High' : 'Normal',
+      status,
+      ownerId: a.accountManagerId,
+      createdById: a.accountManagerId,
+      createdOffset: created,
+      dueOffset: created + int(0, 3),
+      resolution: status === 'Done' ? 'Completed and confirmed with the client.' : null,
+      details: {},
+    })
+  }
+
+  // Activities and Tasks: a light history per Account (kept small to keep the bundle reasonable).
+  const ACT = ['call', 'call', 'email', 'note', 'meeting', 'sms'] as const
+  for (const a of live) {
+    const n = int(1, 6)
+    for (let k = 0; k < n; k++) {
+      const type = pick(ACT)
+      activities.push({
+        id: id('act', activities.length + 1),
+        accountId: a.id,
+        type,
+        subject: type === 'call' ? pick(['Call: reviewed coverage', 'Call: left voicemail', 'Call: discussed renewal']) : type === 'email' ? 'Email: sent quote summary' : type === 'meeting' ? 'Meeting: annual review' : type === 'sms' ? 'SMS: reminder sent' : 'Note: prefers email',
+        body: null,
+        occurredOffset: a.lastActivityOffset !== null ? a.lastActivityOffset - k * int(3, 20) : -int(30, 200),
+        createdById: f.datatype.boolean() ? a.producerId : a.accountManagerId,
+        linked: null,
+      })
+    }
+  }
+  for (let i = 0; i < 600; i++) {
+    const a = pick(live)
+    const type = pick(['General', 'Call', 'Call', 'Email', 'Meeting'] as const)
+    tasks.push({
+      id: id('tsk', i + 1),
+      accountId: a.id,
+      title: type === 'Call' ? `Call ${a.name.replace(' Household', '')} about coverage` : type === 'Email' ? 'Send renewal summary' : type === 'Meeting' ? 'Annual review meeting' : 'Follow up on documents',
+      type,
+      priority: f.datatype.boolean({ probability: 0.2 }) ? 'High' : 'Normal',
+      source: pick(['Manual', 'Manual', 'X-date', 'Renewal', 'Service Request', 'Lead'] as const),
+      assigneeId: f.datatype.boolean() ? a.producerId : a.accountManagerId,
+      dueOffset: int(-10, 30),
+      status: pick(['Open', 'Open', 'Open', 'Done'] as const),
+      linked: null,
+    })
+  }
+
+  return { offices: OFFICES, users, carriers: CARRIERS, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks }
 }
