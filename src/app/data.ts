@@ -452,7 +452,7 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
 
     /** US-LEA-002: add (id null) or edit a New/Contacted Lead. */
     /** US-LEA-010: Ready rows become New Leads (Source "Purchased list"), split evenly across Producers or unassigned. */
-    importLeads(rows: { first: string; last: string; phone: string; email: string; zip: string; city: string; street: string; line: Line; carrier: string | null }[], meta: { listName: string; vendor: string; officeId: string; assignees: string[] }, actorId: string) {
+    importLeads(rows: { first: string; last: string; business: string | null; phone: string; email: string; zip: string; city: string; street: string; line: Line; carrier: string | null }[], meta: { listName: string; vendor: string; officeId: string; assignees: string[] }, actorId: string) {
       const s = state
       if (!meta.listName.trim()) throw new Error('Name the list.')
       if (rows.length > 2000) throw new Error('Import up to 2,000 rows at a time.')
@@ -460,7 +460,7 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       let n = s.leads.reduce((m, x) => Math.max(m, Number(x.id.replace(/\D/g, '')) || 0), 0)
       const fmt = (p: string) => { const d = p.replace(/\D/g, ''); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p }
       const fresh: Lead[] = rows.map((r, i) => ({
-        id: `lea-${String(++n).padStart(4, '0')}`, kind: 'Household', name: `${r.first} ${r.last}`, businessName: null, phone: fmt(r.phone), email: r.email, street: r.street, city: r.city || office.city, state: office.state as Lead['state'], zip: r.zip,
+        id: `lea-${String(++n).padStart(4, '0')}`, kind: r.business ? 'Business' : 'Household', name: `${r.first} ${r.last}`.trim() || r.business!, businessName: r.business, phone: fmt(r.phone), email: r.email, street: r.street, city: r.city || office.city, state: office.state as Lead['state'], zip: r.zip,
         linesOfInterest: [r.line], currentCarrier: r.carrier, currentPremium: null, xDateOffset: null, source: 'Purchased list', sourceDetail: meta.listName.trim(), notes: `Vendor: ${meta.vendor || 'Unknown'}`, officeId: office.id,
         assigneeId: meta.assignees.length ? meta.assignees[i % meta.assignees.length] : null, status: 'New', disqualifyReason: null, createdOffset: 0, attempts: [], qualifiedAccountId: null, qualifiedOpportunityId: null, events: [{ offset: 0, text: `Imported from ${meta.listName.trim()} by ${userName(actorId)}`, byId: actorId }],
       }) as Lead)

@@ -1,7 +1,7 @@
 import type { Line } from './types'
 
 /** US-LEA-010: purchased lead lists. Pure helpers; the dialog and store action sit on top. */
-export const IMPORT_FIELDS = ['first_name', 'last_name', 'phone', 'email', 'zip', 'line', 'city', 'street', 'current_carrier', 'x_date'] as const
+export const IMPORT_FIELDS = ['first_name', 'last_name', 'business_name', 'phone', 'email', 'zip', 'line', 'city', 'street', 'current_carrier', 'x_date'] as const
 export type ImportField = (typeof IMPORT_FIELDS)[number]
 const LINES: Line[] = ['Auto', 'Home', 'Umbrella', 'Renters', 'Condo', 'Flood', 'Boat', 'BOP', 'GL', 'WC', 'Commercial auto', 'Commercial umbrella']
 
@@ -31,7 +31,7 @@ export function parseCsv(text: string): string[][] {
 }
 
 const norm = (h: string) => h.toLowerCase().replace(/[^a-z]/g, '')
-const ALIASES: Record<ImportField, string[]> = { first_name: ['firstname', 'first', 'fname'], last_name: ['lastname', 'last', 'lname', 'surname'], phone: ['phone', 'mobile', 'cell', 'phonenumber'], email: ['email', 'emailaddress'], zip: ['zip', 'zipcode', 'postalcode'], line: ['line', 'lineofbusiness', 'product', 'coverage'], city: ['city'], street: ['street', 'address', 'address1'], current_carrier: ['currentcarrier', 'carrier', 'insurer'], x_date: ['xdate', 'expiration', 'renewaldate'] }
+const ALIASES: Record<ImportField, string[]> = { first_name: ['firstname', 'first', 'fname'], last_name: ['lastname', 'last', 'lname', 'surname'], business_name: ['businessname', 'business', 'company', 'companyname'], phone: ['phone', 'mobile', 'cell', 'phonenumber'], email: ['email', 'emailaddress'], zip: ['zip', 'zipcode', 'postalcode'], line: ['line', 'lineofbusiness', 'product', 'coverage'], city: ['city'], street: ['street', 'address', 'address1'], current_carrier: ['currentcarrier', 'carrier', 'insurer'], x_date: ['xdate', 'expiration', 'renewaldate'] }
 /** Header index → field, matched by name; unmatched headers map to null (ignored). */
 export function autoMap(headers: string[]): (ImportField | null)[] {
   return headers.map((h) => (Object.entries(ALIASES).find(([, a]) => a.includes(norm(h)))?.[0] as ImportField) ?? null)
@@ -46,7 +46,8 @@ export function reviewRows(rows: string[][], map: (ImportField | null)[], existi
     map.forEach((f, j) => { if (f && r[j] != null) values[f] = r[j].trim() })
     const n = i + 2 // row 1 is the header
     const bad = (reason: string): ImportRow => ({ n, values, status: 'Invalid', reason: `Row ${n}: ${reason}` })
-    if (!values.first_name || !values.last_name) return bad('first and last name are required')
+    // A business_name makes it a Business Lead; the contact name is then optional.
+    if (!values.business_name && (!values.first_name || !values.last_name)) return bad('first and last name (or a business name) are required')
     const ph = digits(values.phone ?? '')
     if (!ph && !values.email) return bad('needs a phone or email')
     if (ph && ph.length !== 10) return bad(`phone has ${ph.length} digits`)

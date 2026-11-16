@@ -7,6 +7,8 @@ export function mergeValues(data: Dataset, accountId: string | null, contactId: 
   const contact = data.contacts.find((c) => c.id === (contactId ?? acc?.primaryContactId))
   const pol = acc ? data.policies.find((p) => p.accountId === acc.id && data.terms.some((t) => t.policyId === p.id && t.status === 'Active')) : undefined
   const term = pol ? data.terms.filter((x) => x.policyId === pol.id).sort((a, b) => b.expirationOffset - a.expirationOffset)[0] : undefined
+  const ren = pol ? data.renewals.find((r) => r.policyId === pol.id && r.status !== 'Done') : undefined
+  const renTerm = ren ? data.terms.find((t) => t.id === ren.termId) : undefined
   const office = data.offices.find((o) => o.id === (acc?.officeId ?? user.officeId))
   return {
     'account.name': acc?.name,
@@ -17,6 +19,8 @@ export function mergeValues(data: Dataset, accountId: string | null, contactId: 
     'policy.carrier': data.carriers.find((c) => c.id === pol?.carrierId)?.name,
     'term.expirationDate': term ? dateOf(term.expirationOffset) : undefined,
     'term.premium': term ? `$${term.premium.toLocaleString('en-US')}` : undefined,
+    'renewal.premium': ren?.renewalPremium != null ? `$${ren.renewalPremium.toLocaleString('en-US')}` : undefined,
+    'renewal.expirationDate': renTerm ? dateOf(renTerm.expirationOffset) : undefined,
     'user.name': user.name,
     'user.firstName': user.name.split(' ')[0],
     'office.name': office?.name,

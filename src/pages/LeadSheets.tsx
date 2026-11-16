@@ -334,6 +334,9 @@ function sampleCsv(existing: { name: string; phone: string; email: string }[]) {
     rows.push(`${f},${l},(713) 555-${String(2000 + i).padStart(4, '0')},${f.toLowerCase()}.${l.toLowerCase()}${i}@example.com,770${String(10 + (i % 80)).padStart(2, '0')},${lines[i % lines.length]},Gulf Harbor Insurance`)
   }
   rows.push('Pat,Owens,713555010,,77019,Home,', 'Lee,Song,,lee.song@example.com,7701,Auto,', 'Kim,Rhee,(713) 555-0199,,77019,Jet ski,')
+  // Business rows: the business_name column is appended at the end of the header below.
+  rows.push('Marco,Vega,(713) 555-3101,marco@vegaplumbing.example,77008,GL,,Vega Plumbing LLC', ',,(713) 555-3102,office@brightsmiles.example,77024,BOP,,Bright Smiles Dental', 'Dee,Okafor,(713) 555-3103,,77036,WC,,Okafor Landscaping Co.')
+  rows[0] += ',business_name'
   for (const c of existing.slice(0, 6)) { const [f, ...r] = c.name.split(' '); rows.push(`${f},${r.join(' ') || 'Doe'},${c.phone},${c.email},77019,Auto,`) }
   return rows.join('\n')
 }
@@ -372,7 +375,7 @@ export function ImportLeadsDialog({ onClose, onDone }: { onClose: () => void; on
   const run = async () => {
     setBusy(true)
     try {
-      const n = await mutate((s) => s.importLeads(toImport.map((r) => ({ first: r.values.first_name!, last: r.values.last_name!, phone: r.values.phone ?? '', email: r.values.email ?? '', zip: r.values.zip!, city: r.values.city ?? '', street: r.values.street ?? '', line: r.line!, carrier: r.values.current_carrier || null })), { listName, vendor, officeId, assignees }, user.id))
+      const n = await mutate((s) => s.importLeads(toImport.map((r) => ({ first: r.values.first_name ?? '', last: r.values.last_name ?? '', business: r.values.business_name || null, phone: r.values.phone ?? '', email: r.values.email ?? '', zip: r.values.zip!, city: r.values.city ?? '', street: r.values.street ?? '', line: r.line!, carrier: r.values.current_carrier || null })), { listName, vendor, officeId, assignees }, user.id))
       toast(`${n.toLocaleString('en-US')} leads imported from ${listName}`, 'success')
       onDone(listName)
     } catch (e) {

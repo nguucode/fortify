@@ -56,7 +56,11 @@ export function ReportsPage() {
   const cTo = params.get('to') ?? ''
   const range = rangeFor(preset, new Date(), { from: cFrom, to: cTo })
   const wide = user.role === 'principal' || user.role === 'admin'
-  const f: Filters = { range, prev: previous(range), compare: params.get('compare') !== 'off', office: wide ? params.get('office') : user.role === 'account-manager' ? user.officeId : null, producer: wide ? params.get('producer') : null, lines: (params.get('lines') as Filters['lines']) ?? 'all' }
+  // The demo data holds about 12 months of history; a previous period reaching past that would compare against
+  // missing data and produce inflated deltas, so compare only when the whole previous period is covered.
+  const HISTORY_DAYS = 365
+  const prevCovered = previous(range).from >= -HISTORY_DAYS
+  const f: Filters = { range, prev: previous(range), compare: params.get('compare') !== 'off' && prevCovered, office: wide ? params.get('office') : user.role === 'account-manager' ? user.officeId : null, producer: wide ? params.get('producer') : null, lines: (params.get('lines') as Filters['lines']) ?? 'all' }
   const accounts = useMemo(() => new Map(data.accounts.map((a) => [a.id, a])), [data.accounts])
   const inScope = (a: Account | undefined) => !!a && (user.role === 'producer' ? a.producerId === user.id : (!f.office || a.officeId === f.office) && (!f.producer || a.producerId === f.producer))
   const lineOk = (l: Line) => f.lines === 'all' || kindOf(l) === f.lines
@@ -122,7 +126,7 @@ export function ReportsPage() {
               {user.role === 'producer' && <span className="inline-flex h-8 items-center rounded-md bg-fill px-2.5 text-sm">My Book</span>}
               {wide && <select aria-label="Producer" value={f.producer ?? ''} onChange={(e) => setP({ producer: e.target.value || null })} className="h-8 max-w-48 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">All producers</option>{data.users.filter((u) => u.role === 'producer' && (!f.office || u.officeId === f.office)).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>}
               <select aria-label="Lines" value={f.lines} onChange={(e) => setP({ lines: e.target.value === 'all' ? null : e.target.value })} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="all">All lines</option><option value="Personal">Personal lines</option><option value="Commercial">Commercial lines</option></select>
-              <label className="ml-2 flex h-8 items-center gap-2 text-sm"><input type="checkbox" checked={f.compare} onChange={(e) => setP({ compare: e.target.checked ? null : 'off' })} />Compare to previous period</label>
+              <label className="ml-2 flex h-8 items-center gap-2 text-sm"><input type="checkbox" checked={params.get('compare') !== 'off'} disabled={!prevCovered} onChange={(e) => setP({ compare: e.target.checked ? null : 'off' })} />Compare to previous period</label>
             </div>
             {chips.length > 0 && (
               <div className="mb-4 flex flex-wrap items-center gap-1.5">
@@ -131,7 +135,7 @@ export function ReportsPage() {
                 <button className="ml-1 text-sm text-link underline" onClick={() => setP({ range: null, from: null, to: null, office: null, producer: null, lines: null, compare: null })}>Reset filters</button>
               </div>
             )}
-            <p className="tabular mb-4 text-sm text-muted">{dateOf(range.from)} to {dateOf(range.to)}{f.compare && ` · compared with ${dateOf(f.prev.from)} to ${dateOf(f.prev.to)}`}</p>
+            <p className="tabular mb-4 text-sm text-muted">{dateOf(range.from)} to {dateOf(range.to)}{f.compare && ` · compared with ${dateOf(f.prev.from)} to ${dateOf(f.prev.to)}`}{params.get('compare') !== 'off' && !prevCovered && ' · No comparison: the previous period is outside the demo data’s 12 months'}</p>
             {entry.key === 'pipeline' && <PipelineReport {...ctx} />}
             {entry.key === 'production' && <ProductionReport {...ctx} />}
             {entry.key === 'xdates' && <XDatesReport {...ctx} />}
@@ -299,7 +303,7 @@ function ProductionReport({ data, user, f, accounts, inScope, lineOk, onTable }:
         <Card label="Bound premium" value={money(sum(now, 'bound'))} full={fmtUsdFull(sum(now, 'bound'))} delta={delta(sum(now, 'bound'), sum(before, 'bound'), f)} />
         <Card label="Terms bound" value={String(now.length)} delta={delta(now.length, before.length, f)} />
         <Card label="Avg premium per Term" value={now.length ? fmtUsdFull(sum(now, 'bound') / now.length) : '—'} delta={delta(now.length ? sum(now, 'bound') / now.length : null, before.length ? sum(before, 'bound') / before.length : null, f)} />
-        <Card label="Quoted to bound variance" value={signedPct(variance(now))} hint="Bound premium compared with the lowest quote on the same lines" />
+        <Card label="Bound vs lowest quote" value={signedPct(variance(now))} hint="Bound premium compared with the lowest quote on the same lines" />
       </Cards>
       <Panel title="Bound premium by month">
         {trend.length ? <LineChart data={trend} x="month" series={[{ key: 'personal', label: 'Personal lines' }, { key: 'commercial', label: 'Commercial lines' }]} summary={`Bound premium by month, ${trend.length} months`} /> : <p className="text-base text-label">Nothing bound in this range.</p>}

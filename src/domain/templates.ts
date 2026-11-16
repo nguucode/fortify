@@ -4,7 +4,7 @@ export const MERGE_FIELDS: Record<string, string[]> = {
   Contact: ['contact.firstName', 'contact.lastName'],
   Policy: ['policy.number', 'policy.line', 'policy.carrier'],
   Term: ['term.expirationDate', 'term.premium'],
-  Renewal: ['renewal.premium'],
+  Renewal: ['renewal.premium', 'renewal.expirationDate'],
   'X-date': ['xdate.line', 'xdate.carrier', 'xdate.date'],
   Service: ['service.effectiveDate'],
   Certificate: ['certificate.holder'],
