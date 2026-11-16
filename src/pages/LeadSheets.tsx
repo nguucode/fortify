@@ -250,7 +250,6 @@ export function LogAttemptDialog({ lead, onClose, onWrongNumber }: { lead: Lead;
   )
 }
 
-const REASONS = ['No response', 'Not interested', 'Bought elsewhere', 'Price only', 'Outside appetite', 'Not in a licensed state', 'Duplicate lead', 'Bad contact data', 'Other']
 
 /** US-LEA-008 (single or bulk; Duplicate lead is single only). */
 export function DisqualifyDialog({ leadIds, onClose, presetReason }: { leadIds: string[]; onClose: () => void; presetReason?: string }) {
@@ -259,7 +258,8 @@ export function DisqualifyDialog({ leadIds, onClose, presetReason }: { leadIds: 
   const toast = useToast()
   const leads = data.leads.filter((l) => leadIds.includes(l.id))
   const one = leads.length === 1 ? leads[0] : null
-  const [reason, setReason] = useState(presetReason ?? 'No response')
+  const REASONS = (data.settings?.dqReasons ?? []).filter((r) => !r.retired).map((r) => r.name)
+  const [reason, setReason] = useState(presetReason ?? REASONS[0] ?? 'Other')
   const [note, setNote] = useState('')
   const survivors = one ? data.leads.filter((l) => l.id !== one.id && (l.status === 'New' || l.status === 'Contacted') && ((one.phone && l.phone === one.phone) || (one.email && l.email.toLowerCase() === one.email.toLowerCase()))) : []
   const [survivor, setSurvivor] = useState(survivors[0]?.id ?? '')

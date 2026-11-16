@@ -9,6 +9,13 @@ export interface Office {
   city: string
   state: UsState
   timeZone: string
+  /** SET-004 editable details. */
+  address1?: string
+  address2?: string | null
+  zip?: string
+  phone?: string
+  email?: string
+  hours?: string
 }
 
 export interface User {
@@ -22,9 +29,33 @@ export interface User {
   /** HOM-005: goals set by a Principal (read-only in v1). */
   goals?: { monthlyPremium: number; annualPremium: number; monthlyPolicies: number; annualPolicies: number }
   /** HOM-013 / SET: license records with expiration. */
-  licenseRecords?: { state: UsState; lineOfAuthority: string; number: string; expirationOffset: number }[]
+  licenseRecords?: { state: UsState; lineOfAuthority: string; number: string; expirationOffset: number; residency?: 'Resident' | 'Nonresident'; issuedOffset?: number }[]
   active?: boolean
+  /** SET-002/003 */
+  status?: 'Active' | 'Invited' | 'Deactivated'
+  title?: string | null
+  phone?: string | null
 }
+
+/** SET-006/007 agency settings (session-persistent in the mock). */
+export interface Template {
+  id: string
+  name: string
+  channel: 'Email' | 'SMS' | 'Certificate wording'
+  category: 'Sales' | 'X-date' | 'Renewal' | 'Service' | 'Certificates'
+  usedIn: string
+  subject?: string | null
+  body: string
+  status: 'Active' | 'Retired'
+  editedOffset: number
+  editedById: string | null
+}
+export interface AgencySettings {
+  stages: Record<string, { probability: number; staleDays: number }>
+  lostReasons: { name: string; retired?: boolean }[]
+  dqReasons: { name: string; retired?: boolean }[]
+}
+export interface Appointment { carrierId: string; state: UsState; status: 'Active' | 'Terminated' | 'Not appointed'; effectiveOffset: number | null; terminatedOffset: number | null; lines: Line[] }
 
 /** HOM-014 / SET: an AMS sync run. */
 export interface SyncRun {
@@ -471,6 +502,9 @@ export interface Task {
 }
 
 export interface Dataset {
+  templates?: Template[]
+  settings?: AgencySettings
+  appointments?: Appointment[]
   syncRuns?: SyncRun[]
   certificates?: Certificate[]
   holders?: Holder[]

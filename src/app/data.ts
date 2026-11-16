@@ -1,6 +1,10 @@
 import type {
   Account,
   AccountDetails,
+  AgencySettings,
+  Office,
+  Template,
+  User,
   CertMarks,
   Claim,
   Holder,
@@ -24,6 +28,7 @@ import type {
 import { addMonths, canQuoteTransition, canServiceTransition, checkStageMove, nextRenewalStatuses } from '@/domain/rules'
 import { daysBetween, formatUSDate, resolveOffset } from '@/mock/dates'
 import { addBusinessHours, businessHoursBetween, slaHours } from '@/domain/sla'
+import { unknownTokens } from '@/domain/templates'
 
 /**
  * The mutable mock store (US-FND-005). Every action builds the next state and commits it once,
@@ -770,6 +775,70 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
         activities: [...s.activities, activity(s, { accountId: account.id, type: 'system', subject: 'Opportunity started from X-date', body: null, createdById: actorId, linked: { kind: 'opportunity', id: opp.id } })],
       })
       return opp.id
+    },
+
+    // ---------- Settings (SET P1) ----------
+    /** US-SET-003: invite (id null) or edit; email is unique; a user can't change their own role. */
+    saveUser(id: string | null, input: { name: string; email: string; role: User['role']; officeId: string; title: string | null; phone: string | null }, actorId: string) {
+      const s = state
+      if (!input.name.trim()) throw new Error('Enter a name.')
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.email)) throw new Error('Enter a valid email.')
+      const clash = s.users.find((u) => u.id !== id && u.email.toLowerCase() === input.email.toLowerCase())
+      if (clash) throw new Error(`This email is already in use by ${clash.name}`)
+      if (id === actorId && s.users.find((u) => u.id === id)?.role !== input.role) throw new Error('You can’t change your own role or status.')
+      if (id === null) {
+        const nid = seq('usr-', s.users)
+        commit({ ...s, users: [...s.users, { id: nid, ...input, name: input.name.trim(), status: 'Invited', active: false, licenseRecords: [] }] })
+        return nid
+      }
+      commit({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, ...input, name: input.name.trim() } : u)) })
+      return id
+    },
+    /** US-SET-003: deactivation is blocked while the user owns Accounts, open Leads, or open Tasks. No delete. */
+    setUserStatus(id: string, status: 'Active' | 'Deactivated', actorId: string) {
+      const s = state
+      if (id === actorId) throw new Error('You can’t change your own role or status.')
+      if (status === 'Deactivated') {
+        const accts = s.accounts.filter((a) => a.lifecycle === 'active' && (a.producerId === id || a.accountManagerId === id)).length
+        const leads = s.leads.filter((l) => l.assigneeId === id && (l.status === 'New' || l.status === 'Contacted')).length
+        const tasks = s.tasks.filter((t) => t.assigneeId === id && t.status === 'Open').length
+        if (accts || leads || tasks) throw new Error(`Move ${accts} Accounts, ${leads} Leads, and ${tasks} open Tasks first.`)
+      }
+      commit({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, status, active: status === 'Active' } : u)) })
+    },
+    updateOffice(id: string, patch: Partial<Pick<Office, 'address1' | 'address2' | 'city' | 'zip' | 'phone' | 'email'>>, _actorId: string) {
+      const s = state
+      if (patch.phone != null && patch.phone.replace(/\D/g, '').length !== 10) throw new Error('Enter a phone number with 10 digits.')
+      if (patch.zip != null && !/^\d{5}$/.test(patch.zip)) throw new Error('Enter a 5-digit ZIP code.')
+      commit({ ...s, offices: s.offices.map((o) => (o.id === id ? { ...o, ...patch } : o)) })
+    },
+    saveSettings(next: AgencySettings, _actorId: string) {
+      commit({ ...state, settings: next })
+    },
+    /** US-SET-008: unknown merge fields and SMS over 2 segments are blocked. No delete; retire instead. */
+    saveTemplate(id: string | null, input: Pick<Template, 'name' | 'channel' | 'category' | 'usedIn' | 'body'> & { subject?: string | null }, actorId: string) {
+      const s = state
+      if (!input.name.trim()) throw new Error('Name the template.')
+      const unknown = unknownTokens(`${input.subject ?? ''} ${input.body}`)
+      if (unknown.length) throw new Error(`${unknown.length} unknown field${unknown.length === 1 ? '' : 's'}: ${unknown.join(', ')}`)
+      if (input.channel === 'SMS' && input.body.length > 320) throw new Error('Keep SMS under 2 segments.')
+      const list = s.templates ?? []
+      const tid = id ?? `tpl-${Date.now().toString(36)}`
+      const next: Template = { ...(list.find((t) => t.id === id) ?? { status: 'Active' as const }), ...input, id: tid, editedOffset: 0, editedById: actorId } as Template
+      commit({ ...s, templates: id ? list.map((t) => (t.id === id ? next : t)) : [...list, next] })
+      return tid
+    },
+    setTemplateStatus(id: string, status: Template['status']) {
+      commit({ ...state, templates: (state.templates ?? []).map((t) => (t.id === id ? { ...t, status } : t)) })
+    },
+    /** US-SET-012: a manual run; with a forced error it fails like the AMS timing out. */
+    syncNow(fail: boolean, now: Date = new Date()) {
+      const s = state
+      const last = s.syncRuns?.find((r) => r.status !== 'Failed')
+      const run = fail
+        ? { id: `sync-${(s.syncRuns?.length ?? 0) + 1}`, at: now.toISOString(), status: 'Failed' as const, durationSec: 30, counts: {}, error: 'AMS connection timed out after 30s' }
+        : { id: `sync-${(s.syncRuns?.length ?? 0) + 1}`, at: now.toISOString(), status: 'Succeeded' as const, durationSec: 3, counts: { ...(last?.counts ?? {}), 'Records changed': 12 }, skipped: 0 }
+      commit({ ...s, syncRuns: [run, ...(s.syncRuns ?? [])] })
     },
 
     // ---------- Certificates (CRT P1) ----------

@@ -12,6 +12,9 @@ import type {
   Renewal,
   ServiceRequest,
   SyncRun,
+  Template,
+  AgencySettings,
+  Appointment,
   Task,
   Account,
   Carrier,
@@ -548,10 +551,11 @@ export function generateDataset(seed = 20261115): Dataset {
   enrichPolicies(seed, { accounts, policies, terms, insuredItems })
   const { holders, certificates, claims } = enrichService(seed, { accounts, policies, terms, serviceRequests, users })
   const syncRuns = enrichPeople(seed, users)
+  const { templates, settings, appointments } = enrichSettings(seed, { users, carriers: CARRIERS, offices: OFFICES, policies, terms })
   // US-PIP-013: a commission schedule per carrier and line (deterministic, no RNG so nothing else shifts).
   const BASE_RATE: Partial<Record<Line, number>> = { Auto: 0.1, Home: 0.15, Umbrella: 0.15, Renters: 0.15, Condo: 0.15, Flood: 0.15, Boat: 0.12, BOP: 0.15, GL: 0.12, WC: 0.08, 'Commercial auto': 0.1, 'Commercial umbrella': 0.12 }
   const carriers = CARRIERS.map((c, i) => ({ ...c, commission: Object.fromEntries(c.lines.map((l) => [l, Math.round(((BASE_RATE[l] ?? 0.12) + ((i % 3) - 1) * 0.01) * 1000) / 1000])) }))
-  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents, holders, certificates, claims, syncRuns }
+  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents, holders, certificates, claims, syncRuns, templates, settings, appointments }
 }
 
 /**
@@ -811,9 +815,57 @@ function enrichPeople(seed: number, users: User[]): SyncRun[] {
   for (let i = 0; i < 6; i++) {
     const d = new Date()
     d.setHours(i % 2 ? 12 : 6, 2, 0, 0)
-    d.setDate(d.getDate() - Math.floor(i / 2))
+    d.setDate(d.getDate() - Math.floor((i + 1) / 2))
     const status = i === 2 ? 'Partial' : i === 4 ? 'Failed' : 'Succeeded'
     runs.push({ id: `sync-${i + 1}`, at: d.toISOString(), status, durationSec: int(90, 200), counts: status === 'Failed' ? {} : { Policies: 1502, Terms: 3511, 'Insured items': 4880, 'Additional interests': 612, 'Commission records': 1498, 'Renewal outcomes': int(0, 14), 'Won Terms matched': int(0, 4) }, skipped: status === 'Partial' ? 14 : 0, reason: status === 'Partial' ? 'Policy has no matching Account in Fortify' : undefined, error: status === 'Failed' ? 'AMS API timed out after 120s' : undefined })
   }
   return runs
+}
+
+/** SET enrichment: office details, user titles, templates, pipeline settings, carrier appointments. */
+function enrichSettings(seed: number, d: { users: User[]; carriers: Carrier[]; offices: Office[]; policies: Policy[]; terms: Term[] }) {
+  const f = new Faker({ locale: [en_US, en, base] })
+  f.seed(seed + 29)
+  const int = (a: number, b: number) => f.number.int({ min: a, max: b })
+  const ADDR: Record<string, [string, string, string]> = { 'off-hou': ['2100 West Loop South, Suite 900', '77027', '(713) 555-0140'], 'off-sat': ['8000 IH-10 West, Suite 600', '78230', '(210) 555-0180'], 'off-tpa': ['400 N Ashley Dr, Suite 1500', '33602', '(813) 555-0120'] }
+  for (const o of d.offices) {
+    const [a, z, ph] = ADDR[o.id] ?? ['100 Main St', '77002', '(555) 010-0100']
+    Object.assign(o, { address1: a, address2: null, zip: z, phone: ph, email: `${o.name.toLowerCase().replace(/\s+/g, '')}@fortify-insurance.example`, hours: `Mon–Fri 8:00 AM–5:00 PM ${o.state === 'FL' ? 'ET' : 'CT'}` })
+  }
+  const TITLE: Record<string, string> = { producer: 'Producer', 'account-manager': 'Account Manager', principal: 'Principal', admin: 'Agency Administrator' }
+  d.users.forEach((u, i) => { u.status = 'Active'; u.title = TITLE[u.role]; u.phone = `(555) 020-${String(1000 + i).padStart(4, '0')}` })
+  d.users.push({ id: `usr-${String(d.users.length + 1).padStart(4, '0')}`, name: 'Jordan Pace', role: 'account-manager', officeId: 'off-sat', email: 'jordan.pace@example.com', status: 'Invited', title: 'Account Manager', active: false, licenseRecords: [] })
+  const T = (name: string, channel: Template['channel'], category: Template['category'], usedIn: string, body: string, subject?: string, status: Template['status'] = 'Active'): Template => ({ id: `tpl-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, name, channel, category, usedIn, body, subject: subject ?? null, status, editedOffset: -int(1, 200), editedById: null })
+  const templates: Template[] = [
+    T('Quote follow-up', 'Email', 'Sales', 'Inbox email', 'Hi {{contact.firstName}},\n\nThanks for talking with me about {{account.name}}. I will send your quote options by {{task.dueDate}}.\n\n{{user.name}}', 'Your quote from {{office.name}}'),
+    T('Quote ready', 'SMS', 'Sales', 'Inbox SMS', 'Hi {{contact.firstName}}, your quote is ready. Reply here or call {{office.phone}}. – {{user.firstName}}'),
+    T('X-date check-in, 45 days', 'Email', 'X-date', 'X-date follow-up', 'Hi {{contact.firstName}},\n\nYour {{xdate.line}} with {{xdate.carrier}} renews on {{xdate.date}}. Want us to shop it?\n\n{{user.name}}', 'Your {{xdate.line}} renews soon'),
+    T('X-date reminder', 'SMS', 'X-date', 'Inbox SMS', 'Hi {{contact.firstName}}, your {{xdate.line}} renews {{xdate.date}}. Want a quote? – {{user.firstName}}'),
+    T('Renewal notice, 45 days', 'Email', 'Renewal', 'Renewal page', 'Hi {{contact.firstName}},\n\nYour {{policy.line}} policy {{policy.number}} renews on {{term.expirationDate}}. We are reviewing the renewal terms now.\n\n{{user.name}}', "Renewal review: let's talk"),
+    T('Renewal premium increase', 'Email', 'Renewal', 'Renewal page', 'Hi {{contact.firstName}},\n\nThe renewal premium for {{policy.number}} is {{renewal.premium}}. We are shopping other carriers for you.\n\n{{user.name}}', 'About your renewal'),
+    T('Renewal reminder', 'SMS', 'Renewal', 'Inbox SMS', 'Hi {{contact.firstName}}, your {{policy.line}} renews {{term.expirationDate}}. Call {{office.phone}} with questions.'),
+    T('ID card request received', 'Email', 'Service', 'Inbox email', 'Hi {{contact.firstName}},\n\nWe received your ID card request for {{policy.number}}. You will have it today.\n\n{{user.name}}', 'ID card request received'),
+    T('Policy change confirmed', 'Email', 'Service', 'Service Request', 'Hi {{contact.firstName}},\n\nThe carrier processed your change to {{policy.number}}, effective {{service.effectiveDate}}.\n\n{{user.name}}', 'Your policy change is done'),
+    T('Documents needed', 'SMS', 'Service', 'Inbox SMS', 'Hi {{contact.firstName}}, we need one more document to finish your request. Reply with a photo. – {{user.firstName}}'),
+    T('Claim reported', 'Email', 'Service', 'Claim page', 'Hi {{contact.firstName}},\n\nWe reported your claim to {{policy.carrier}}. We will send the claim number as soon as we have it.\n\n{{user.name}}', 'We reported your claim'),
+    T('Payment reminder', 'SMS', 'Service', 'Inbox SMS', 'Hi {{contact.firstName}}, the carrier shows a payment due on {{policy.number}}. Call {{office.phone}} if you need help.'),
+    T('Certificate issued', 'Email', 'Certificates', 'Certificate page', 'Hi,\n\nAttached is the certificate of insurance for {{account.name}}, holder {{certificate.holder}}.\n\n{{user.name}}', 'Certificate issued: {{account.name}}'),
+    T('Blanket additional insured wording', 'Certificate wording', 'Certificates', 'Certificate issue form', 'Certificate holder is included as additional insured where required by written contract.'),
+    T('Waiver of subrogation wording', 'Certificate wording', 'Certificates', 'Certificate issue form', 'Waiver of subrogation applies in favor of the certificate holder where required by written contract.'),
+    T('Primary & noncontributory wording', 'Certificate wording', 'Certificates', 'Certificate issue form', 'Coverage is primary and noncontributory where required by written contract.'),
+    T('Old quote follow-up', 'Email', 'Sales', 'Inbox email', 'Hi {{contact.firstName}}, checking in on your quote.', 'Checking in', 'Retired'),
+    T('Old renewal SMS', 'SMS', 'Renewal', 'Inbox SMS', 'Your policy renews soon.', undefined, 'Retired'),
+  ]
+  const settings: AgencySettings = {
+    stages: { New: { probability: 10, staleDays: 7 }, Contacted: { probability: 20, staleDays: 10 }, 'Gathering info': { probability: 35, staleDays: 14 }, Quoting: { probability: 50, staleDays: 14 }, Proposed: { probability: 70, staleDays: 10 }, Won: { probability: 100, staleDays: 0 }, Lost: { probability: 0, staleDays: 0 } },
+    lostReasons: ['Price', 'Coverage', 'Stayed with current carrier', 'No response', 'All carriers declined', 'Not eligible', 'Duplicate', 'Other'].map((name) => ({ name })),
+    dqReasons: ['No response', 'Not interested', 'Bought elsewhere', 'Price only', 'Outside appetite', 'Not in a licensed state', 'Duplicate lead', 'Bad contact data', 'Other'].map((name) => ({ name })),
+  }
+  const appointments: Appointment[] = []
+  for (const c of d.carriers) for (const st of ['TX', 'FL'] as UsState[]) {
+    const active = c.states.includes(st)
+    const terminated = !active && f.datatype.boolean({ probability: 0.3 })
+    appointments.push({ carrierId: c.id, state: st, status: active ? 'Active' : terminated ? 'Terminated' : 'Not appointed', effectiveOffset: active || terminated ? -int(400, 3000) : null, terminatedOffset: terminated ? -int(10, 300) : null, lines: active ? c.lines : [] })
+  }
+  return { templates, settings, appointments }
 }

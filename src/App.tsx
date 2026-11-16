@@ -24,11 +24,12 @@ import { TasksPage } from '@/pages/TasksPage'
 import { XDatesPage } from '@/pages/XDatesPages'
 import { CertificatePage, CertificatesPage } from '@/pages/CertificatesPages'
 import { ClaimPage, ClaimsPage } from '@/pages/ClaimsPages'
+import { SettingsCarriers, SettingsDataSync, SettingsIndex, SettingsLayout, SettingsLicenses, SettingsOffices, SettingsPipeline, SettingsRoles, SettingsTemplates, SettingsUsers } from '@/pages/SettingsPages'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { TodayPage } from '@/pages/TodayPage'
 import { ProductBacklog, ProductEpic, ProductGlossary, ProductLayout, ProductObjectModel, ProductOverview, ProductRoles, ProductSitemap, ProductStory, ProductStoryMap } from '@/pages/ProductPages'
 
-const BUILT = new Set(['/accounts', '/contacts', '/tasks', '/calendar', '/x-dates', '/certificates', '/claims', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
+const BUILT = new Set(['/accounts', '/contacts', '/tasks', '/calendar', '/x-dates', '/certificates', '/claims', '/settings', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
 
 /** US-FND-011: below 768px editing is hidden; say so once per session. */
 function ReadOnlyBanner() {
@@ -103,6 +104,17 @@ export function App() {
                 <Route path="/certificates/:id" element={<CertificatePage />} />
                 <Route path="/claims" element={<ClaimsPage />} />
                 <Route path="/claims/:id" element={<ClaimPage />} />
+                <Route path="/settings" element={<SettingsLayout />}>
+                  <Route index element={<SettingsIndex />} />
+                  <Route path="users" element={<SettingsUsers />} />
+                  <Route path="offices" element={<SettingsOffices />} />
+                  <Route path="roles" element={<SettingsRoles />} />
+                  <Route path="pipeline" element={<SettingsPipeline />} />
+                  <Route path="templates" element={<SettingsTemplates />} />
+                  <Route path="carriers" element={<SettingsCarriers />} />
+                  <Route path="licenses" element={<SettingsLicenses />} />
+                  <Route path="data-sync" element={<SettingsDataSync />} />
+                </Route>
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/contacts/:id" element={<ContactPage />} />
                 <Route path="/today" element={<TodayPage />} />

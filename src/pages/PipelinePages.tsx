@@ -575,9 +575,10 @@ function WonSheet({ o, accepted, onClose }: { o: Opportunity; accepted: { q: Quo
 
 /** US-PIP-011: reason (Other needs a note) and an X-date per line, checked by default where the line has one. */
 export function LostDialog({ o, onClose }: { o: Opportunity; onClose: () => void }) {
-  const { user } = useApp()
+  const { data, user } = useApp()
   const mutate = useMutate()
-  const [reason, setReason] = useState('Price')
+  const reasons = (data.settings?.lostReasons ?? []).filter((r) => !r.retired).map((r) => r.name)
+  const [reason, setReason] = useState(reasons[0] ?? 'Other')
   const [note, setNote] = useState('')
   const lines = o.lines.map((line) => ({ line, d: o.lineDetails?.[line] }))
   const iso = (off: number) => { const d = new Date(); d.setDate(d.getDate() + off); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
@@ -598,7 +599,7 @@ export function LostDialog({ o, onClose }: { o: Opportunity; onClose: () => void
     >
       <Field label="Reason">
         <select className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)}>
-          {['Price', 'Coverage', 'Stayed with current carrier', 'No response', 'All carriers declined', 'Not eligible', 'Duplicate', 'Other'].map((r) => <option key={r}>{r}</option>)}
+          {reasons.map((r) => <option key={r}>{r}</option>)}
         </select>
       </Field>
       <Field label={reason === 'Other' ? 'Note (required)' : 'Note (optional)'}><input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} /></Field>

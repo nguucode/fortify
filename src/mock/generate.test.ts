@@ -9,8 +9,11 @@ describe('generateDataset', () => {
 
   it('matches the scale in spec/ia/mock-data.md', () => {
     expect(data.offices.map((o) => o.name)).toEqual(['Houston', 'San Antonio', 'Tampa'])
-    expect(data.users).toHaveLength(25)
-    const roles = data.users.reduce<Record<string, number>>((m, u) => ({ ...m, [u.role]: (m[u.role] ?? 0) + 1 }), {})
+    // SET-002: 25 working users plus one Invited (not yet active).
+    const working = data.users.filter((u) => u.status !== 'Invited')
+    expect(working).toHaveLength(25)
+    expect(data.users.filter((u) => u.status === 'Invited')).toHaveLength(1)
+    const roles = working.reduce<Record<string, number>>((m, u) => ({ ...m, [u.role]: (m[u.role] ?? 0) + 1 }), {})
     expect(roles).toEqual({ admin: 1, principal: 2, producer: 10, 'account-manager': 12 })
     expect(data.carriers).toHaveLength(10)
     expect(data.accounts.filter((a) => a.kind === 'Household')).toHaveLength(480)
