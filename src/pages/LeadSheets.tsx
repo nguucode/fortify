@@ -1,0 +1,320 @@
+import { useState } from 'react'
+import { Link } from 'react-router'
+import { AlertTriangle } from 'lucide-react'
+import { useApp } from '@/app/store'
+import { offsetOfDate, useLookups, useMutate } from '@/app/hooks'
+import { findMatches } from '@/domain/rules'
+import type { Lead, LeadSource, Line, UsState } from '@/domain/types'
+import { Confirm, Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
+import { Button, cx } from '@/components/ui/primitives'
+import { formatPhone } from './AccountSheets'
+import { useToast } from '@/components/ui/toast'
+
+const PL: Line[] = ['Auto', 'Home', 'Umbrella', 'Renters', 'Condo', 'Flood', 'Boat']
+const CL: Line[] = ['BOP', 'GL', 'WC', 'Commercial auto', 'Commercial umbrella']
+const SOURCES: LeadSource[] = ['Referral', 'Trusted Choice', 'Purchased list', 'Web form', 'Phone']
+const DETAIL: Record<LeadSource, { label: string; options?: string[]; placeholder?: string }> = {
+  Referral: { label: 'Referred by', placeholder: 'Kim Alvarez, Lone Star Mortgage' },
+  'Trusted Choice': { label: 'Referral type', options: ['Consumer Choice', 'Claim-it', 'Claim-it Warm Transfer'] },
+  'Purchased list': { label: 'List name and vendor', placeholder: 'Q4 homeowners · Everquote' },
+  'Web form': { label: 'Form name', placeholder: 'Home quote request' },
+  Phone: { label: 'Called number or campaign', placeholder: 'Main line' },
+}
+const code = (id: string) => `L-${1000 + Number(id.replace(/\D/g, ''))}`
+const fromIso = (v: string) => offsetOfDate(new Date(`${v}T12:00:00`))
+const isoOf = (offset: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + offset)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** US-LEA-002: add or edit a Lead; open-lead duplicates warn but don't block. */
+export function LeadSheet({ lead, onClose, onSaved }: { lead?: Lead; onClose: () => void; onSaved?: (id: string) => void }) {
+  const { data, user } = useApp()
+  const { userName } = useLookups()
+  const mutate = useMutate()
+  const toast = useToast()
+  const [kind, setKind] = useState<Lead['kind']>(lead?.kind ?? 'Household')
+  const [first, setFirst] = useState(lead && lead.kind === 'Household' ? lead.name.split(' ').slice(0, -1).join(' ') : (lead?.name.split(' ')[0] ?? ''))
+  const [last, setLast] = useState(lead && lead.kind === 'Household' ? (lead.name.split(' ').pop() ?? '') : (lead?.name.split(' ').slice(1).join(' ') ?? ''))
+  const [business, setBusiness] = useState(lead?.businessName ?? '')
+  const [phone, setPhone] = useState(lead?.phone ?? '')
+  const [email, setEmail] = useState(lead?.email ?? '')
+  const [street, setStreet] = useState(lead?.street ?? '')
+  const [city, setCity] = useState(lead?.city ?? '')
+  const office0 = data.offices.find((o) => o.id === (lead?.officeId ?? user.officeId))!
+  const [officeId, setOfficeId] = useState(office0.id)
+  const office = data.offices.find((o) => o.id === officeId)!
+  const [zip, setZip] = useState(lead?.zip ?? '')
+  const [lines, setLines] = useState<Line[]>(lead?.linesOfInterest ?? [])
+  const [carrier, setCarrier] = useState(lead?.currentCarrier ?? '')
+  const [premium, setPremium] = useState(lead?.currentPremium ? String(lead.currentPremium) : '')
+  const [xdate, setXdate] = useState(lead?.xDateOffset != null ? isoOf(lead.xDateOffset) : '')
+  const [source, setSource] = useState<LeadSource>(lead?.source ?? 'Referral')
+  const [detail, setDetail] = useState(lead?.sourceDetail ?? '')
+  const [notes, setNotes] = useState(lead?.notes ?? '')
+  const producers = data.users.filter((u) => u.role === 'producer' && (user.role === 'account-manager' ? u.officeId === user.officeId : true))
+  const [assignee, setAssignee] = useState<string>(lead?.assigneeId ?? (user.role === 'producer' ? user.id : ''))
+  const [touched, setTouched] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
+  const options = kind === 'Household' ? PL : CL
+  const dup = data.leads.find((l) => l.id !== lead?.id && (l.status === 'New' || l.status === 'Contacted') && ((phone.replace(/\D/g, '').length === 10 && l.phone.replace(/\D/g, '') === phone.replace(/\D/g, '')) || (email && l.email.toLowerCase() === email.toLowerCase())))
+  const errors = {
+    name: kind === 'Household' ? (!last.trim() ? 'Add a last name.' : '') : !business.trim() ? 'Add the business name.' : '',
+    reach: !phone.trim() && !email.trim() ? 'Add a phone number or an email' : '',
+    lines: !lines.length ? 'Choose at least one line of interest.' : '',
+    zip: zip && !/^\d{5}$/.test(zip) ? 'Enter a 5-digit ZIP code' : '',
+  }
+  const err = (k: keyof typeof errors) => (touched ? errors[k] : '') || undefined
+  const save = async () => {
+    setTouched(true)
+    if (Object.values(errors).some(Boolean) || busy) return
+    setBusy(true)
+    setFailed(null)
+    try {
+      const id = await mutate((s) =>
+        s.saveLead(
+          lead?.id ?? null,
+          { kind, firstName: first, lastName: last, businessName: kind === 'Business' ? business.trim() : null, phone, email, street, city, state: office.state as UsState, zip, linesOfInterest: lines, currentCarrier: carrier || null, currentPremium: Number(premium) || null, xDateOffset: xdate ? fromIso(xdate) : null, source, sourceDetail: detail || null, notes: notes || null, officeId, assigneeId: assignee || null },
+          user.id,
+        ),
+      )
+      toast(lead ? 'Lead updated' : `Lead ${code(id)} added`, 'success')
+      onSaved?.(id)
+      onClose()
+    } catch (e) {
+      setFailed((e as Error).message)
+      setBusy(false)
+    }
+  }
+  const d = DETAIL[source]
+  return (
+    <Sheet open onOpenChange={(v) => !v && onClose()} title={lead ? `Edit ${lead.name}` : 'Add lead'} busy={busy} footer={<><SheetCancel disabled={busy} /><Button variant="primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : lead ? 'Save changes' : 'Add lead'}</Button></>}>
+      <div className="flex flex-col gap-4">
+        {failed && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{failed}</p>}
+        <div role="radiogroup" aria-label="Type" className="inline-flex w-fit rounded-md bg-recessed p-0.5">
+          {(['Household', 'Business'] as const).map((k) => (
+            <button key={k} role="radio" aria-checked={kind === k} disabled={!!lead} onClick={() => { setKind(k); setLines([]) }} className={cx('h-8 rounded-[5px] px-3 text-sm', kind === k ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label')}>
+              {k === 'Household' ? 'Personal' : 'Commercial'}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="First name"><input value={first} onChange={(e) => setFirst(e.target.value)} className={inputCls} /></Field>
+          <Field label={kind === 'Household' ? 'Last name' : 'Last name (optional)'} error={kind === 'Household' ? err('name') : undefined}><input value={last} onChange={(e) => setLast(e.target.value)} className={inputCls} /></Field>
+          {kind === 'Business' && <div className="col-span-2"><Field label="Business name" error={err('name')}><input value={business} onChange={(e) => setBusiness(e.target.value)} className={inputCls} /></Field></div>}
+          <Field label="Phone" error={err('reach')}><input value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} inputMode="tel" className={inputCls} /></Field>
+          <Field label="Email"><input value={email} onChange={(e) => setEmail(e.target.value.trim())} inputMode="email" className={inputCls} /></Field>
+        </div>
+        {dup && (
+          <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring">
+            <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" />
+            <span>An open lead already uses this {dup.phone.replace(/\D/g, '') === phone.replace(/\D/g, '') ? 'phone' : 'email'}: <Link to={`/leads/${dup.id}`} onClick={onClose} className="text-link underline">{code(dup.id)} {dup.name}</Link> (assigned to {userName(dup.assigneeId)})</span>
+          </p>
+        )}
+        <Field label="Street"><input value={street} onChange={(e) => setStreet(e.target.value)} className={inputCls} /></Field>
+        <div className="grid grid-cols-[1fr_72px_100px] gap-3">
+          <Field label="City"><input value={city} onChange={(e) => setCity(e.target.value)} className={inputCls} /></Field>
+          <Field label="State"><input value={office.state} readOnly className={cx(inputCls, 'bg-recessed')} /></Field>
+          <Field label="ZIP" error={err('zip')}><input value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))} inputMode="numeric" className={inputCls} /></Field>
+        </div>
+        <Field label="Lines of interest" error={err('lines')}>
+          <span className="flex flex-wrap gap-x-4 gap-y-1">
+            {options.map((l) => (
+              <label key={l} className="inline-flex min-h-6 items-center gap-1.5 text-base text-ink">
+                <input type="checkbox" checked={lines.includes(l)} onChange={(e) => setLines(e.target.checked ? [...lines, l] : lines.filter((x) => x !== l))} className="size-4 accent-primary" /> {l}
+              </label>
+            ))}
+          </span>
+        </Field>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Current carrier"><input value={carrier} onChange={(e) => setCarrier(e.target.value)} className={inputCls} /></Field>
+          <Field label="Current premium"><input value={premium} onChange={(e) => setPremium(e.target.value.replace(/\D/g, ''))} inputMode="numeric" className={cx(inputCls, 'tabular')} /></Field>
+          <Field label="X-date"><input type="date" value={xdate} onChange={(e) => setXdate(e.target.value)} className={inputCls} /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Source">
+            <select value={source} onChange={(e) => { setSource(e.target.value as LeadSource); setDetail('') }} className={inputCls}>{SOURCES.map((x) => <option key={x}>{x}</option>)}</select>
+          </Field>
+          <Field label={d.label}>
+            {d.options ? (
+              <select value={detail} onChange={(e) => setDetail(e.target.value)} className={inputCls}><option value="">Choose…</option>{d.options.map((o) => <option key={o}>{o}</option>)}</select>
+            ) : (
+              <input value={detail} onChange={(e) => setDetail(e.target.value)} placeholder={d.placeholder} className={inputCls} />
+            )}
+          </Field>
+          <Field label="Office">
+            <select value={officeId} disabled={user.role === 'producer' || user.role === 'account-manager' || !!lead} onChange={(e) => setOfficeId(e.target.value)} className={inputCls}>
+              {data.offices.map((o) => <option key={o.id} value={o.id}>{o.name} {o.state}</option>)}
+            </select>
+          </Field>
+          <Field label="Assigned to" hint={user.role === 'producer' ? 'Leads you add are yours.' : undefined}>
+            <select value={assignee} disabled={user.role === 'producer' || !!lead} onChange={(e) => setAssignee(e.target.value)} className={inputCls}>
+              <option value="">Unassigned</option>
+              {producers.filter((u) => user.role !== 'producer' || u.id === user.id).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label="Notes"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} className={cx(inputCls, 'h-20 py-2')} /></Field>
+      </div>
+    </Sheet>
+  )
+}
+
+/** US-LEA-004: assign (Principal/Admin/AM) or hand off (Producer); a missing license needs "Assign anyway". */
+export function AssignLeadsDialog({ leadIds, handOff, onClose }: { leadIds: string[]; handOff?: boolean; onClose: () => void }) {
+  const { data, user } = useApp()
+  const { office } = useLookups()
+  const mutate = useMutate()
+  const toast = useToast()
+  const leads = data.leads.filter((l) => leadIds.includes(l.id))
+  const producers = data.users.filter((u) => u.role === 'producer' && u.id !== (handOff ? user.id : '') && (user.role === 'account-manager' ? u.officeId === user.officeId : true))
+  const [pid, setPid] = useState(producers[0]?.id ?? '')
+  const [note, setNote] = useState('')
+  const [anyway, setAnyway] = useState(false)
+  const target = data.users.find((u) => u.id === pid)
+  const states = [...new Set(leads.map((l) => l.state))]
+  const missing = states.filter((st) => !target?.licenses?.includes(st))
+  const openCount = (id: string) => data.leads.filter((l) => l.assigneeId === id && (l.status === 'New' || l.status === 'Contacted')).length
+  const tooMany = leadIds.length > 50
+  return (
+    <Confirm
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={handOff ? 'Hand off lead' : leads.length === 1 ? `Assign ${leads[0].name}` : `Assign ${leads.length} leads`}
+      body={tooMany ? 'Select up to 50 leads at a time.' : handOff ? 'The lead leaves your list and you lose access to it.' : 'Closed leads keep their Producer.'}
+      confirmLabel={missing.length ? 'Assign anyway' : handOff ? 'Hand off' : 'Assign'}
+      onConfirm={async () => {
+        if (tooMany) throw new Error('Select up to 50 leads at a time.')
+        if (missing.length && !anyway) throw new Error('Confirm the license warning to continue.')
+        const n = await mutate((s) => s.assignLeads(leadIds, pid, user.id))
+        if (note.trim()) leads.forEach((l) => mutate((s) => s.saveLead(l.id, { kind: l.kind, firstName: l.name.split(' ').slice(0, -1).join(' '), lastName: l.name.split(' ').pop() ?? '', businessName: l.businessName, phone: l.phone, email: l.email, street: l.street ?? '', city: l.city, state: l.state, zip: l.zip ?? '', linesOfInterest: l.linesOfInterest, currentCarrier: l.currentCarrier, currentPremium: l.currentPremium ?? null, xDateOffset: l.xDateOffset, source: l.source, sourceDetail: l.sourceDetail ?? null, notes: [l.notes, `Hand-off note: ${note.trim()}`].filter(Boolean).join('\n'), officeId: l.officeId, assigneeId: pid }, user.id)))
+        toast(`${n} lead${n === 1 ? '' : 's'} assigned to ${target?.name}`, 'success')
+        onClose()
+      }}
+    >
+      <Field label="Producer">
+        <select value={pid} onChange={(e) => { setPid(e.target.value); setAnyway(false) }} className={inputCls}>
+          {producers.map((u) => <option key={u.id} value={u.id}>{u.name} · {office(u.officeId)?.name} · {openCount(u.id)} open leads · {(u.licenses ?? []).join(', ') || 'no'} licensed</option>)}
+        </select>
+      </Field>
+      {missing.length > 0 && (
+        <label className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring">
+          <input type="checkbox" checked={anyway} onChange={(e) => setAnyway(e.target.checked)} className="mt-0.5 size-4 accent-primary" />
+          <span>{target?.name} has no active {missing.join(' or ')} license. They can work the lead but not quote it.</span>
+        </label>
+      )}
+      {handOff && <Field label="Note (optional)"><textarea value={note} onChange={(e) => setNote(e.target.value)} className={cx(inputCls, 'h-20 py-2')} /></Field>}
+    </Confirm>
+  )
+}
+
+/** US-LEA-005 */
+export function LogAttemptDialog({ lead, onClose, onWrongNumber }: { lead: Lead; onClose: () => void; onWrongNumber: () => void }) {
+  const { user } = useApp()
+  const mutate = useMutate()
+  const [channel, setChannel] = useState<'Call' | 'Email' | 'SMS'>('Call')
+  const [outcome, setOutcome] = useState('Reached')
+  const [note, setNote] = useState('')
+  const [follow, setFollow] = useState('')
+  const outcomes = channel === 'Call' ? ['Reached', 'Left voicemail', 'No answer', 'Wrong number'] : ['Sent', 'Reached', 'Wrong number']
+  return (
+    <Confirm
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title="Log attempt"
+      body={lead.status === 'New' ? 'The first attempt moves the lead to Contacted.' : `${lead.attempts.length} attempts so far.`}
+      confirmLabel="Log attempt"
+      onConfirm={async () => {
+        await mutate((s) => s.logAttempt(lead.id, { channel, outcome, note: note.trim() || null, followUpOffset: follow ? fromIso(follow) : null }, user.id), 'Attempt logged')
+        onClose()
+        if (outcome === 'Wrong number') onWrongNumber()
+      }}
+    >
+      <div role="radiogroup" aria-label="Channel" className="inline-flex w-fit rounded-md bg-recessed p-0.5">
+        {(['Call', 'Email', 'SMS'] as const).map((c) => {
+          const blocked = c === 'SMS' && !lead.smsConsent
+          return (
+            <button key={c} role="radio" aria-checked={channel === c} disabled={blocked} title={blocked ? 'No SMS consent recorded for this lead' : undefined} onClick={() => { setChannel(c); setOutcome(c === 'Call' ? 'Reached' : 'Sent') }} className={cx('h-8 rounded-[5px] px-3 text-sm disabled:text-label disabled:line-through', channel === c ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label')}>
+              {c}
+            </button>
+          )
+        })}
+      </div>
+      {!lead.smsConsent && <p className="-mt-1 text-sm text-label">No SMS consent recorded for this lead.</p>}
+      <Field label="Outcome"><select value={outcome} onChange={(e) => setOutcome(e.target.value)} className={inputCls}>{outcomes.map((o) => <option key={o}>{o}</option>)}</select></Field>
+      <Field label="Note (optional)"><input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} /></Field>
+      <Field label="Next follow-up (optional)"><input type="date" value={follow} onChange={(e) => setFollow(e.target.value)} className={inputCls} /></Field>
+    </Confirm>
+  )
+}
+
+const REASONS = ['No response', 'Not interested', 'Bought elsewhere', 'Price only', 'Outside appetite', 'Not in a licensed state', 'Duplicate lead', 'Bad contact data', 'Other']
+
+/** US-LEA-008 (single or bulk; Duplicate lead is single only). */
+export function DisqualifyDialog({ leadIds, onClose, presetReason }: { leadIds: string[]; onClose: () => void; presetReason?: string }) {
+  const { data, user } = useApp()
+  const mutate = useMutate()
+  const toast = useToast()
+  const leads = data.leads.filter((l) => leadIds.includes(l.id))
+  const one = leads.length === 1 ? leads[0] : null
+  const [reason, setReason] = useState(presetReason ?? 'No response')
+  const [note, setNote] = useState('')
+  const survivors = one ? data.leads.filter((l) => l.id !== one.id && (l.status === 'New' || l.status === 'Contacted') && ((one.phone && l.phone === one.phone) || (one.email && l.email.toLowerCase() === one.email.toLowerCase()))) : []
+  const [survivor, setSurvivor] = useState(survivors[0]?.id ?? '')
+  const [saveX, setSaveX] = useState(true)
+  const [xdate, setXdate] = useState(one?.xDateOffset != null ? isoOf(one.xDateOffset) : '')
+  const [xline, setXline] = useState<Line>(one?.linesOfInterest[0] ?? 'Auto')
+  const [xcarrier, setXcarrier] = useState(one?.currentCarrier ?? '')
+  const match = one ? findMatches({ ...one, zip: one.zip }, { accounts: data.accounts.filter((a) => a.lifecycle === 'active'), contacts: data.contacts }).find((m) => m.strength === 'Strong') : undefined
+  const matchName = match && data.accounts.find((a) => a.id === match.accountId)?.name
+  return (
+    <Confirm
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={one ? `Disqualify ${one.name}` : `Disqualify ${leads.length} leads`}
+      body="The lead leaves the Open list. Nothing is deleted."
+      confirmLabel="Disqualify"
+      danger
+      onConfirm={async () => {
+        if (reason === 'Duplicate lead' && !survivor) throw new Error('Choose the lead to keep.')
+        for (const l of leads)
+          await mutate((s) =>
+            s.disqualifyLead(l.id, { reason, note: note.trim() || null, survivorId: reason === 'Duplicate lead' ? survivor : undefined, saveXDate: reason === 'Bought elsewhere' && saveX && xdate ? { line: xline, carrier: xcarrier || 'Unknown carrier', offset: fromIso(xdate), accountId: match?.accountId ?? null } : undefined }, user.id),
+          )
+        toast(leads.length === 1 ? 'Lead disqualified' : `${leads.length} leads disqualified`, 'success')
+        onClose()
+      }}
+    >
+      <Field label="Reason">
+        <select value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls}>
+          {REASONS.filter((r) => one || r !== 'Duplicate lead').map((r) => <option key={r}>{r}</option>)}
+        </select>
+      </Field>
+      {reason === 'Duplicate lead' && (
+        <Field label="Keep this lead">
+          {survivors.length ? (
+            <select value={survivor} onChange={(e) => setSurvivor(e.target.value)} className={inputCls}>{survivors.map((l) => <option key={l.id} value={l.id}>{code(l.id)} {l.name}</option>)}</select>
+          ) : (
+            <p className="text-sm text-danger-text">No open lead shares this phone or email.</p>
+          )}
+        </Field>
+      )}
+      {reason === 'Bought elsewhere' && one && (
+        <div className="rounded-md bg-recessed p-3">
+          <label className="flex items-center gap-2 text-base"><input type="checkbox" checked={saveX} onChange={(e) => setSaveX(e.target.checked)} className="size-4 accent-primary" /> Save as X-date</label>
+          {saveX && (
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <Field label="Line"><select value={xline} onChange={(e) => setXline(e.target.value as Line)} className={inputCls}>{one.linesOfInterest.map((l) => <option key={l}>{l}</option>)}</select></Field>
+              <Field label="Carrier"><input value={xcarrier} onChange={(e) => setXcarrier(e.target.value)} className={inputCls} /></Field>
+              <Field label="X-date"><input type="date" value={xdate} onChange={(e) => setXdate(e.target.value)} className={inputCls} /></Field>
+            </div>
+          )}
+          {saveX && <p className="mt-2 text-sm text-label">{matchName ? `Saved on ${matchName}.` : 'Creates a Prospect account to hold the X-date. No Opportunity is created.'}</p>}
+        </div>
+      )}
+      <Field label={reason === 'Other' ? 'Note (at least 10 characters)' : 'Note (optional)'}><textarea value={note} onChange={(e) => setNote(e.target.value)} className={cx(inputCls, 'h-20 py-2')} /></Field>
+    </Confirm>
+  )
+}

@@ -1,17 +1,20 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Building2, Clock, CheckCircle2, Home, Search, UserPlus } from 'lucide-react'
+import * as Menu from '@radix-ui/react-dropdown-menu'
+import { menuContent, menuItem } from '@/components/shell/TopBar'
+import { Building2, Clock, MoreHorizontal, CheckCircle2, Home, Search, UserPlus } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { ago, dateOf, inDays, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, canWorkLead, scopeOf } from '@/domain/access'
 import { findMatches, type Match } from '@/domain/rules'
 import type { Lead, User } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
+import { DataTable, Gate, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
 import { Button, cx } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { AccessDenied, NotFound } from './SystemPages'
+import { AssignLeadsDialog, DisqualifyDialog, LeadSheet, LogAttemptDialog } from './LeadSheets'
 
 export const leadCode = (id: string) => `L-${1000 + Number(id.replace(/\D/g, ''))}`
 const VIEWS = ['Open', 'Unassigned', 'Qualified', 'Disqualified']
@@ -29,9 +32,8 @@ export function LeadsPage() {
   const { userName, office } = useLookups()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const mutate = useMutate()
-  const [reassign, setReassign] = useState<string[] | null>(null)
-  const [assignee, setAssignee] = useState(() => data.users.find((u) => u.role === 'producer')?.id ?? '')
+  const [bulk, setBulk] = useState<{ kind: 'assign' | 'disqualify'; ids: string[] } | null>(null)
+  const [adding, setAdding] = useState(false)
   const view = useView(VIEWS)
   const q = (params.get('q') ?? '').toLowerCase()
   const scoped = leadsInScope(user, data.leads)
@@ -69,12 +71,29 @@ export function LeadsPage() {
         </span>
       )
     } },
-    { key: 'attempts', label: 'Attempts', width: 96, align: 'right', render: (l) => l.attempts.length || <span className="text-muted">—</span> },
+    { key: 'attempts', label: 'Attempts', width: 80, align: 'right', render: (l) => l.attempts.length || <span className="text-muted">—</span> },
+    {
+      key: 'last',
+      label: 'Last attempt',
+      width: 170,
+      render: (l) => {
+        const a = [...l.attempts].sort((x, y) => y.offset - x.offset)[0]
+        return (
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate">{a ? `${a.channel} · ${a.outcome}` : <span className="text-muted">—</span>}</span>
+            {l.followUpOffset != null && (l.status === 'New' || l.status === 'Contacted') && (
+              <span className={cx('text-sm', l.followUpOffset < 0 ? 'font-medium text-warning-text' : 'text-muted')}>Follow up {dateOf(l.followUpOffset).slice(0, 5)}</span>
+            )}
+          </span>
+        )
+      },
+      csv: (l) => { const a = [...l.attempts].sort((x, y) => y.offset - x.offset)[0]; return a ? `${a.channel} · ${a.outcome}` : '' },
+    },
   ]
 
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <PageTitle title="Leads" description="Inbound inquiries waiting to be contacted and qualified." />
+      <PageTitle title="Leads" description="Inbound inquiries waiting to be contacted and qualified." actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setAdding(true)}><UserPlus aria-hidden className="size-4" /> Add lead</Button>} />
       {user.role !== 'producer' && unassigned.length > 0 && (
         <div className="mt-4 rounded-md bg-surface px-4 py-3 shadow-ring">
           <p className="text-base font-medium text-strong">{unassigned.length} new leads are unassigned</p>
@@ -112,24 +131,19 @@ export function LeadsPage() {
         minWidth={1100}
         listId="leads"
         exportName="leads"
-        bulkActions={user.role === 'principal' ? [{ label: 'Reassign', run: (ids) => setReassign(ids) }] : undefined}
+        bulkActions={
+          user.role === 'principal'
+            ? [{ label: 'Assign', run: (ids) => setBulk({ kind: 'assign', ids }) }, { label: 'Disqualify', run: (ids) => setBulk({ kind: 'disqualify', ids }) }]
+            : user.role === 'account-manager'
+              ? [{ label: 'Assign', run: (ids) => setBulk({ kind: 'assign', ids }) }]
+              : undefined
+        }
         onRowClick={(l) => navigate(`/leads/${l.id}`)}
         empty={<EmptyState icon={UserPlus} title={q ? 'No leads match this search' : `No ${view.toLowerCase()} leads`} body={view === 'Open' ? 'New web, phone, and referral inquiries land here.' : 'Leads move here as they are worked.'} />}
       />
-      <Confirm
-        open={!!reassign}
-        onOpenChange={(o) => !o && setReassign(null)}
-        title={`Reassign ${reassign?.length ?? 0} leads`}
-        body="Closed leads keep their Producer."
-        confirmLabel="Reassign"
-        onConfirm={() => mutate((s) => s.assignLeads(reassign ?? [], assignee, user.id), 'Leads reassigned').then(() => setReassign(null))}
-      >
-        <Field label="Producer">
-          <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={inputCls}>
-            {data.users.filter((u) => u.role === 'producer').map((u) => <option key={u.id} value={u.id}>{u.name} · {office(u.officeId)?.name}</option>)}
-          </select>
-        </Field>
-      </Confirm>
+      {bulk?.kind === 'assign' && <AssignLeadsDialog leadIds={bulk.ids} onClose={() => setBulk(null)} />}
+      {bulk?.kind === 'disqualify' && <DisqualifyDialog leadIds={bulk.ids} onClose={() => setBulk(null)} />}
+      {adding && <LeadSheet onClose={() => setAdding(false)} />}
     </div>
   )
 }
@@ -139,6 +153,7 @@ export function LeadPage() {
   const { data, user } = useApp()
   const { userName, office, account } = useLookups()
   const [qualifyOpen, setQualifyOpen] = useState(false)
+  const [dialog, setDialog] = useState<'edit' | 'assign' | 'handoff' | 'attempt' | 'disqualify' | 'wrong' | 'bad' | null>(null)
   const lead = data.leads.find((l) => l.id === id)
   if (!lead) return <NotFound what="lead" />
   if (!leadsInScope(user, [lead]).length) return <AccessDenied what="lead" owner={userName(lead.assigneeId)} />
@@ -163,9 +178,27 @@ export function LeadPage() {
         }
         actions={
           open && (
-            <Gate allowed={canWork} reason={denied}>
-              <Button variant="primary" onClick={() => setQualifyOpen(true)}>Qualify</Button>
-            </Gate>
+            <>
+              {canWork && <Button onClick={() => setDialog('attempt')}>Log attempt</Button>}
+              {(user.role === 'principal' || user.role === 'account-manager') && <Button onClick={() => setDialog('assign')}>Assign</Button>}
+              {canWork && (
+                <Menu.Root>
+                  <Menu.Trigger aria-label="More actions" className="grid size-9 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed">
+                    <MoreHorizontal className="size-4" />
+                  </Menu.Trigger>
+                  <Menu.Portal>
+                    <Menu.Content align="end" sideOffset={4} className={menuContent}>
+                      <Menu.Item className={menuItem} onSelect={() => setDialog('edit')}>Edit details</Menu.Item>
+                      {user.role === 'producer' && lead.assigneeId === user.id && <Menu.Item className={menuItem} onSelect={() => setDialog('handoff')}>Hand off</Menu.Item>}
+                      <Menu.Item className={menuItem} onSelect={() => setDialog('disqualify')}>Disqualify</Menu.Item>
+                    </Menu.Content>
+                  </Menu.Portal>
+                </Menu.Root>
+              )}
+              <Gate allowed={canWork} reason={denied}>
+                <Button variant="primary" onClick={() => setQualifyOpen(true)}>Qualify</Button>
+              </Gate>
+            </>
           )
         }
       />
@@ -181,7 +214,14 @@ export function LeadPage() {
             )}
           </div>
         )}
-        {lead.status === 'Disqualified' && <div className="rounded-md bg-recessed px-4 py-3 text-base text-ink">Disqualified: {lead.disqualifyReason}</div>}
+        {lead.status === 'Disqualified' && (
+          <div className="rounded-md bg-recessed px-4 py-3 text-base text-ink">
+            Disqualified: {lead.disqualifyReason}
+            {lead.disqualifiedOffset != null && ` · ${dateOf(lead.disqualifiedOffset)} by ${userName(lead.disqualifiedById)}`}
+            {lead.disqualifyNote && <span className="block text-sm text-label">{lead.disqualifyNote}</span>}
+            {lead.qualifiedAccountId && <Link className="mt-1 block text-sm text-link underline" to={`/accounts/${lead.qualifiedAccountId}`}>X-date saved on {account(lead.qualifiedAccountId)?.name}</Link>}
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-4 max-lg:grid-cols-1">
           <Panel title="Contact">
             <KeyValue items={[['Phone', lead.phone], ['Email', lead.email], ['Location', `${lead.city}, ${lead.state}`], ['Office', office(lead.officeId)?.name]]} />
@@ -189,15 +229,21 @@ export function LeadPage() {
           <Panel title="Interest">
             <KeyValue items={[['Type', lead.kind === 'Household' ? 'Personal' : 'Commercial'], ['Business', lead.businessName], ['Lines', lead.linesOfInterest.join(', ')], ['Current carrier', lead.currentCarrier], ['X-date', lead.xDateOffset != null ? `${dateOf(lead.xDateOffset)} (${inDays(lead.xDateOffset)})` : null]]} />
           </Panel>
-          <Panel title="Contact attempts">
-            {lead.attempts.length ? (
+          <Panel title="Timeline">
+            {lead.followUpOffset != null && open && <p className={cx('mb-2 text-sm', lead.followUpOffset < 0 ? 'font-medium text-warning-text' : 'text-label')}>Follow up {dateOf(lead.followUpOffset)}</p>}
+            {lead.attempts.length || lead.events?.length ? (
               <ol className="flex flex-col gap-2 text-base">
-                {[...lead.attempts].sort((a, b) => b.offset - a.offset).map((a, i) => (
-                  <li key={i} className="flex justify-between gap-2">
-                    <span>{a.channel}: {a.outcome}</span>
-                    <span className="text-sm text-muted">{ago(a.offset)}</span>
-                  </li>
-                ))}
+                {[
+                  ...lead.attempts.map((a) => ({ offset: a.offset, text: `${a.channel} · ${a.outcome}${a.note ? ` · ${a.note}` : ''}`, by: a.byId, time: a.time })),
+                  ...(lead.events ?? []).map((e) => ({ offset: e.offset, text: e.text, by: undefined, time: undefined })),
+                ]
+                  .sort((a, b) => b.offset - a.offset)
+                  .map((a, i) => (
+                    <li key={i} className="flex justify-between gap-2">
+                      <span className="min-w-0">{a.text}{a.by && <span className="block text-sm text-muted">{userName(a.by)}</span>}</span>
+                      <span className="shrink-0 text-sm text-muted">{dateOf(a.offset)}{a.time ? ` ${a.time}` : ''}</span>
+                    </li>
+                  ))}
               </ol>
             ) : (
               <p className="text-base text-muted">No attempts logged yet.</p>
@@ -206,6 +252,21 @@ export function LeadPage() {
         </div>
       </div>
       {qualifyOpen && <QualifyDialog lead={lead} onClose={() => setQualifyOpen(false)} />}
+      {dialog === 'edit' && <LeadSheet lead={lead} onClose={() => setDialog(null)} />}
+      {(dialog === 'assign' || dialog === 'handoff') && <AssignLeadsDialog leadIds={[lead.id]} handOff={dialog === 'handoff'} onClose={() => setDialog(null)} />}
+      {dialog === 'attempt' && <LogAttemptDialog lead={lead} onClose={() => setDialog(null)} onWrongNumber={() => setDialog('wrong')} />}
+      {dialog === 'disqualify' && <DisqualifyDialog leadIds={[lead.id]} onClose={() => setDialog(null)} />}
+      {dialog === 'bad' && <DisqualifyDialog leadIds={[lead.id]} presetReason="Bad contact data" onClose={() => setDialog(null)} />}
+      {dialog === 'wrong' && (
+        <div role="alertdialog" aria-label="Wrong number" className="fixed right-4 bottom-20 z-50 w-96 rounded-md bg-surface p-4 shadow-pop">
+          <p className="text-base text-ink">Update the phone number or disqualify as Bad contact data.</p>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button size="sm" onClick={() => setDialog(null)}>Later</Button>
+            <Button size="sm" onClick={() => setDialog('edit')}>Update phone</Button>
+            <Button size="sm" onClick={() => setDialog('bad')}>Disqualify</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

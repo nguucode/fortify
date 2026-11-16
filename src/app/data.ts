@@ -7,6 +7,7 @@ import type {
   SmsConsent,
   Activity,
   Dataset,
+  Lead,
   Line,
   Opportunity,
   OpportunityStage,
@@ -420,6 +421,70 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Canceled', closeNote: reason, doneOffset: 0 } : x)), activities: [...s.activities, activity(s, { accountId: t.accountId, type: 'system', subject: `Task canceled: ${t.title} (${reason})`, body: null, createdById: actorId, linked: t.linked })] })
     },
 
+    /** US-LEA-002: add (id null) or edit a New/Contacted Lead. */
+    saveLead(
+      id: string | null,
+      input: { kind: Lead['kind']; firstName: string; lastName: string; businessName: string | null; phone: string; email: string; street: string; city: string; state: Lead['state']; zip: string; linesOfInterest: Line[]; currentCarrier: string | null; currentPremium: number | null; xDateOffset: number | null; source: Lead['source']; sourceDetail: string | null; notes: string | null; officeId: string; assigneeId: string | null },
+      actorId: string,
+    ) {
+      const s = state
+      if (input.kind === 'Household' ? !input.lastName.trim() : !input.businessName?.trim()) throw new Error(input.kind === 'Household' ? 'Add a last name.' : 'Add the business name.')
+      if (!input.phone.trim() && !input.email.trim()) throw new Error('Add a phone number or an email.')
+      if (!input.linesOfInterest.length) throw new Error('Choose at least one line of interest.')
+      const { firstName, lastName, ...rest } = input
+      const fields = { ...rest, name: `${firstName.trim()} ${lastName.trim()}`.trim() || input.businessName!.trim() }
+      if (id === null) {
+        const l: Lead = { ...fields, id: seq('lea-', s.leads), status: 'New', disqualifyReason: null, createdOffset: 0, attempts: [], qualifiedAccountId: null, qualifiedOpportunityId: null, events: [{ offset: 0, text: `Added by ${userName(actorId)}`, byId: actorId }] }
+        commit({ ...s, leads: [l, ...s.leads] })
+        return l.id
+      }
+      const prev = must(s.leads.find((l) => l.id === id), 'Lead')
+      if (prev.status !== 'New' && prev.status !== 'Contacted') throw new Error('Closed leads are read-only.')
+      commit({ ...s, leads: s.leads.map((l) => (l.id === id ? { ...l, ...fields, events: [...(l.events ?? []), { offset: 0, text: `Details edited by ${userName(actorId)}`, byId: actorId }] } : l)) })
+      return id
+    },
+
+    /** US-LEA-005: the first attempt moves a New Lead to Contacted. */
+    logAttempt(id: string, a: { channel: 'Call' | 'Email' | 'SMS'; outcome: string; note: string | null; followUpOffset: number | null }, actorId: string) {
+      const s = state
+      const l = must(s.leads.find((x) => x.id === id), 'Lead')
+      if (l.status !== 'New' && l.status !== 'Contacted') throw new Error('This lead is closed.')
+      if (a.channel === 'SMS' && !l.smsConsent) throw new Error('No SMS consent recorded for this lead.')
+      const now = new Date()
+      const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      commit({ ...s, leads: s.leads.map((x) => (x.id === id ? { ...x, status: 'Contacted', followUpOffset: a.followUpOffset, attempts: [{ offset: 0, channel: a.channel, outcome: a.outcome, note: a.note, byId: actorId, time }, ...x.attempts] } : x)) })
+    },
+
+    /**
+     * US-LEA-008: one reason (Other needs a 10+ character note). Duplicate merges attempts into the survivor;
+     * Bought elsewhere can save an X-date on a matched or new Prospect Account. Nothing is deleted.
+     */
+    disqualifyLead(id: string, d: { reason: string; note: string | null; survivorId?: string; saveXDate?: { line: Line; carrier: string; offset: number; accountId?: string | null } }, actorId: string) {
+      const s = state
+      const l = must(s.leads.find((x) => x.id === id), 'Lead')
+      if (l.status !== 'New' && l.status !== 'Contacted') throw new Error('This lead is already closed.')
+      if (d.reason === 'Other' && (d.note ?? '').trim().length < 10) throw new Error('Describe the reason in at least 10 characters.')
+      const code = (x: string) => `L-${1000 + Number(x.replace(/\D/g, ''))}`
+      let leads = s.leads.map((x) => (x.id === id ? { ...x, status: 'Disqualified' as const, disqualifyReason: d.reason, disqualifyNote: d.note, disqualifiedOffset: 0, disqualifiedById: actorId, events: [...(x.events ?? []), { offset: 0, text: `Disqualified by ${userName(actorId)}: ${d.reason}`, byId: actorId }] } : x))
+      if (d.reason === 'Duplicate lead') {
+        const sv = must(s.leads.find((x) => x.id === d.survivorId), 'Surviving lead')
+        leads = leads.map((x) => (x.id === sv.id ? { ...x, attempts: [...x.attempts, ...l.attempts].sort((a, b) => b.offset - a.offset), events: [...(x.events ?? []), { offset: 0, text: `Duplicate ${code(l.id)} merged into this lead’s history`, byId: actorId }] } : x))
+      }
+      let accounts = s.accounts
+      let xDates = s.xDates
+      if (d.reason === 'Bought elsewhere' && d.saveXDate) {
+        let accountId = d.saveXDate.accountId ?? null
+        if (!accountId) {
+          accountId = seq('acc-', s.accounts)
+          const managers = s.users.filter((u) => u.role === 'account-manager' && u.officeId === l.officeId)
+          accounts = [...accounts, { id: accountId, name: l.kind === 'Business' && l.businessName ? l.businessName : `${l.name.trim().split(/\s+/).pop()} Household`, kind: l.kind, status: 'Prospect', officeId: l.officeId, producerId: l.assigneeId ?? actorId, accountManagerId: managers[0]?.id ?? actorId, state: l.state, city: l.city, zip: l.zip ?? '', coastal: false, primaryContactId: null, linkedAccountIds: [], createdOffset: 0, lastActivityOffset: 0, lifecycle: 'active', details: { street: l.street ?? '', county: '', preferredContact: 'Phone', source: l.source } }]
+        }
+        xDates = [...xDates, { id: seq('xdt-', s.xDates), accountId, line: d.saveXDate.line, currentCarrier: d.saveXDate.carrier, xDateOffset: d.saveXDate.offset, premium: l.currentPremium ?? null, interestLevel: 'Medium' }]
+        leads = leads.map((x) => (x.id === id ? { ...x, qualifiedAccountId: accountId } : x))
+      }
+      commit({ ...s, leads, accounts, xDates })
+    },
+
     /** US-FND-019 bulk Reassign: open Leads only; returns how many changed. */
     assignLeads(ids: string[], assigneeId: string, _actorId: string) {
       const s = state
@@ -428,7 +493,7 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       const leads = s.leads.map((l) => {
         if (!set.has(l.id) || l.status === 'Qualified' || l.status === 'Disqualified' || l.assigneeId === assigneeId) return l
         n++
-        return { ...l, assigneeId }
+        return { ...l, assigneeId, events: [...(l.events ?? []), { offset: 0, text: `Assigned to ${userName(assigneeId)} by ${userName(_actorId)}`, byId: _actorId }] }
       })
       commit({ ...s, leads })
       return n

@@ -540,7 +540,7 @@ export function generateDataset(seed = 20261115): Dataset {
     })
   }
 
-  const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users, tasks })
+  const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users, tasks, leads })
   return { offices: OFFICES, users, carriers: CARRIERS, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents }
 }
 
@@ -548,7 +548,7 @@ export function generateDataset(seed = 20261115): Dataset {
  * ACC P1 enrichment (details, contact fields, insured items, documents). Runs on its own seeded Faker after the
  * main pass, so adding it changed none of the records generated before it.
  */
-function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'policies' | 'terms' | 'users' | 'tasks'>) {
+function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'policies' | 'terms' | 'users' | 'tasks' | 'leads'>) {
   const f = new Faker({ locale: [en_US, en, base] })
   f.seed(seed + 7)
   const int = (a: number, b: number) => f.number.int({ min: a, max: b })
@@ -635,6 +635,17 @@ function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'polici
       const t = pick(['Application', 'Signed proposal', 'Loss run', 'Photo', 'Correspondence'] as const)
       documents.push({ id: did(), accountId: a.id, name: `${t} - ${a.name}.${t === 'Photo' ? 'jpg' : 'pdf'}`, type: t, source: 'Uploaded', linked: null, addedById: f.datatype.boolean() ? a.producerId : a.accountManagerId, addedOffset: -int(1, 400), size: int(60, 4000) * 1024 })
     }
+  }
+  // US-LEA-004: Producers hold a license in their Office's state; about a third also hold the other state.
+  const officeState: Record<string, UsState> = { 'off-hou': 'TX', 'off-sat': 'TX', 'off-tpa': 'FL' }
+  for (const u of d.users) if (u.role === 'producer') {
+    const home = officeState[u.officeId] ?? 'TX'
+    u.licenses = f.datatype.boolean({ probability: 0.35 }) ? ['TX', 'FL'] : [home]
+  }
+  // US-LEA-005: SMS consent on web-form and referral leads; some follow-ups scheduled.
+  for (const l of d.leads) {
+    l.smsConsent = (l.source === 'Web form' || l.source === 'Referral') && f.datatype.boolean({ probability: 0.6 })
+    if (l.status === 'Contacted') l.followUpOffset = f.datatype.boolean({ probability: 0.6 }) ? int(-3, 7) : null
   }
   // US-WRK-007: Meetings get a time and length; some Calls get a time; the rest stay all-day.
   for (const t of d.tasks) {

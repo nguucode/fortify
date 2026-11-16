@@ -17,6 +17,8 @@ export interface User {
   role: Role
   officeId: string
   email: string
+  /** States with an active P&C license (Producers). */
+  licenses?: UsState[]
 }
 
 export type LineKind = 'personal' | 'commercial'
@@ -198,9 +200,21 @@ export interface Lead {
   status: LeadStatus
   disqualifyReason: string | null
   createdOffset: number
-  attempts: { offset: number; channel: 'Call' | 'Email' | 'SMS'; outcome: string }[]
+  attempts: { offset: number; channel: 'Call' | 'Email' | 'SMS'; outcome: string; note?: string | null; byId?: string; time?: string }[]
   qualifiedAccountId: string | null
   qualifiedOpportunityId: string | null
+  /** US-LEA-002/004/005/008 (absent on older rows). */
+  street?: string
+  zip?: string
+  currentPremium?: number | null
+  sourceDetail?: string | null
+  notes?: string | null
+  smsConsent?: boolean
+  followUpOffset?: number | null
+  events?: { offset: number; text: string; byId: string }[]
+  disqualifiedOffset?: number
+  disqualifiedById?: string
+  disqualifyNote?: string | null
 }
 
 export type OpportunityType = 'New business' | 'Cross-sell' | 'Remarket'
