@@ -10,6 +10,9 @@ import type {
   Holder,
   AccountDocument,
   Contact,
+  Conversation,
+  Message,
+  CallOutcome,
   DocumentType,
   SmsConsent,
   Activity,
@@ -839,6 +842,153 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
         ? { id: `sync-${(s.syncRuns?.length ?? 0) + 1}`, at: now.toISOString(), status: 'Failed' as const, durationSec: 30, counts: {}, error: 'AMS connection timed out after 30s' }
         : { id: `sync-${(s.syncRuns?.length ?? 0) + 1}`, at: now.toISOString(), status: 'Succeeded' as const, durationSec: 3, counts: { ...(last?.counts ?? {}), 'Records changed': 12 }, skipped: 0 }
       commit({ ...s, syncRuns: [run, ...(s.syncRuns ?? [])] })
+    },
+
+    // ---------- Inbox (INB P1) ----------
+    /** US-INB-002: read state is per user. */
+    markConversationRead(id: string, userId: string) {
+      const s = state
+      const c = (s.conversations ?? []).find((x) => x.id === id)
+      if (!c || !c.unreadBy.includes(userId)) return
+      commit({ ...s, conversations: s.conversations!.map((x) => (x.id === id ? { ...x, unreadBy: x.unreadBy.filter((u) => u !== userId) } : x)) })
+    },
+    markConversationsUnread(ids: string[], userId: string) {
+      const s = state
+      commit({ ...s, conversations: (s.conversations ?? []).map((x) => (ids.includes(x.id) && !x.unreadBy.includes(userId) ? { ...x, unreadBy: [...x.unreadBy, userId] } : x)) })
+    },
+    /** US-INB-010: the assignee gets it unread; linked ones log a system Activity. */
+    assignConversations(ids: string[], toId: string, actorId: string) {
+      const s = state
+      if (ids.length > 50) throw new Error('Select up to 50 at a time')
+      const to = must(s.users.find((u) => u.id === toId), 'User')
+      const acts: Activity[] = []
+      const conversations = (s.conversations ?? []).map((c) => {
+        if (!ids.includes(c.id) || c.assigneeId === toId) return c
+        if (c.accountId) acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, { accountId: c.accountId, type: 'system', subject: `Conversation assigned to ${to.name} by ${userName(actorId)}`, body: null, createdById: actorId, linked: null, conversationId: c.id }))
+        return { ...c, assigneeId: toId, unreadBy: toId === actorId ? c.unreadBy : [...new Set([...c.unreadBy, toId])] }
+      })
+      commit({ ...s, conversations, activities: [...s.activities, ...acts] })
+    },
+    setConversationStatus(ids: string[], status: Conversation['status'], reason: string | null = null) {
+      const s = state
+      if (ids.length > 50) throw new Error('Select up to 50 at a time')
+      commit({ ...s, conversations: (s.conversations ?? []).map((c) => (ids.includes(c.id) ? { ...c, status, doneReason: status === 'Done' ? reason : null, unreadBy: status === 'Done' ? [] : c.unreadBy } : c)) })
+    },
+    /** US-INB-005: simulated; appends to the thread (or starts one) and logs an Email Activity. */
+    sendEmail(input: { conversationId: string | null; accountId: string | null; contactId: string | null; to: string[]; cc: string[]; subject: string; body: string; attachments: string[] }, actorId: string, now: Date = new Date()) {
+      const s = state
+      if (!input.to.length) throw new Error('Add at least one recipient.')
+      if (!input.subject.trim()) throw new Error('Add a subject.')
+      if (!input.body.trim()) throw new Error('Write a message.')
+      const unknown = input.body.match(/\{\{\s*[a-zA-Z.]+\s*\}\}/)
+      if (unknown) throw new Error(`Fill in ${unknown[0]} or remove it.`)
+      const me = must(s.users.find((u) => u.id === actorId), 'User')
+      const list = s.conversations ?? []
+      let conv = input.conversationId ? must(list.find((c) => c.id === input.conversationId), 'Conversation') : null
+      const at = now.toISOString()
+      if (!conv) conv = { id: seq('cnv-', list), channel: 'email', subject: input.subject.trim(), address: input.to[0], accountId: input.accountId, contactId: input.contactId, officeId: input.accountId ? (s.accounts.find((a) => a.id === input.accountId)?.officeId ?? me.officeId) : me.officeId, assigneeId: actorId, status: 'Open', unreadBy: [], lastAt: at, related: [] }
+      const docs = (s.documents ?? []).filter((d) => input.attachments.includes(d.id))
+      const m: Message = { id: seq('msg-', s.messages ?? []), conversationId: conv.id, kind: 'out', fromName: me.name, from: me.email, to: input.to, cc: input.cc, at, body: input.body.slice(0, 20000), attachments: docs.length ? docs.map((d) => ({ name: d.name, sizeKb: null })) : undefined, simulated: true }
+      const next = { ...conv, lastAt: at, status: 'Open' as const }
+      commit({
+        ...s,
+        conversations: input.conversationId ? list.map((c) => (c.id === next.id ? next : c)) : [next, ...list],
+        messages: [...(s.messages ?? []), m],
+        activities: next.accountId ? [...s.activities, activity(s, { accountId: next.accountId, type: 'email', subject: `Email: ${input.subject.trim()}`, body: input.body.slice(0, 500), createdById: actorId, linked: null, conversationId: next.id })] : s.activities,
+      })
+      return next.id
+    },
+    /** US-INB-006: simulated SMS; opted-out Contacts can't be texted. */
+    sendSms(conversationId: string, body: string, actorId: string, now: Date = new Date()) {
+      const s = state
+      const c = must((s.conversations ?? []).find((x) => x.id === conversationId), 'Conversation')
+      const contact = s.contacts.find((x) => x.id === c.contactId)
+      if (contact?.smsConsent?.state === 'Opted out') throw new Error(`${contact.name} opted out. Texting is off.`)
+      if (!body.trim()) throw new Error('Write a message.')
+      if (body.length > 918) throw new Error('Keep texts under 918 characters.')
+      const me = must(s.users.find((u) => u.id === actorId), 'User')
+      const at = now.toISOString()
+      const m: Message = { id: seq('msg-', s.messages ?? []), conversationId, kind: 'out', fromName: me.name, from: me.phone ?? '', to: [c.address], at, body, simulated: true }
+      commit({
+        ...s,
+        conversations: s.conversations!.map((x) => (x.id === conversationId ? { ...x, lastAt: at, status: 'Open' } : x)),
+        messages: [...(s.messages ?? []), m],
+        activities: c.accountId ? [...s.activities, activity(s, { accountId: c.accountId, type: 'sms', subject: 'SMS sent', body: body.slice(0, 500), createdById: actorId, linked: null, conversationId })] : s.activities,
+      })
+    },
+    /** US-INB-003/006: consent changes log a system Activity on each of the Contact's Accounts. */
+    recordSmsConsent(contactId: string, consent: SmsConsent, source: string, actorId: string | null) {
+      const s = state
+      const c = must(s.contacts.find((x) => x.id === contactId), 'Contact')
+      const acts: Activity[] = []
+      for (const accountId of c.accountIds) acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, { accountId, type: 'system', subject: `SMS consent: ${consent} (${source})${actorId ? ` by ${userName(actorId)}` : ''}`, body: null, createdById: actorId ?? c.accountIds[0], linked: null }))
+      commit({ ...s, contacts: s.contacts.map((x) => (x.id === contactId ? { ...x, smsConsent: { state: consent, offset: 0, source, byId: actorId } } : x)), activities: [...s.activities, ...acts] })
+    },
+    /** US-INB-004: a call conversation + message, a Call Activity, and an optional follow-up Task. */
+    logCall(input: { contactId: string; accountId: string; direction: 'Inbound' | 'Outbound'; at: string; durationSec: number; outcome: CallOutcome; notes: string; related: Conversation['related'][number] | null; followUpOffset: number | null }, actorId: string, now: Date = new Date()) {
+      const s = state
+      const contact = must(s.contacts.find((c) => c.id === input.contactId), 'Contact')
+      const a = must(s.accounts.find((x) => x.id === input.accountId), 'Account')
+      if (input.outcome === 'Connected' && !input.notes.trim()) throw new Error('Add notes for a connected call.')
+      if (input.notes.length > 2000) throw new Error('Keep notes under 2,000 characters.')
+      if (input.durationSec < 0 || input.durationSec > 35999) throw new Error('Duration must be between 0:00 and 9:59:59.')
+      if (new Date(input.at) > now) throw new Error('The call time can’t be in the future.')
+      const me = must(s.users.find((u) => u.id === actorId), 'User')
+      const list = s.conversations ?? []
+      const conv: Conversation = { id: seq('cnv-', list), channel: 'call', subject: `${input.direction} call · ${input.outcome}`, address: contact.phone, accountId: a.id, contactId: contact.id, officeId: a.officeId, assigneeId: actorId, status: 'Done', unreadBy: [], lastAt: input.at, related: input.related ? [input.related] : [] }
+      const m: Message = { id: seq('msg-', s.messages ?? []), conversationId: conv.id, kind: input.direction === 'Inbound' ? 'in' : 'out', fromName: input.direction === 'Inbound' ? contact.name : me.name, from: input.direction === 'Inbound' ? contact.phone : me.email, to: [], at: input.at, body: input.notes.trim(), call: { direction: input.direction, durationSec: input.durationSec, outcome: input.outcome, loggedById: actorId } }
+      const linked = input.related && input.related.kind !== 'task' ? { kind: input.related.kind, id: input.related.id } : null
+      const acts = [activity(s, { accountId: a.id, type: 'call', subject: `Call with ${contact.name}: ${input.outcome.toLowerCase()}`, body: input.notes.trim() || null, createdById: actorId, linked, conversationId: conv.id })]
+      const tasks = input.followUpOffset != null ? [...s.tasks, { id: seq('tsk-', s.tasks), accountId: a.id, title: `Follow up with ${contact.name}`, type: 'Call' as const, priority: 'Normal' as const, source: 'Manual' as const, assigneeId: actorId, dueOffset: input.followUpOffset, dueTime: '17:00', durationMin: null, description: null, status: 'Open' as const, linked: null }] : s.tasks
+      commit({ ...s, conversations: [conv, ...list], messages: [...(s.messages ?? []), m], activities: [...s.activities, ...acts], tasks, accounts: s.accounts.map((x) => (x.id === a.id ? { ...x, lastActivityOffset: 0 } : x)) })
+      return conv.id
+    },
+    /** US-INB-004: only the author, within 24 hours. */
+    editCallNotes(messageId: string, body: string, actorId: string, now: Date = new Date()) {
+      const s = state
+      const m = must((s.messages ?? []).find((x) => x.id === messageId), 'Message')
+      if (m.call?.loggedById !== actorId || now.getTime() - new Date(m.at).getTime() > 24 * 3_600_000) throw new Error('Only the author can edit notes, for 24 hours.')
+      if (m.call.outcome === 'Connected' && !body.trim()) throw new Error('Add notes for a connected call.')
+      commit({ ...s, messages: s.messages!.map((x) => (x.id === messageId ? { ...x, body: body.trim().slice(0, 2000) } : x)) })
+    },
+    /** US-INB-007: link (or move) a conversation; Activities are backfilled, never deleted. */
+    linkConversation(id: string, input: { accountId: string; contactId: string | null; newContact?: { firstName: string; lastName: string } | null; saveAddress: boolean }, actorId: string) {
+      let s = state
+      const c = must((s.conversations ?? []).find((x) => x.id === id), 'Conversation')
+      const a = must(s.accounts.find((x) => x.id === input.accountId), 'Account')
+      if (c.accountId === a.id) throw new Error(`Already linked to ${a.name}.`)
+      const isPhone = c.channel !== 'email'
+      let contactId = input.contactId
+      if (!contactId && input.newContact) {
+        this.saveContact(null, { firstName: input.newContact.firstName, lastName: input.newContact.lastName, phone: isPhone ? c.address : '', email: isPhone ? '' : c.address }, { accountId: a.id, relationship: a.kind === 'Business' ? 'Employee' : 'Other' }, actorId)
+        s = state
+        contactId = s.contacts[s.contacts.length - 1].id
+      } else if (contactId && input.saveAddress) {
+        s = { ...s, contacts: s.contacts.map((x) => (x.id === contactId ? (isPhone ? { ...x, phone: x.phone || c.address } : { ...x, email: x.email || c.address }) : x)) }
+      }
+      const msgs = (s.messages ?? []).filter((m) => m.conversationId === id && m.kind !== 'system')
+      const acts: Activity[] = []
+      const add = (x: Omit<Activity, 'id' | 'occurredOffset'> & { occurredOffset?: number }) => acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, x))
+      const off = (iso: string) => Math.min(0, daysBetween(today, new Date(iso)))
+      for (const m of msgs) add({ accountId: a.id, type: c.channel, subject: c.channel === 'email' ? `Email: ${c.subject ?? ''}` : c.channel === 'sms' ? (m.kind === 'in' ? 'SMS received' : 'SMS sent') : `Call: ${m.call?.outcome.toLowerCase() ?? ''}`, body: m.body.slice(0, 500) || null, createdById: actorId, linked: null, conversationId: id, occurredOffset: off(m.at) })
+      add({ accountId: a.id, type: 'system', subject: `Conversation linked from Inbox by ${userName(actorId)}`, body: null, createdById: actorId, linked: null, conversationId: id })
+      if (c.accountId) add({ accountId: c.accountId, type: 'system', subject: `Conversation moved to ${a.name}`, body: null, createdById: actorId, linked: null, conversationId: id })
+      commit({ ...s, conversations: s.conversations!.map((x) => (x.id === id ? { ...x, accountId: a.id, contactId, leadId: null, officeId: a.officeId, related: c.accountId ? [] : x.related } : x)), activities: [...s.activities, ...acts] })
+    },
+    linkConversationLead(id: string, leadId: string) {
+      const s = state
+      commit({ ...s, conversations: (s.conversations ?? []).map((x) => (x.id === id ? { ...x, leadId } : x)) })
+    },
+    /** US-INB-008: a created record shows as a chip plus a system line in the thread. */
+    addConversationRelated(id: string, rel: Conversation['related'][number], text: string, now: Date = new Date()) {
+      const s = state
+      const sys: Message = { id: seq('msg-', s.messages ?? []), conversationId: id, kind: 'system', fromName: 'Fortify', from: '', to: [], at: now.toISOString(), body: text }
+      commit({ ...s, conversations: (s.conversations ?? []).map((x) => (x.id === id ? { ...x, related: [...x.related.filter((r) => r.id !== rel.id), rel] } : x)), messages: [...(s.messages ?? []), sys] })
+    },
+    /** US-INB-009: shared with the Notifications panel. */
+    markMentionsRead(activityIds: string[], userId: string) {
+      const s = state
+      commit({ ...s, activities: s.activities.map((a) => (activityIds.includes(a.id) && a.mentions?.includes(userId) && !a.mentionReadBy?.includes(userId) ? { ...a, mentionReadBy: [...(a.mentionReadBy ?? []), userId] } : a)) })
     },
 
     // ---------- Certificates (CRT P1) ----------

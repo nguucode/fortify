@@ -49,7 +49,7 @@ const SOURCE_LINK: Partial<Record<Task['source'], (t: Task) => [string, string] 
 }
 
 /** US-WRK-005: create or edit a Task. Done/Canceled Tasks open read-only; system Tasks keep title and source. */
-export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, linked, defaultAssignee, presets }: { onClose: () => void; accountId?: string; task?: Task; prefill?: { dueOffset: number; dueTime: string; durationMin: number }; linked?: Task['linked']; defaultAssignee?: string; presets?: [string, number][] }) {
+export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, linked, defaultAssignee, presets, presetTitle, onSaved }: { presetTitle?: string; onSaved?: (id: string) => void; onClose: () => void; accountId?: string; task?: Task; prefill?: { dueOffset: number; dueTime: string; durationMin: number }; linked?: Task['linked']; defaultAssignee?: string; presets?: [string, number][] }) {
   const { data, user } = useApp()
   const { account, userName } = useLookups()
   const mutate = useMutate()
@@ -57,7 +57,7 @@ export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, li
   const system = !!task && task.source !== 'Manual'
   const [accountId, setAccountId] = useState(task?.accountId ?? lockedAccount ?? '')
   const [query, setQuery] = useState('')
-  const [title, setTitle] = useState(task?.title ?? '')
+  const [title, setTitle] = useState(task?.title ?? presetTitle ?? '')
   const [type, setType] = useState<TaskType>(task?.type ?? (prefill ? 'Meeting' : 'General'))
   const [due, setDue] = useState(iso(task?.dueOffset ?? prefill?.dueOffset ?? 1))
   const [time, setTime] = useState(task?.dueTime ?? prefill?.dueTime ?? '')
@@ -108,10 +108,11 @@ export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, li
     setBusy(true)
     setFailed(false)
     try {
-      await mutate(
+      const tid = await mutate(
         (s) => s.saveTask(task?.id ?? null, { accountId, title: title.trim() || (type === 'Meeting' && primary ? `Meeting with ${primary.name}` : title), type, priority, assigneeId, dueOffset, dueTime: time || null, durationMin: type === 'Meeting' ? Number(duration) || 30 : null, description: description.trim() || null, linked: task?.linked ?? linked ?? null, contactIds: type === 'Meeting' ? contactIds : [], location: type === 'Meeting' ? location.trim() || null : null }, user.id),
         task ? 'Task saved' : assigneeId === user.id ? 'Task created' : `Task assigned to ${userName(assigneeId)}`,
       )
+      if (tid) onSaved?.(tid)
       onClose()
     } catch {
       setFailed(true)

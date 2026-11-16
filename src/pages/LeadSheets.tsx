@@ -29,30 +29,32 @@ const isoOf = (offset: number) => {
 }
 
 /** US-LEA-002: add or edit a Lead; open-lead duplicates warn but don't block. */
-export function LeadSheet({ lead, onClose, onSaved }: { lead?: Lead; onClose: () => void; onSaved?: (id: string) => void }) {
+export function LeadSheet({ lead, prefill, onClose, onSaved }: { lead?: Lead; prefill?: Partial<Lead>; onClose: () => void; onSaved?: (id: string) => void }) {
+  const init = lead ?? prefill
   const { data, user } = useApp()
   const { userName } = useLookups()
   const mutate = useMutate()
   const toast = useToast()
-  const [kind, setKind] = useState<Lead['kind']>(lead?.kind ?? 'Household')
-  const [first, setFirst] = useState(lead && lead.kind === 'Household' ? lead.name.split(' ').slice(0, -1).join(' ') : (lead?.name.split(' ')[0] ?? ''))
-  const [last, setLast] = useState(lead && lead.kind === 'Household' ? (lead.name.split(' ').pop() ?? '') : (lead?.name.split(' ').slice(1).join(' ') ?? ''))
-  const [business, setBusiness] = useState(lead?.businessName ?? '')
-  const [phone, setPhone] = useState(lead?.phone ?? '')
-  const [email, setEmail] = useState(lead?.email ?? '')
-  const [street, setStreet] = useState(lead?.street ?? '')
-  const [city, setCity] = useState(lead?.city ?? '')
-  const office0 = data.offices.find((o) => o.id === (lead?.officeId ?? user.officeId))!
+  const [kind, setKind] = useState<Lead['kind']>(init?.kind ?? 'Household')
+  const nm = init?.name ?? ''
+  const [first, setFirst] = useState(init?.kind !== 'Business' ? nm.split(' ').slice(0, -1).join(' ') : (nm.split(' ')[0] ?? ''))
+  const [last, setLast] = useState(init?.kind !== 'Business' ? (nm.split(' ').pop() ?? '') : nm.split(' ').slice(1).join(' '))
+  const [business, setBusiness] = useState(init?.businessName ?? '')
+  const [phone, setPhone] = useState(init?.phone ?? '')
+  const [email, setEmail] = useState(init?.email ?? '')
+  const [street, setStreet] = useState(init?.street ?? '')
+  const [city, setCity] = useState(init?.city ?? '')
+  const office0 = data.offices.find((o) => o.id === (init?.officeId ?? user.officeId))!
   const [officeId, setOfficeId] = useState(office0.id)
   const office = data.offices.find((o) => o.id === officeId)!
-  const [zip, setZip] = useState(lead?.zip ?? '')
-  const [lines, setLines] = useState<Line[]>(lead?.linesOfInterest ?? [])
-  const [carrier, setCarrier] = useState(lead?.currentCarrier ?? '')
-  const [premium, setPremium] = useState(lead?.currentPremium ? String(lead.currentPremium) : '')
-  const [xdate, setXdate] = useState(lead?.xDateOffset != null ? isoOf(lead.xDateOffset) : '')
-  const [source, setSource] = useState<LeadSource>(lead?.source ?? 'Referral')
-  const [detail, setDetail] = useState(lead?.sourceDetail ?? '')
-  const [notes, setNotes] = useState(lead?.notes ?? '')
+  const [zip, setZip] = useState(init?.zip ?? '')
+  const [lines, setLines] = useState<Line[]>(init?.linesOfInterest ?? [])
+  const [carrier, setCarrier] = useState(init?.currentCarrier ?? '')
+  const [premium, setPremium] = useState(init?.currentPremium ? String(init.currentPremium) : '')
+  const [xdate, setXdate] = useState(init?.xDateOffset != null ? isoOf(init.xDateOffset) : '')
+  const [source, setSource] = useState<LeadSource>(init?.source ?? 'Referral')
+  const [detail, setDetail] = useState(init?.sourceDetail ?? '')
+  const [notes, setNotes] = useState(init?.notes ?? '')
   const producers = data.users.filter((u) => u.role === 'producer' && (user.role === 'account-manager' ? u.officeId === user.officeId : true))
   const [assignee, setAssignee] = useState<string>(lead?.assigneeId ?? (user.role === 'producer' ? user.id : ''))
   const [touched, setTouched] = useState(false)

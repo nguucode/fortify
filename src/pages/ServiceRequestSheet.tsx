@@ -32,7 +32,7 @@ const isoOf = (off: number) => {
  * US-SRV-005 shared fields + type forms: 006 Policy change, 008 Certificate, 009 Claim report, 010 ID card / evidence,
  * 011 Billing question, 012 Cancellation request. With `request` it is the US-SRV-015 edit sheet (type and Account fixed).
  */
-export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyId: presetPolicy, type: presetType, presetDescription, request, presetVehicle }: { onClose: () => void; accountId?: string; policyId?: string; type?: ServiceType; presetDescription?: string; request?: ServiceRequest; presetVehicle?: string }) {
+export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyId: presetPolicy, type: presetType, presetDescription, request, presetVehicle, presetSubject, presetBody, onSaved }: { presetSubject?: string; presetBody?: string; onSaved?: (id: string) => void; onClose: () => void; accountId?: string; policyId?: string; type?: ServiceType; presetDescription?: string; request?: ServiceRequest; presetVehicle?: string }) {
   const { data, user } = useApp()
   const mutate = useMutate()
   const toast = useToast()
@@ -43,8 +43,8 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
   const [accountId, setAccountId] = useState(request?.accountId ?? presetAccount ?? '')
   const [policyId, setPolicyId] = useState(request?.policyId ?? presetPolicy ?? '')
   const [type, setType] = useState<ServiceType>(request?.type ?? presetType ?? 'Policy change')
-  const [subject, setSubject] = useState(request?.subject ?? '')
-  const [description, setDescription] = useState(request?.description ?? (presetDescription ? `Change requested for: ${presetDescription}. ` : ''))
+  const [subject, setSubject] = useState(request?.subject ?? presetSubject ?? '')
+  const [description, setDescription] = useState(request?.description ?? presetBody ?? (presetDescription ? `Change requested for: ${presetDescription}. ` : ''))
   const [priority, setPriority] = useState<'Normal' | 'High'>(request?.priority ?? 'Normal')
   const [via, setVia] = useState(request?.requestedVia ?? 'Phone')
   const [files, setFiles] = useState<{ name: string; size: number }[]>(request?.attachments ?? [])
@@ -119,6 +119,7 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
       }
       const id = await mutate((s) => s.createServiceRequest({ accountId, policyId: policyId || null, type, subject: finalSubject, description: description.trim(), priority, details, requestedVia: via, attachments: files }, user.id))
       const st = data
+      onSaved?.(id)
       onClose()
       const claim = type === 'Claim report'
       toast(claim ? 'Claim reported' : 'Service Request created', 'success', claim ? { action: { label: 'Open claim', onClick: () => navigate(`/claims/CL-${2042 + (st.claims?.length ?? 0)}`) } } : {})

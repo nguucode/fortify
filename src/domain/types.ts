@@ -164,7 +164,7 @@ export interface Contact {
   workPhone?: string | null
   dobOffset?: number | null
   preferredContact?: PreferredContact
-  smsConsent?: { state: SmsConsent; offset: number | null }
+  smsConsent?: { state: SmsConsent; offset: number | null; source?: string; byId?: string | null }
   street?: string | null
 }
 
@@ -471,6 +471,46 @@ export interface Activity {
   linked: { kind: 'lead' | 'opportunity' | 'renewal' | 'service' | 'policy' | 'xdate' | 'claim' | 'certificate'; id: string } | null
   /** US-WRK-011: users @mentioned in a note. */
   mentions?: string[]
+  /** US-INB-009: mentioned users who have read the mention. */
+  mentionReadBy?: string[]
+  /** US-INB: the Inbox conversation this Activity came from. */
+  conversationId?: string
+}
+
+/** US-INB-001: a mock communications thread (email, SMS, or a logged call). */
+export type Channel = 'email' | 'sms' | 'call'
+export type CallOutcome = 'Connected' | 'Left voicemail' | 'No answer' | 'Wrong number'
+export interface Message {
+  id: string
+  conversationId: string
+  kind: 'in' | 'out' | 'system'
+  fromName: string
+  from: string
+  to: string[]
+  cc?: string[]
+  /** ISO timestamp. */
+  at: string
+  body: string
+  attachments?: { name: string; sizeKb: number | null }[]
+  simulated?: boolean
+  call?: { direction: 'Inbound' | 'Outbound'; durationSec: number; outcome: CallOutcome; loggedById: string }
+}
+export interface Conversation {
+  id: string
+  channel: Channel
+  subject: string | null
+  /** Raw email address or phone of the other party. */
+  address: string
+  accountId: string | null
+  contactId: string | null
+  leadId?: string | null
+  officeId: string
+  assigneeId: string
+  status: 'Open' | 'Done'
+  unreadBy: string[]
+  lastAt: string
+  related: { kind: 'policy' | 'service' | 'renewal' | 'opportunity' | 'task'; id: string }[]
+  doneReason?: string | null
 }
 
 export type TaskType = 'General' | 'Call' | 'Email' | 'Meeting'
@@ -502,6 +542,8 @@ export interface Task {
 }
 
 export interface Dataset {
+  conversations?: Conversation[]
+  messages?: Message[]
   templates?: Template[]
   settings?: AgencySettings
   appointments?: Appointment[]

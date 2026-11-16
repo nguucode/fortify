@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { useNavigate } from 'react-router'
 import { AlarmClock, AtSign, Bell, ClipboardCheck, Clock, FileBadge, type LucideIcon, RefreshCw, UserPlus } from 'lucide-react'
-import { useApp } from '@/app/store'
+import { dataStore, useApp } from '@/app/store'
 import { dateOf } from '@/app/hooks'
 import { deriveNotifications, type NotificationKind } from '@/domain/notifications'
 import { cx, Tip } from '@/components/ui/primitives'
@@ -27,8 +27,11 @@ export function NotificationsButton() {
   const [readVersion, setReadVersion] = useState(0)
   const items = useMemo(() => deriveNotifications(data, user), [data, user])
   // readVersion bumps after every write so the memo re-reads storage.
-  const read = useMemo(() => readSet(user.id), [user.id, readVersion])
+  // US-INB-009: mention read state lives on the Activity so the Inbox Mentions tab and the bell agree.
+  const read = useMemo(() => { const r = readSet(user.id); for (const a of data.activities) if (a.mentionReadBy?.includes(user.id)) r.add(`mention-${a.id}`); return r }, [user.id, readVersion, data.activities])
   const save = (ids: string[]) => {
+    const mentions = ids.filter((i) => i.startsWith('mention-')).map((i) => i.slice(8))
+    if (mentions.length) dataStore().markMentionsRead(mentions, user.id)
     try {
       sessionStorage.setItem(keyFor(user.id), JSON.stringify([...new Set([...read, ...ids])]))
     } catch {

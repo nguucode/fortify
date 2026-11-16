@@ -1,4 +1,5 @@
 import { Faker, en_US, en, base } from '@faker-js/faker'
+import { enrichInbox } from './inbox-seed.ts'
 import type {
   AccountDocument,
   Certificate,
@@ -552,10 +553,12 @@ export function generateDataset(seed = 20261115): Dataset {
   const { holders, certificates, claims } = enrichService(seed, { accounts, policies, terms, serviceRequests, users })
   const syncRuns = enrichPeople(seed, users)
   const { templates, settings, appointments } = enrichSettings(seed, { users, carriers: CARRIERS, offices: OFFICES, policies, terms })
+  const inbox = enrichInbox(seed, { accounts, contacts, users, policies, terms, serviceRequests, activities, leads })
+  activities.push(...inbox.activities)
   // US-PIP-013: a commission schedule per carrier and line (deterministic, no RNG so nothing else shifts).
   const BASE_RATE: Partial<Record<Line, number>> = { Auto: 0.1, Home: 0.15, Umbrella: 0.15, Renters: 0.15, Condo: 0.15, Flood: 0.15, Boat: 0.12, BOP: 0.15, GL: 0.12, WC: 0.08, 'Commercial auto': 0.1, 'Commercial umbrella': 0.12 }
   const carriers = CARRIERS.map((c, i) => ({ ...c, commission: Object.fromEntries(c.lines.map((l) => [l, Math.round(((BASE_RATE[l] ?? 0.12) + ((i % 3) - 1) * 0.01) * 1000) / 1000])) }))
-  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents, holders, certificates, claims, syncRuns, templates, settings, appointments }
+  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents, holders, certificates, claims, syncRuns, templates, settings, appointments, conversations: inbox.conversations, messages: inbox.messages }
 }
 
 /**

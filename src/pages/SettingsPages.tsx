@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useApp, useDemoControls } from '@/app/store'
 import { dateOf, useLookups, useMutate } from '@/app/hooks'
 import { MERGE_FIELDS, smsSegments, unknownTokens } from '@/domain/templates'
+import { mergeValues } from '@/app/merge'
 import { renewalWindowDays } from '@/domain/rules'
 import type { AgencySettings, Office, Template, User } from '@/domain/types'
 import { DataTable, Field, Gate, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
@@ -361,11 +362,7 @@ function TemplateEditor({ template: t, onClose }: { template?: Template; onClose
   const [err, setErr] = useState<string | null>(null)
   const unknown = unknownTokens(`${v.subject} ${v.body}`)
   const acc = data.accounts.find((a) => a.id === sample)!
-  const contact = data.contacts.find((c) => c.id === acc.primaryContactId)
-  const pol = data.policies.find((p) => p.accountId === acc.id)
-  const term = pol ? data.terms.filter((x) => x.policyId === pol.id).sort((a, b) => b.expirationOffset - a.expirationOffset)[0] : undefined
-  const office = data.offices.find((o) => o.id === acc.officeId)
-  const values: Record<string, string | undefined> = { 'account.name': acc.name, 'contact.firstName': contact?.firstName ?? contact?.name.split(' ')[0], 'contact.lastName': contact?.lastName, 'policy.number': pol?.policyNumber, 'policy.line': pol?.line, 'policy.carrier': data.carriers.find((c) => c.id === pol?.carrierId)?.name, 'term.expirationDate': term ? dateOf(term.expirationOffset) : undefined, 'term.premium': term ? `$${term.premium.toLocaleString('en-US')}` : undefined, 'user.name': user.name, 'user.firstName': user.name.split(' ')[0], 'office.name': office?.name, 'office.phone': office?.phone }
+  const values = mergeValues(data, acc.id, null, user)
   const preview = (text: string) => text.split(/(\{\{\s*[a-zA-Z.]+\s*\}\})/).map((part, i) => (/^\{\{/.test(part) ? (unknown.includes(part) ? <span key={i} className="underline decoration-danger decoration-2">{part}</span> : values[part.replace(/[{}\s]/g, '')] ? <span key={i}>{values[part.replace(/[{}\s]/g, '')]}</span> : <span key={i} className="text-warning-text">[no value]</span>) : part))
   const insert = (k: string) => setV({ ...v, body: `${v.body}{{${k}}}` })
   return (
