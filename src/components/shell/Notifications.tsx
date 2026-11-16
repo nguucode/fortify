@@ -7,7 +7,7 @@ import { dateOf } from '@/app/hooks'
 import { deriveNotifications, type NotificationKind } from '@/domain/notifications'
 import { cx, Tip } from '@/components/ui/primitives'
 
-const ICON: Record<NotificationKind, LucideIcon> = { 'claim-followup': AlarmClock, 'service-overdue': AlarmClock, mention: AtSign, 'lead-assigned': UserPlus, 'task-due': Clock, 'task-overdue': AlarmClock, 'renewal-at-risk': RefreshCw, 'service-assigned': ClipboardCheck, 'certificate-review': FileBadge, 'xdate-followup': Clock }
+const ICON: Record<NotificationKind, LucideIcon> = { 'inbox-message': AtSign, 'claim-followup': AlarmClock, 'service-overdue': AlarmClock, mention: AtSign, 'lead-assigned': UserPlus, 'task-due': Clock, 'task-overdue': AlarmClock, 'renewal-at-risk': RefreshCw, 'service-assigned': ClipboardCheck, 'certificate-review': FileBadge, 'xdate-followup': Clock }
 const keyFor = (userId: string) => `fortify.notificationsRead.${userId}`
 function readSet(userId: string): Set<string> {
   try {

@@ -2,7 +2,7 @@ import { canSeeAccount } from './access'
 import { followUps } from './claimFollowUp'
 import type { Dataset, User } from './types'
 
-export type NotificationKind = 'claim-followup' | 'service-overdue' | 'mention' | 'lead-assigned' | 'task-due' | 'task-overdue' | 'renewal-at-risk' | 'service-assigned' | 'certificate-review' | 'xdate-followup'
+export type NotificationKind = 'inbox-message' | 'claim-followup' | 'service-overdue' | 'mention' | 'lead-assigned' | 'task-due' | 'task-overdue' | 'renewal-at-risk' | 'service-assigned' | 'certificate-review' | 'xdate-followup'
 export interface AppNotification {
   id: string
   kind: NotificationKind
@@ -17,7 +17,7 @@ export interface AppNotification {
  * US-FND-008: notifications are derived from the store for the viewing user, so View as always shows that
  * user's set. IDs are stable per source record, so read state survives re-renders and store writes.
  */
-export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'> & { activities?: Dataset['activities']; users?: Dataset['users']; certificates?: Dataset['certificates']; holders?: Dataset['holders']; claims?: Dataset['claims'] }, user: User): AppNotification[] {
+export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'> & { activities?: Dataset['activities']; users?: Dataset['users']; certificates?: Dataset['certificates']; holders?: Dataset['holders']; claims?: Dataset['claims']; conversations?: Dataset['conversations']; messages?: Dataset['messages']; contacts?: Dataset['contacts'] }, user: User): AppNotification[] {
   const acc = new Map(data.accounts.map((a) => [a.id, a]))
   const name = (id: string) => acc.get(id)?.name ?? ''
   const out: AppNotification[] = []
@@ -57,6 +57,13 @@ export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | '
   for (const s of data.serviceRequests)
     if (s.ownerId === user.id && s.status !== 'Done' && s.status !== 'Waiting on client' && (s.dueAt ? new Date(s.dueAt) < new Date() : s.dueOffset < 0))
       out.push({ id: `sr-overdue-${s.id}`, kind: 'service-overdue', title: `${s.id} is overdue`, body: `${s.type} · ${name(s.accountId)}`, offset: Math.max(s.dueOffset, -30), to: `/service/${s.id}` })
+  // US-INB-011: new inbound messages that arrived while the app was open.
+  for (const m of data.messages ?? []) {
+    if (!m.arrived || m.kind !== 'in') continue
+    const c = data.conversations?.find((x) => x.id === m.conversationId)
+    if (!c || c.assigneeId !== user.id) continue
+    out.push({ id: `msg-${m.id}`, kind: 'inbox-message', title: `New ${c.channel === 'sms' ? 'text' : c.channel === 'email' ? 'email' : 'message'} from ${m.fromName}`, body: m.body.slice(0, 80), offset: 0, to: `/inbox?c=${c.id}` })
+  }
   // US-CLM-006: once per rule per Claim, to the Account Manager.
   if (data.claims && data.activities && data.tasks)
     for (const c of data.claims) {

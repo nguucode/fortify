@@ -5,9 +5,10 @@ import { useApp, useDemoControls } from '@/app/store'
 import { dateOf, useLookups, useMutate } from '@/app/hooks'
 import { MERGE_FIELDS, smsSegments, unknownTokens } from '@/domain/templates'
 import { mergeValues } from '@/app/merge'
+import { INTEGRATION_DEFAULTS } from '@/app/data'
 import { renewalWindowDays } from '@/domain/rules'
 import type { AgencySettings, Office, Template, User } from '@/domain/types'
-import { DataTable, Field, Gate, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
 import { Markdown } from '@/product/Markdown'
 import { docs } from '@/product/spec'
 import { Button, cx, Tip } from '@/components/ui/primitives'
@@ -41,7 +42,7 @@ export function SettingsLayout() {
   const groups: [string, [string, string, boolean?][]][] = [
     ['Organization', [['/settings/users', 'Users'], ['/settings/offices', 'Offices'], ['/settings/roles', 'Roles']]],
     ['Workflow', [['/settings/pipeline', 'Pipeline'], ['/settings/templates', 'Templates']]],
-    ['Data', [['/settings/carriers', 'Carriers & appointments', true], ['/settings/licenses', 'Licenses', true], ['/settings/data-sync', 'AMS data sync']]],
+    ['Data', [['/settings/carriers', 'Carriers & appointments', true], ['/settings/licenses', 'Licenses', true], ['/settings/data-sync', 'AMS data sync'], ['/settings/integrations', 'Integrations']]],
   ]
   return (
     <div className="flex min-h-full max-md:flex-col">
@@ -536,3 +537,60 @@ export function SettingsDataSync() {
   )
 }
 
+
+const INTEGRATIONS: [string, string, string, string][] = [
+  ['ams', 'Agency management system', 'Policies, terms, and commission (read only).', ''],
+  ['email', 'Email', 'Inbox email and templates.', 'Email sending will be disabled in Inbox.'],
+  ['sms', 'SMS', 'Texting from Inbox, with consent tracking.', 'SMS sending will be disabled in Inbox.'],
+  ['phone', 'Phone system', 'Call logging and click-to-dial.', 'Calls must be logged by hand.'],
+  ['calendar', 'Calendar', 'Two-way sync of meetings.', 'Meetings stop syncing to personal calendars.'],
+  ['esign', 'E-signature', 'Signed proposals and applications.', 'Proposals must be signed outside Fortify.'],
+  ['rater', 'Comparative rater', 'Pulls quotes into Opportunities.', 'Quotes must be entered by hand.'],
+]
+/** US-SET-011 */
+export function SettingsIntegrations() {
+  const { data, user } = useApp()
+  const mutate = useMutate()
+  const canEdit = useCanEdit()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [confirm, setConfirm] = useState<{ key: string; to: 'Connected' | 'Not connected' } | null>(null)
+  const state = { ...INTEGRATION_DEFAULTS, ...(data.settings?.integrations ?? {}) }
+  const lastSync = data.syncRuns?.find((r) => r.status !== 'Failed')
+  const mins = lastSync ? Math.max(1, Math.round((Date.now() - new Date(lastSync.at).getTime()) / 60000)) : null
+  const label = (k: string) => INTEGRATIONS.find((i) => i[0] === k)?.[1] ?? k
+  const run = async (key: string, to: 'Connected' | 'Not connected') => {
+    setBusy(key)
+    if (to === 'Connected') await new Promise((r) => setTimeout(r, 1000))
+    await mutate((s) => s.setIntegration(key, to, user.id), `${label(key)} ${to === 'Connected' ? 'connected' : 'disconnected'}`).catch(() => {})
+    setBusy(null)
+  }
+  return (
+    <>
+      <Header title="Integrations" description="Connections to the agency’s other systems." />
+      <p className="mb-4 rounded-md bg-recessed px-4 py-2.5 text-base">Integrations are simulated in this demo. No data leaves your browser.</p>
+      <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1">
+        {INTEGRATIONS.map(([k, name, purpose, loses]) => {
+          const st = state[k] ?? { status: 'Not connected' }
+          const tone = st.status === 'Connected' ? 'Active' : st.status === 'Error' ? 'Failed' : 'Inactive'
+          return (
+            <Panel key={k} title={name} actions={<StatusCell status={tone} reason={st.status === 'Not connected' ? 'Not connected' : st.status === 'Error' ? 'Error' : undefined} />}>
+              <p className="text-base text-label">{purpose}</p>
+              {k === 'ams' && <p className="mt-1 text-sm text-muted">Last sync {mins != null ? `${mins} min ago` : '—'} · <Link to="/settings/data-sync" className="text-link underline">View data sync</Link><br />Fortify needs the AMS to show policies.</p>}
+              {k !== 'ams' && st.status === 'Connected' && <p className="mt-1 text-sm text-muted">Connected {st.sinceOffset != null ? dateOf(st.sinceOffset) : ''}</p>}
+              {st.status === 'Error' && <p className="mt-1 text-sm font-medium text-danger-text">{st.error} {st.sinceOffset != null ? dateOf(st.sinceOffset) : ''}</p>}
+              {st.status === 'Not connected' && loses && <p className="mt-1 text-sm text-muted">{loses}</p>}
+              {k !== 'ams' && (
+                <div className="mt-3">
+                  <Edit>
+                    {busy === k ? <Button size="sm" disabled>Connecting…</Button> : st.status === 'Connected' ? <Button size="sm" onClick={() => setConfirm({ key: k, to: 'Not connected' })}>Disconnect</Button> : <Button size="sm" variant={st.status === 'Error' ? 'secondary' : 'primary'} onClick={() => setConfirm({ key: k, to: 'Connected' })}>{st.status === 'Error' ? 'Reconnect' : 'Connect'}</Button>}
+                  </Edit>
+                </div>
+              )}
+            </Panel>
+          )
+        })}
+      </div>
+      {confirm && canEdit && <Confirm open onOpenChange={(o) => !o && setConfirm(null)} title={confirm.to === 'Connected' ? `Connect ${label(confirm.key)}?` : `Disconnect ${label(confirm.key)}?`} body={confirm.to === 'Connected' ? 'This is simulated.' : INTEGRATIONS.find((i) => i[0] === confirm.key)?.[3] ?? ''} confirmLabel={confirm.to === 'Connected' ? 'Connect' : 'Disconnect'} danger={confirm.to !== 'Connected'} onConfirm={() => { const c = confirm; setConfirm(null); void run(c.key, c.to) }} />}
+    </>
+  )
+}

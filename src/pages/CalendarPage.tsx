@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import * as Popover from '@radix-ui/react-popover'
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { visibleAccounts } from '@/domain/access'
+import { usd } from '@/app/hooks'
 import { useApp } from '@/app/store'
 import { useLookups } from '@/app/hooks'
 import type { Task } from '@/domain/types'
@@ -27,6 +29,11 @@ export function CalendarPage() {
   const complete = useCompleteTask()
   const [params, setParams] = useSearchParams()
   const view = (params.get('view') ?? 'week') as 'day' | 'week' | 'month'
+  // US-WRK-009: key-date overlays, remembered per user in this browser.
+  const overlayKey = `fortify.calendar.overlays.${user.id}`
+  const [overlays, setOverlays] = useState<{ ren: boolean; xd: boolean }>(() => { try { return { ren: false, xd: false, ...JSON.parse(localStorage.getItem(overlayKey) ?? '{}') } } catch { return { ren: false, xd: false } } })
+  useEffect(() => { try { setOverlays({ ren: false, xd: false, ...JSON.parse(localStorage.getItem(overlayKey) ?? '{}') }) } catch { /* storage blocked */ } }, [overlayKey])
+  const toggleOverlay = (k: 'ren' | 'xd') => { const n = { ...overlays, [k]: !overlays[k] }; setOverlays(n); try { localStorage.setItem(overlayKey, JSON.stringify(n)) } catch { /* storage blocked */ } }
   const anchor = params.get('date') ? new Date(`${params.get('date')}T12:00:00`) : new Date()
   const forOptions = user.role === 'producer' ? [user] : user.role === 'account-manager' ? data.users.filter((u) => u.officeId === user.officeId && u.role !== 'admin') : data.users.filter((u) => u.role !== 'admin')
   const who = user.role === 'producer' ? user.id : (params.get('for') ?? user.id)
@@ -44,6 +51,17 @@ export function CalendarPage() {
             const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
             return Array.from({ length: 42 }, (_, i) => new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay() + i))
           })()
+  const scoped = new Map(visibleAccounts(user, data.accounts).filter((a) => user.role !== 'producer' || a.producerId === user.id).map((a) => [a.id, a]))
+  const keyDates = new Map<number, { key: string; text: string; to: string }[]>()
+  const addKey = (off: number, x: { key: string; text: string; to: string }) => keyDates.set(off, [...(keyDates.get(off) ?? []), x])
+  if (view === 'month' && overlays.ren)
+    for (const r of data.renewals) {
+      const a = scoped.get(r.accountId)
+      const t = data.terms.find((x) => x.id === r.termId)
+      if (a && t && r.status !== 'Done') addKey(t.expirationOffset, { key: r.id, text: `Renewal: ${a.name} · ${data.policies.find((p) => p.id === r.policyId)?.line ?? ''}`, to: `/renewals/${r.id}` })
+    }
+  if (view === 'month' && overlays.xd)
+    for (const x of data.xDates) if (scoped.has(x.accountId) && x.interestLevel !== 'Closed') addKey(x.xDateOffset, { key: x.id, text: `X-date: ${x.line} · ${x.currentCarrier}${x.premium ? ` · ${usd(x.premium)}` : ''}`, to: `/x-dates?xdate=${x.id}` })
   const step = (dir: 1 | -1) => {
     const d = new Date(anchor)
     if (view === 'day') d.setDate(d.getDate() + dir)
@@ -146,6 +164,17 @@ export function CalendarPage() {
               </select>
             </label>
           )}
+          {view === 'month' && (
+            <Popover.Root>
+              <Popover.Trigger asChild><Button size="sm">Show<ChevronDown aria-hidden className="size-3.5" /></Button></Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content align="end" sideOffset={4} className="z-50 w-56 rounded-md bg-surface p-2 shadow-pop">
+                  <label className="flex h-8 items-center gap-2 px-1 text-base"><input type="checkbox" checked={overlays.ren} onChange={() => toggleOverlay('ren')} />Renewal expirations</label>
+                  <label className="flex h-8 items-center gap-2 px-1 text-base"><input type="checkbox" checked={overlays.xd} onChange={() => toggleOverlay('xd')} />X-dates</label>
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          )}
           <div role="group" aria-label="View" className="inline-flex rounded-md bg-recessed p-0.5">
             {(['day', 'week', 'month'] as const).map((v) => (
               <button key={v} aria-pressed={view === v} onClick={() => set({ view: v === 'week' ? null : v })} className={cx('h-7 rounded-[5px] px-2.5 text-sm capitalize', view === v ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
@@ -175,6 +204,7 @@ export function CalendarPage() {
                   {list.slice(0, 3).map(chip)}
                   {list.length > 3 && <button onClick={() => set({ view: 'day', date: isoDate(d) })} className="min-h-6 px-1 text-left text-xs text-link hover:underline">+{list.length - 3} more</button>}
                 </div>
+                <KeyDates items={keyDates.get(offsetOf(d)) ?? []} />
               </div>
             )
           })}
@@ -228,6 +258,23 @@ export function CalendarPage() {
         </div>
       )}
       {sheet && <TaskSheet task={sheet.task} prefill={sheet.prefill} onClose={() => setSheet(null)} />}
+    </div>
+  )
+}
+
+/** Overlays read as reference marks, not work: no fill, dashed rule, never completable or draggable. */
+function KeyDates({ items }: { items: { key: string; text: string; to: string }[] }) {
+  if (!items.length) return null
+  const row = (x: { key: string; text: string; to: string }) => <Link key={x.key} to={x.to} title={x.text} className="block min-h-6 truncate border-l-2 border-dashed border-label pl-1.5 text-xs leading-6 text-label hover:text-strong hover:underline">{x.text}</Link>
+  return (
+    <div className="mt-1 flex flex-col">
+      {items.slice(0, 2).map(row)}
+      {items.length > 2 && (
+        <Popover.Root>
+          <Popover.Trigger className="min-h-6 pl-2 text-left text-xs text-link hover:underline">+{items.length - 2} key dates</Popover.Trigger>
+          <Popover.Portal><Popover.Content sideOffset={4} className="z-50 max-h-80 w-72 overflow-y-auto rounded-md bg-surface p-2 shadow-pop">{items.map(row)}</Popover.Content></Popover.Portal>
+        </Popover.Root>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { offsetOfDate, useLookups, useMutate } from '@/app/hooks'
 import { findMatches } from '@/domain/rules'
+import { autoMap, IMPORT_FIELDS, parseCsv, reviewRows, type ImportField } from '@/domain/leadImport'
 import type { Lead, LeadSource, Line, UsState } from '@/domain/types'
 import { Confirm, Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
 import { Button, cx } from '@/components/ui/primitives'
@@ -318,5 +319,126 @@ export function DisqualifyDialog({ leadIds, onClose, presetReason }: { leadIds: 
       )}
       <Field label={reason === 'Other' ? 'Note (at least 10 characters)' : 'Note (optional)'}><textarea value={note} onChange={(e) => setNote(e.target.value)} className={cx(inputCls, 'h-20 py-2')} /></Field>
     </Confirm>
+  )
+}
+
+/** A demo file so the flow works without a CSV at hand: valid rows, a few invalid ones, and 6 known matches. */
+function sampleCsv(existing: { name: string; phone: string; email: string }[]) {
+  const first = ['Avery', 'Jordan', 'Riley', 'Casey', 'Morgan', 'Quinn', 'Rowan', 'Skyler', 'Taylor', 'Emerson', 'Hayden', 'Parker']
+  const last = ['Alvarez', 'Bennett', 'Castillo', 'Dawson', 'Ellison', 'Fuentes', 'Garza', 'Holt', 'Ibarra', 'Jensen']
+  const lines = ['Home', 'Auto', 'Home', 'Auto', 'Umbrella', 'Flood']
+  const rows = ['first_name,last_name,phone,email,zip,line,current_carrier']
+  for (let i = 0; i < 60; i++) {
+    const f = first[i % first.length]
+    const l = last[(i * 7) % last.length]
+    rows.push(`${f},${l},(713) 555-${String(2000 + i).padStart(4, '0')},${f.toLowerCase()}.${l.toLowerCase()}${i}@example.com,770${String(10 + (i % 80)).padStart(2, '0')},${lines[i % lines.length]},Gulf Harbor Insurance`)
+  }
+  rows.push('Pat,Owens,713555010,,77019,Home,', 'Lee,Song,,lee.song@example.com,7701,Auto,', 'Kim,Rhee,(713) 555-0199,,77019,Jet ski,')
+  for (const c of existing.slice(0, 6)) { const [f, ...r] = c.name.split(' '); rows.push(`${f},${r.join(' ') || 'Doe'},${c.phone},${c.email},77019,Auto,`) }
+  return rows.join('\n')
+}
+
+/** US-LEA-010: Principal and Admin import a purchased list in four steps. */
+export function ImportLeadsDialog({ onClose, onDone }: { onClose: () => void; onDone: (listName: string) => void }) {
+  const { data, user } = useApp()
+  const mutate = useMutate()
+  const toast = useToast()
+  const [step, setStep] = useState<'file' | 'map' | 'review'>('file')
+  const [listName, setListName] = useState('')
+  const [vendor, setVendor] = useState('')
+  const [officeId, setOfficeId] = useState(user.officeId)
+  const [grid, setGrid] = useState<string[][] | null>(null)
+  const [map, setMap] = useState<(ImportField | null)[]>([])
+  const [err, setErr] = useState<string | null>(null)
+  const [includeDup, setIncludeDup] = useState(false)
+  const [assignees, setAssignees] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const load = (text: string) => {
+    const g = parseCsv(text)
+    if (g.length < 2) return setErr('This file has no rows.')
+    if (g.length - 1 > 2000) return setErr('Use a .csv file with up to 2,000 rows.')
+    setErr(null)
+    setGrid(g)
+    setMap(autoMap(g[0]))
+  }
+  const existing = { phones: new Set([...data.contacts.map((c) => c.phone), ...data.leads.filter((l) => l.status === 'New' || l.status === 'Contacted').map((l) => l.phone)].map((p) => p.replace(/\D/g, '')).filter(Boolean)), emails: new Set([...data.contacts.map((c) => c.email), ...data.leads.map((l) => l.email)].filter(Boolean).map((e) => e.toLowerCase())) }
+  const reviewed = grid ? reviewRows(grid.slice(1), map, existing) : []
+  const ready = reviewed.filter((r) => r.status === 'Ready')
+  const invalid = reviewed.filter((r) => r.status === 'Invalid')
+  const dups = reviewed.filter((r) => r.status === 'Possible duplicate')
+  const toImport = [...ready, ...(includeDup ? dups : [])]
+  const producers = data.users.filter((u) => u.role === 'producer' && u.officeId === officeId && u.status !== 'Deactivated')
+  const missing = (['first_name', 'last_name', 'zip', 'line'] as ImportField[]).filter((f) => !map.includes(f)).concat(map.includes('phone') || map.includes('email') ? [] : ['phone' as ImportField])
+  const run = async () => {
+    setBusy(true)
+    try {
+      const n = await mutate((s) => s.importLeads(toImport.map((r) => ({ first: r.values.first_name!, last: r.values.last_name!, phone: r.values.phone ?? '', email: r.values.email ?? '', zip: r.values.zip!, city: r.values.city ?? '', street: r.values.street ?? '', line: r.line!, carrier: r.values.current_carrier || null })), { listName, vendor, officeId, assignees }, user.id))
+      toast(`${n.toLocaleString('en-US')} leads imported from ${listName}`, 'success')
+      onDone(listName)
+    } catch (e) {
+      setErr(`Import failed; nothing was saved. ${(e as Error).message}`)
+      setBusy(false)
+    }
+  }
+  const footer =
+    step === 'file' ? <><SheetCancel /><Button variant="primary" disabled={!grid || !listName.trim()} onClick={() => setStep('map')}>Map columns</Button></>
+    : step === 'map' ? <><Button onClick={() => setStep('file')}>Back</Button><Button variant="primary" disabled={missing.length > 0} onClick={() => setStep('review')}>Review</Button></>
+    : <><Button onClick={() => setStep('map')}>Back</Button><Button variant="primary" disabled={busy || !toImport.length} onClick={run}>{busy ? 'Importing…' : `Import ${toImport.length.toLocaleString('en-US')} leads`}</Button></>
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()} title="Import a lead list" description={step === 'file' ? 'Step 1 of 3 · File' : step === 'map' ? 'Step 2 of 3 · Map columns' : 'Step 3 of 3 · Review'} busy={busy} footer={footer}>
+      {err && <p role="alert" className="mb-3 rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
+      {step === 'file' && (
+        <div className="flex flex-col gap-3">
+          <Field label="List name"><input className={inputCls} placeholder="Q4 Homeowners TX" value={listName} onChange={(e) => setListName(e.target.value)} /></Field>
+          <Field label="Vendor"><input className={inputCls} placeholder="Acme Data Co." value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
+          <Field label="Office the Leads belong to"><select className={inputCls} value={officeId} onChange={(e) => setOfficeId(e.target.value)}>{data.offices.map((o) => <option key={o.id} value={o.id}>{o.name} {o.state}</option>)}</select></Field>
+          <Field label="CSV file (up to 2,000 rows)" hint="Required columns: first_name, last_name, phone or email, zip, line.">
+            <input type="file" accept=".csv,text/csv" className="text-base" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; if (!/\.csv$/i.test(f.name)) return setErr('Use a .csv file with up to 2,000 rows.'); load(await f.text()) }} />
+          </Field>
+          <button type="button" className="self-start text-sm text-link underline" onClick={() => { load(sampleCsv(data.contacts.filter((c) => c.phone && c.email))); if (!listName) setListName('Q4 Homeowners TX'); if (!vendor) setVendor('Acme Data Co.') }}>Use the sample file</button>
+          {grid && <p className="text-sm text-label">{(grid.length - 1).toLocaleString('en-US')} rows read.</p>}
+        </div>
+      )}
+      {step === 'map' && grid && (
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2">
+            {grid[0].map((h, i) => (
+              <li key={i} className="grid grid-cols-2 items-center gap-3">
+                <span className="truncate text-base font-medium" title={h}>{h}</span>
+                <select aria-label={`Map ${h}`} className={cx(inputCls, 'h-8')} value={map[i] ?? ''} onChange={(e) => setMap(map.map((m, j) => (j === i ? ((e.target.value || null) as ImportField | null) : m)))}>
+                  <option value="">Ignore</option>
+                  {IMPORT_FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </li>
+            ))}
+          </ul>
+          {missing.length > 0 && <p className="text-sm font-medium text-danger-text">Map {missing.join(', ')} to continue.</p>}
+          <div className="overflow-x-auto rounded-md shadow-ring">
+            <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+              <thead><tr className="h-8 border-b border-fill">{grid[0].map((_, i) => <th key={i} className="px-2 font-semibold">{map[i] ?? <span className="text-muted">ignored</span>}</th>)}</tr></thead>
+              <tbody>{grid.slice(1, 21).map((r, i) => <tr key={i} className="h-8 border-b border-fill last:border-0">{r.map((c, j) => <td key={j} className="max-w-40 truncate px-2">{c}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+          <p className="text-sm text-muted">Preview of the first 20 rows.</p>
+        </div>
+      )}
+      {step === 'review' && (
+        <div className="flex flex-col gap-3">
+          <p className="tabular text-base font-medium">{ready.length.toLocaleString('en-US')} ready · {invalid.length} invalid · {dups.length} possible duplicates</p>
+          {invalid.length > 0 && <details className="rounded-md bg-surface p-2 shadow-ring"><summary className="cursor-pointer text-base">Invalid rows are skipped ({invalid.length})</summary><ul className="mt-1 max-h-40 overflow-y-auto text-sm text-label">{invalid.map((r) => <li key={r.n}>{r.reason}</li>)}</ul></details>}
+          {dups.length > 0 && (
+            <details className="rounded-md bg-surface p-2 shadow-ring"><summary className="cursor-pointer text-base">Possible duplicates ({dups.length})</summary><ul className="mt-1 max-h-40 overflow-y-auto text-sm text-label">{dups.map((r) => <li key={r.n}>Row {r.n}: {r.values.first_name} {r.values.last_name}</li>)}</ul></details>
+          )}
+          {dups.length > 0 && <label className="flex items-center gap-2 text-base"><input type="checkbox" checked={includeDup} onChange={(e) => setIncludeDup(e.target.checked)} />Import possible duplicates too</label>}
+          <fieldset>
+            <legend className="mb-1 text-sm font-medium text-label">Assign to</legend>
+            <p className="mb-1 text-sm text-muted">{assignees.length ? `Split evenly across ${assignees.length} Producer${assignees.length === 1 ? '' : 's'}.` : 'Leave unassigned to triage from the Unassigned view.'}</p>
+            <ul className="max-h-48 overflow-y-auto">
+              {producers.map((u) => <li key={u.id}><label className="flex h-8 items-center gap-2 text-base"><input type="checkbox" checked={assignees.includes(u.id)} onChange={(e) => setAssignees(e.target.checked ? [...assignees, u.id] : assignees.filter((x) => x !== u.id))} />{u.name}</label></li>)}
+            </ul>
+          </fieldset>
+        </div>
+      )}
+    </Sheet>
   )
 }

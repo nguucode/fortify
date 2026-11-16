@@ -119,6 +119,7 @@ export function CertificatePage() {
   const toast = useToast()
   const [params] = useSearchParams()
   const [preparing, setPreparing] = useState(false)
+  const [reissuing, setReissuing] = useState(false)
   const [preview, setPreview] = useState(false)
   const [reviewing, setReviewing] = useState(params.get('mode') === 'review')
   const c = data.certificates?.find((x) => x.id === id)
@@ -127,6 +128,9 @@ export function CertificatePage() {
   if (!canSeeAccount(user, account)) return <AccessDenied what="certificate" owner={userName(account.accountManagerId)} />
   const holder = data.holders?.find((h) => h.id === c.holderId)
   const canPrepare = (user.role === 'account-manager' && user.officeId === account.officeId) || user.role === 'principal'
+  // US-CRT-010: follow the replacement chain to the newest Certificate.
+  let latest = c.id
+  for (let i = 0; i < 20; i++) { const nx = data.certificates?.find((x) => x.id === latest)?.replacedById; if (!nx) break; latest = nx }
   const involved = [c.preparedById, c.submittedById, c.createdById].includes(user.id)
   const terms = c.policyIds.map((pid) => ({ p: data.policies.find((x) => x.id === pid)!, t: currentTerm(data.terms, pid) ?? data.terms.filter((t) => t.policyId === pid).sort((a, b) => b.effectiveOffset - a.effectiveOffset)[0] }))
   const pending = terms.find(({ t }) => t?.status === 'Canceled' || t?.pendingCancellation)
@@ -153,8 +157,10 @@ export function CertificatePage() {
             {c.status === 'Requested' && <Gate allowed={canPrepare} reason="Only Account Managers in this Office and Principals prepare certificates."><Button variant="primary" onClick={() => setPreparing(true)}>Prepare certificate</Button></Gate>}
             {c.status === 'Needs review' && user.role === 'principal' && !involved && <Button variant="primary" onClick={() => setReviewing(true)}>Review</Button>}
             {c.status === 'Needs review' && c.submittedById === user.id && <Button onClick={() => mutate((s) => s.reviewCertificate(c.id, 'withdraw', null, user.id), 'Withdrawn from review')}>Withdraw</Button>}
+            {c.status === 'Replaced' && latest !== c.id && <Link to={`/certificates/${latest}`} className="inline-flex h-9 items-center text-base text-link underline">Latest: {latest}</Link>}
             {(c.status === 'Issued' || c.status === 'Re-issued') && (
               <>
+                {canPrepare && <Button onClick={() => setReissuing(true)}>Re-issue</Button>}
                 <Button onClick={() => mutate((s) => s.resendCertificate(c.id, user.id), 'Certificate resent')}>Resend</Button>
                 <Button onClick={() => toast('PDF download is simulated in this demo', 'info')}>Download PDF</Button>
               </>
@@ -207,6 +213,7 @@ export function CertificatePage() {
         </div>
       </div>
       {preparing && <IssueSheet cert={c} account={account} onClose={() => setPreparing(false)} />}
+      {reissuing && <IssueSheet reissue cert={c} account={account} onClose={() => setReissuing(false)} />}
       {preview && <AcordPreview cert={c} onClose={() => setPreview(false)} />}
       {reviewing && c.status === 'Needs review' && <ReviewSheet cert={c} onClose={() => setReviewing(false)} />}
     </div>
@@ -216,7 +223,7 @@ export function CertificatePage() {
 const MARKABLE: Record<keyof CertMarks, string[]> = { ai: ['GL', 'BOP', 'Commercial auto', 'Commercial umbrella'], wvd: ['GL', 'WC', 'Commercial auto', 'BOP'], pnc: ['GL', 'BOP', 'Commercial umbrella'] }
 
 /** US-CRT-005: prefilled from the request; marks per term; unmarked issues now, marked goes to review. */
-function IssueSheet({ cert, account, onClose }: { cert: Certificate; account: Account; onClose: () => void }) {
+function IssueSheet({ cert, account, onClose, reissue }: { cert: Certificate; account: Account; onClose: () => void; reissue?: boolean }) {
   const { data, user } = useApp()
   const { carrierName } = useLookups()
   const mutate = useMutate()
@@ -226,17 +233,30 @@ function IssueSheet({ cert, account, onClose }: { cert: Certificate; account: Ac
   const [delivery, setDelivery] = useState(holder?.email || '')
   const [ack, setAck] = useState(false)
   const anyMark = Object.values(marks).some((m) => m.ai || m.wvd || m.pnc)
+  const had = (k: keyof CertMarks) => Object.values(cert.marks ?? {}).some((m) => m[k]) || (k === 'ai' ? cert.additionalInsured : k === 'wvd' ? cert.waiver : cert.primaryNonContrib)
+  const addedFlags = (['ai', 'wvd', 'pnc'] as const).some((k) => Object.values(marks).some((m) => m[k]) && !had(k))
+  const toast = useToast()
+  const navigate = useNavigate()
   const pending = live.filter((p) => marks[p.id] && currentTerm(data.terms, p.id)?.pendingCancellation)
   const toggle = (pid: string, k: keyof CertMarks) => setMarks({ ...marks, [pid]: { ...marks[pid], [k]: !marks[pid][k] } })
   const submit = async () => {
     if (pending.length && !ack) throw new Error('Confirm the pending cancellation warning.')
+    if (reissue) {
+      const r = await mutate((s) => s.reissueCertificate(cert.id, { marks, delivery, policyIds: Object.keys(marks).filter((k) => marks[k]) }, user.id))
+      toast(r.review ? `${r.id} sent for Principal review` : `Re-issued as ${r.id}`, 'success')
+      onClose()
+      navigate(`/certificates/${r.id}`)
+      return
+    }
     await mutate((s) => s.prepareCertificate(cert.id, { marks, delivery, requireAi: holder?.type === 'Additional insured', policyIds: Object.keys(marks) }, user.id), anyMark ? 'Submitted for Principal review' : 'Certificate issued')
     onClose()
   }
   const [err, setErr] = useState<string | null>(null)
   return (
-    <Sheet open onOpenChange={(v) => !v && onClose()} title={`Prepare ${cert.id}`} description={holder?.name} footer={<><SheetCancel /><Button variant="primary" onClick={() => submit().catch((e) => setErr((e as Error).message))}>{anyMark ? 'Submit for review' : 'Issue certificate'}</Button></>}>
+    <Sheet open onOpenChange={(v) => !v && onClose()} title={reissue ? `Re-issue ${cert.id}` : `Prepare ${cert.id}`} description={holder?.name} footer={<><SheetCancel /><Button variant="primary" onClick={() => submit().catch((e) => setErr((e as Error).message))}>{reissue ? (addedFlags ? 'Submit for review' : 'Re-issue') : anyMark ? 'Submit for review' : 'Issue certificate'}</Button></>}>
       <div className="flex flex-col gap-4">
+        {reissue && holder?.addressChangedOffset != null && cert.issuedOffset != null && holder.addressChangedOffset >= cert.issuedOffset && <p className="rounded-md bg-recessed px-3 py-2 text-base">Holder address changed on {dateOf(holder.addressChangedOffset)}. The re-issue uses the new address.</p>}
+        {reissue && addedFlags && <p className="text-sm text-label">You added a flag the original didn’t have, so this goes to Principal review.</p>}
         {err && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
         <section>
           <h3 className="mb-2 text-base font-semibold text-strong">Policies</h3>

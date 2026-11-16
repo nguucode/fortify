@@ -14,7 +14,7 @@ import { Button, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { AccessDenied, NotFound } from './SystemPages'
-import { AssignLeadsDialog, DisqualifyDialog, LeadSheet, LogAttemptDialog } from './LeadSheets'
+import { AssignLeadsDialog, DisqualifyDialog, ImportLeadsDialog, LeadSheet, LogAttemptDialog } from './LeadSheets'
 
 export const leadCode = (id: string) => `L-${1000 + Number(id.replace(/\D/g, ''))}`
 const VIEWS = ['Open', 'Unassigned', 'Qualified', 'Disqualified']
@@ -34,6 +34,7 @@ export function LeadsPage() {
   const [params, setParams] = useSearchParams()
   const [bulk, setBulk] = useState<{ kind: 'assign' | 'disqualify'; ids: string[] } | null>(null)
   const [adding, setAdding] = useState(false)
+  const [importing, setImporting] = useState(false)
   const view = useView(VIEWS)
   const q = (params.get('q') ?? '').toLowerCase()
   const scoped = leadsInScope(user, data.leads)
@@ -44,7 +45,7 @@ export function LeadsPage() {
     Disqualified: (l) => l.status === 'Disqualified',
   }
   const digitsQ = q.replace(/\D/g, '')
-  const matches = (l: Lead) => !q || l.name.toLowerCase().includes(q) || (l.businessName ?? '').toLowerCase().includes(q) || l.email.includes(q) || (digitsQ.length > 2 && l.phone.replace(/\D/g, '').includes(digitsQ))
+  const matches = (l: Lead) => !q || l.name.toLowerCase().includes(q) || (l.sourceDetail ?? '').toLowerCase().includes(q) || (l.businessName ?? '').toLowerCase().includes(q) || l.email.includes(q) || (digitsQ.length > 2 && l.phone.replace(/\D/g, '').includes(digitsQ))
   const rows = scoped.filter((l) => inView[view](l) && matches(l)).sort((a, b) => b.createdOffset - a.createdOffset)
   const counts = Object.fromEntries(VIEWS.map((v) => [v, scoped.filter((l) => inView[v](l) && matches(l)).length]))
   const unassigned = scoped.filter(inView.Unassigned)
@@ -93,7 +94,7 @@ export function LeadsPage() {
 
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <PageTitle title="Leads" description="Inbound inquiries waiting to be contacted and qualified." actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setAdding(true)}><UserPlus aria-hidden className="size-4" /> Add lead</Button>} />
+      <PageTitle title="Leads" description="Inbound inquiries waiting to be contacted and qualified." actions={<span className="flex gap-2">{(user.role === 'principal' || user.role === 'admin') && <Button onClick={() => setImporting(true)}>Import</Button>}{user.role !== 'admin' && <Button variant="primary" onClick={() => setAdding(true)}><UserPlus aria-hidden className="size-4" /> Add lead</Button>}</span>} />
       {user.role !== 'producer' && unassigned.length > 0 && (
         <div className="mt-4 rounded-md bg-surface px-4 py-3 shadow-ring">
           <p className="text-base font-medium text-strong">{unassigned.length} new leads are unassigned</p>
@@ -144,6 +145,7 @@ export function LeadsPage() {
       {bulk?.kind === 'assign' && <AssignLeadsDialog leadIds={bulk.ids} onClose={() => setBulk(null)} />}
       {bulk?.kind === 'disqualify' && <DisqualifyDialog leadIds={bulk.ids} onClose={() => setBulk(null)} />}
       {adding && <LeadSheet onClose={() => setAdding(false)} />}
+      {importing && <ImportLeadsDialog onClose={() => setImporting(false)} onDone={(name) => { setImporting(false); const n = new URLSearchParams(params); n.set('q', name); n.set('view', 'unassigned'); setParams(n, { replace: true }) }} />}
     </div>
   )
 }

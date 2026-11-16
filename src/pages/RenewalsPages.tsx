@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { bulkSummary } from '@/app/bulk'
 import { useToast } from '@/components/ui/toast'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, Clock, Minus, Plus, RefreshCw, X } from 'lucide-react'
-import { compareRenewal, riskReasons } from '@/domain/renewals'
+import { ArrowDown, ArrowUp, Check, Clock, Minus, Plus, RefreshCw, X } from 'lucide-react'
+import { compareRenewal, renewalMilestones, riskReasons } from '@/domain/renewals'
 import { TaskSheet, useCompleteTask } from './TaskSheet'
 import { useApp } from '@/app/store'
 import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
@@ -200,6 +200,7 @@ export function RenewalPage() {
         }
       />
       <div className="flex flex-col gap-4 px-8 pt-5 max-sm:px-4">
+        <Milestones state={account.state} line={p.line} lastResort={!!data.carriers.find((c) => c.id === p.carrierId)?.note?.includes('last resort')} expiration={term.expirationOffset} />
         <ol aria-label="Renewal progress" className="flex gap-1 overflow-x-auto pb-1.5 max-sm:[&>li]:min-w-[96px]">
           {STEPS.map((st) => {
             const reached = STEPS.indexOf(r.status) >= STEPS.indexOf(st)
@@ -330,5 +331,25 @@ function CompareTable({ compare }: { compare: NonNullable<ReturnType<typeof comp
       </div>
       {unchanged.length > 0 && <button onClick={() => setAll(!all)} className="mt-2 text-sm text-link hover:underline">{all ? 'Hide' : 'Show'} {unchanged.length} unchanged</button>}
     </Panel>
+  )
+}
+
+/** US-REN-012: passed milestones are checked and muted; the next one shows how far off it is. */
+function Milestones({ state, line, lastResort, expiration }: { state: string; line: string; lastResort: boolean; expiration: number }) {
+  const ms = renewalMilestones(state, line, lastResort, expiration)
+  if (!ms.length) return null
+  const next = ms.find((m) => m.offset >= 0)
+  return (
+    <ol aria-label="Notice milestones" className="flex flex-wrap gap-x-6 gap-y-1 rounded-md bg-surface px-4 py-2.5 text-base shadow-ring">
+      {ms.map((m) => {
+        const passed = m.offset < 0
+        return (
+          <li key={m.label} className={cx('flex items-center gap-1.5', passed ? 'text-muted' : 'text-ink')}>
+            {passed ? <Check aria-hidden className="size-4" /> : <Clock aria-hidden className="size-4 text-label" />}
+            <span>{m.label} <span className="tabular">{dateOf(m.offset)}</span>{m === next && <span className="text-label"> · {inDays(m.offset)}</span>}{passed && <span className="sr-only"> (passed)</span>}</span>
+          </li>
+        )
+      })}
+    </ol>
   )
 }

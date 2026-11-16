@@ -25,8 +25,9 @@ import { XDatesPage } from '@/pages/XDatesPages'
 import { CertificatePage, CertificatesPage } from '@/pages/CertificatesPages'
 import { ClaimPage, ClaimsPage } from '@/pages/ClaimsPages'
 import { InboxPage } from '@/pages/InboxPage'
+import { useInboundArrivals } from '@/mock/inboundArrivals'
 import { ReportsPage } from '@/pages/ReportsPage'
-import { SettingsCarriers, SettingsDataSync, SettingsIndex, SettingsLayout, SettingsLicenses, SettingsOffices, SettingsPipeline, SettingsRoles, SettingsTemplates, SettingsUsers } from '@/pages/SettingsPages'
+import { SettingsCarriers, SettingsDataSync, SettingsIndex, SettingsIntegrations, SettingsLayout, SettingsLicenses, SettingsOffices, SettingsPipeline, SettingsRoles, SettingsTemplates, SettingsUsers } from '@/pages/SettingsPages'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { TodayPage } from '@/pages/TodayPage'
 import { ProductBacklog, ProductEpic, ProductGlossary, ProductLayout, ProductObjectModel, ProductOverview, ProductRoles, ProductSitemap, ProductStory, ProductStoryMap } from '@/pages/ProductPages'
@@ -67,6 +68,8 @@ function ReadOnlyBanner() {
 
 function Shell() {
   const [palette, setPalette] = useState(false)
+  // US-INB-011: the open conversation (if any) reads arrivals at once.
+  useInboundArrivals(() => (location.pathname === '/inbox' ? new URLSearchParams(location.search).get('c') : null))
   return (
     <div className="flex h-dvh flex-col">
       <a href="#main" className="sr-only z-[60] rounded-md bg-surface px-3 py-2 text-base font-medium text-link shadow-pop focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
@@ -118,6 +121,7 @@ export function App() {
                   <Route path="carriers" element={<SettingsCarriers />} />
                   <Route path="licenses" element={<SettingsLicenses />} />
                   <Route path="data-sync" element={<SettingsDataSync />} />
+                  <Route path="integrations" element={<SettingsIntegrations />} />
                 </Route>
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/contacts/:id" element={<ContactPage />} />

@@ -54,6 +54,8 @@ export interface AgencySettings {
   stages: Record<string, { probability: number; staleDays: number }>
   lostReasons: { name: string; retired?: boolean }[]
   dqReasons: { name: string; retired?: boolean }[]
+  /** US-SET-011: simulated integration states (absent = seed defaults). */
+  integrations?: Record<string, { status: 'Connected' | 'Not connected' | 'Error'; sinceOffset?: number | null; error?: string | null }>
 }
 export interface Appointment { carrierId: string; state: UsState; status: 'Active' | 'Terminated' | 'Not appointed'; effectiveOffset: number | null; terminatedOffset: number | null; lines: Line[] }
 
@@ -399,6 +401,8 @@ export interface Holder {
   type?: 'Holder-only' | 'Additional insured'
   project?: string | null
   status?: 'Active' | 'Inactive'
+  /** US-CRT-010: day the address last changed. */
+  addressChangedOffset?: number | null
 }
 export type CertMarks = { ai: boolean; wvd: boolean; pnc: boolean }
 export type CertificateStatus = 'Requested' | 'Needs review' | 'Issued' | 'Re-issued' | 'Replaced' | 'Withdrawn'
@@ -498,6 +502,8 @@ export interface Message {
   body: string
   attachments?: { name: string; sizeKb: number | null }[]
   simulated?: boolean
+  /** US-INB-011: arrived while the app was open (raises a notification). */
+  arrived?: boolean
   call?: { direction: 'Inbound' | 'Outbound'; durationSec: number; outcome: CallOutcome; loggedById: string }
 }
 export interface Conversation {

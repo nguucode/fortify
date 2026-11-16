@@ -73,3 +73,22 @@ export function compareRenewal(r: Renewal, t: Term, p: Policy): { total: { expir
   if (!rows.length) row('Coverage', p.line, p.line)
   return { total: { expiring: t.premium, renewal: r.renewalPremium, change: r.renewalPremium - t.premium, pct: (r.renewalPremium - t.premium) / t.premium }, rows }
 }
+
+/**
+ * US-REN-012: statutory notice milestones (rules.md). FL residential property: carrier non-renewal notice 120
+ * days and renewal premium notice 45 days before expiration, plus a clearinghouse review at 60 for the carrier of
+ * last resort. TX residential property and personal auto: non-renewal notice 60 days before (Tex. Ins. Code
+ * 551.105 as amended by HB 1900). Commercial lines: none.
+ */
+export function renewalMilestones(state: string, line: string, lastResort: boolean, expirationOffset: number): { label: string; offset: number }[] {
+  const residential = ['Home', 'Condo', 'Renters'].includes(line)
+  const out: { label: string; offset: number }[] = []
+  if (state === 'FL' && residential) {
+    out.push({ label: 'Carrier non-renewal notice due by', offset: expirationOffset - 120 })
+    if (lastResort) out.push({ label: 'Clearinghouse review', offset: expirationOffset - 60 })
+    out.push({ label: 'Renewal premium notice due by', offset: expirationOffset - 45 })
+  } else if (state === 'TX' && (residential || line === 'Auto')) {
+    out.push({ label: 'Carrier non-renewal notice due by', offset: expirationOffset - 60 })
+  }
+  return out
+}

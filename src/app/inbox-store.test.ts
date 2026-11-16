@@ -94,4 +94,15 @@ describe('Inbox store (INB P1)', () => {
     const id = s.sendEmail({ conversationId: null, accountId: 'hh', contactId: 'c1', to: ['mike@example.com'], cc: [], subject: 'Hi', body: 'Hello', attachments: [] }, 'am', now)
     expect(s.getState().activities.at(-1)).toMatchObject({ type: 'email', conversationId: id })
   })
+
+  it('an inbound STOP opts the Contact out; a reply on a Done conversation reopens it unread (US-INB-011)', () => {
+    const d = base()
+    d.contacts[0].smsConsent = { state: 'Opted in', offset: -5 }
+    d.conversations!.push({ id: 'cnv-0003', channel: 'sms', subject: null, address: '(555) 010-2290', accountId: 'hh', contactId: 'c1', officeId: 'off', assigneeId: 'am', status: 'Done', unreadBy: [], lastAt: iso(30), related: [] })
+    const s = createDataStore(d, now)
+    s.receiveMessage('cnv-0003', 'stop', null, now)
+    expect(s.getState().contacts[0].smsConsent?.state).toBe('Opted out')
+    expect(s.getState().conversations!.find((c) => c.id === 'cnv-0003')).toMatchObject({ status: 'Open', unreadBy: ['am'] })
+    expect(s.getState().messages!.at(-1)!.body).toBe('Mike Torres replied STOP. Texting is off for (555) 010-2290.')
+  })
 })

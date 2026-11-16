@@ -32,6 +32,7 @@ import { addMonths, canQuoteTransition, canServiceTransition, checkStageMove, ne
 import { daysBetween, formatUSDate, resolveOffset } from '@/mock/dates'
 import { addBusinessHours, businessHoursBetween, slaHours } from '@/domain/sla'
 import { unknownTokens } from '@/domain/templates'
+import { START_WORDS, STOP_WORDS } from '@/domain/sms'
 
 /**
  * The mutable mock store (US-FND-005). Every action builds the next state and commits it once,
@@ -52,6 +53,17 @@ export function archiveBlock(s: Pick<Dataset, 'policies' | 'terms' | 'opportunit
   const srs = s.serviceRequests.filter((r) => r.accountId === a.id && r.status !== 'Done').length
   if (srs) return `${a.name} has ${srs} open service request${srs === 1 ? '' : 's'}. Close ${srs === 1 ? 'it' : 'them'} before archiving.`
   return null
+}
+
+/** US-SET-011 seed states. */
+export const INTEGRATION_DEFAULTS: NonNullable<AgencySettings['integrations']> = {
+  ams: { status: 'Connected', sinceOffset: -400 },
+  email: { status: 'Connected', sinceOffset: -400 },
+  sms: { status: 'Connected', sinceOffset: -300 },
+  phone: { status: 'Error', sinceOffset: -14, error: 'Authorization expired on' },
+  calendar: { status: 'Connected', sinceOffset: -250 },
+  esign: { status: 'Not connected' },
+  rater: { status: 'Not connected' },
 }
 
 export function createDataStore(seed: Dataset, today: Date = new Date()) {
@@ -439,6 +451,22 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
     },
 
     /** US-LEA-002: add (id null) or edit a New/Contacted Lead. */
+    /** US-LEA-010: Ready rows become New Leads (Source "Purchased list"), split evenly across Producers or unassigned. */
+    importLeads(rows: { first: string; last: string; phone: string; email: string; zip: string; city: string; street: string; line: Line; carrier: string | null }[], meta: { listName: string; vendor: string; officeId: string; assignees: string[] }, actorId: string) {
+      const s = state
+      if (!meta.listName.trim()) throw new Error('Name the list.')
+      if (rows.length > 2000) throw new Error('Import up to 2,000 rows at a time.')
+      const office = must(s.offices.find((o) => o.id === meta.officeId), 'Office')
+      let n = s.leads.reduce((m, x) => Math.max(m, Number(x.id.replace(/\D/g, '')) || 0), 0)
+      const fmt = (p: string) => { const d = p.replace(/\D/g, ''); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p }
+      const fresh: Lead[] = rows.map((r, i) => ({
+        id: `lea-${String(++n).padStart(4, '0')}`, kind: 'Household', name: `${r.first} ${r.last}`, businessName: null, phone: fmt(r.phone), email: r.email, street: r.street, city: r.city || office.city, state: office.state as Lead['state'], zip: r.zip,
+        linesOfInterest: [r.line], currentCarrier: r.carrier, currentPremium: null, xDateOffset: null, source: 'Purchased list', sourceDetail: meta.listName.trim(), notes: `Vendor: ${meta.vendor || 'Unknown'}`, officeId: office.id,
+        assigneeId: meta.assignees.length ? meta.assignees[i % meta.assignees.length] : null, status: 'New', disqualifyReason: null, createdOffset: 0, attempts: [], qualifiedAccountId: null, qualifiedOpportunityId: null, events: [{ offset: 0, text: `Imported from ${meta.listName.trim()} by ${userName(actorId)}`, byId: actorId }],
+      }) as Lead)
+      commit({ ...s, leads: [...fresh, ...s.leads] })
+      return fresh.length
+    },
     saveLead(
       id: string | null,
       input: { kind: Lead['kind']; firstName: string; lastName: string; businessName: string | null; phone: string; email: string; street: string; city: string; state: Lead['state']; zip: string; linesOfInterest: Line[]; currentCarrier: string | null; currentPremium: number | null; xDateOffset: number | null; source: Lead['source']; sourceDetail: string | null; notes: string | null; officeId: string; assigneeId: string | null },
@@ -843,6 +871,14 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
     setTemplateStatus(id: string, status: Template['status']) {
       commit({ ...state, templates: (state.templates ?? []).map((t) => (t.id === id ? { ...t, status } : t)) })
     },
+    /** US-SET-011: simulated connect/disconnect; the AMS can't be disconnected. */
+    setIntegration(key: string, status: 'Connected' | 'Not connected', actorId: string) {
+      const s = state
+      if (key === 'ams') throw new Error('Fortify needs the AMS to show policies.')
+      const cur = s.settings!
+      commit({ ...s, settings: { ...cur, integrations: { ...INTEGRATION_DEFAULTS, ...(cur.integrations ?? {}), [key]: { status, sinceOffset: status === 'Connected' ? 0 : null, error: null } } } })
+      void actorId
+    },
     /** US-SET-012: a manual run; with a forced error it fails like the AMS timing out. */
     syncNow(fail: boolean, now: Date = new Date()) {
       const s = state
@@ -1048,6 +1084,24 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       const sys: Message = { id: seq('msg-', s.messages ?? []), conversationId: id, kind: 'system', fromName: 'Fortify', from: '', to: [], at: now.toISOString(), body: text }
       commit({ ...s, conversations: (s.conversations ?? []).map((x) => (x.id === id ? { ...x, related: [...x.related.filter((r) => r.id !== rel.id), rel] } : x)), messages: [...(s.messages ?? []), sys] })
     },
+    /** US-INB-011: a simulated inbound message. Done reopens; STOP/START change consent; read at once if open. */
+    receiveMessage(conversationId: string, body: string, viewingId: string | null, now: Date = new Date()) {
+      let s = state
+      const c = must((s.conversations ?? []).find((x) => x.id === conversationId), 'Conversation')
+      const contact = s.contacts.find((x) => x.id === c.contactId)
+      const name = contact?.name ?? c.address
+      const at = now.toISOString()
+      const msgs: Message[] = [{ id: seq('msg-', s.messages ?? []), conversationId, kind: 'in', fromName: name, from: c.address, to: [], at, body, arrived: true }]
+      const word = body.trim().toUpperCase()
+      if (c.channel === 'sms' && contact && (STOP_WORDS.includes(word) || START_WORDS.includes(word))) {
+        const stop = STOP_WORDS.includes(word)
+        this.recordSmsConsent(contact.id, stop ? 'Opted out' : 'Opted in', stop ? 'Replied STOP' : 'Replied START', null)
+        s = state
+        msgs.push({ id: `msg-${Number(msgs[0].id.slice(4)) + 1}`, conversationId, kind: 'system', fromName: 'Fortify', from: '', to: [], at: new Date(now.getTime() + 1000).toISOString(), body: `${name} replied ${stop ? 'STOP' : 'START'}. Texting is ${stop ? 'off' : 'on'} for ${c.address}.` })
+      }
+      const reading = viewingId === conversationId
+      commit({ ...s, conversations: s.conversations!.map((x) => (x.id === conversationId ? { ...x, status: 'Open', lastAt: at, unreadBy: reading ? x.unreadBy : [...new Set([...x.unreadBy, x.assigneeId])] } : x)), messages: [...(s.messages ?? []), ...msgs] })
+    },
     /** US-INB-009: shared with the Notifications panel. */
     markMentionsRead(activityIds: string[], userId: string) {
       const s = state
@@ -1063,6 +1117,8 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       const holders = s.holders ?? []
       const hid = id ?? seq('hld-', holders)
       const next: Holder = { status: 'Active', type: 'Holder-only', ...(id ? holders.find((h) => h.id === id) : {}), ...input, id: hid }
+      const prevH = id ? holders.find((h) => h.id === id) : undefined
+      if (prevH && (prevH.address !== next.address || prevH.city !== next.city || prevH.zip !== next.zip)) next.addressChangedOffset = 0
       commit({ ...s, holders: id ? holders.map((h) => (h.id === id ? next : h)) : [...holders, next], activities: [...s.activities, activity(s, { accountId: input.accountId, type: 'system', subject: `Holder ${id ? 'updated' : 'added'}: ${next.name}`, body: null, createdById: actorId, linked: null })] })
       return hid
     },
@@ -1122,6 +1178,23 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
     },
 
     /** US-CRT-009: re-issue on renewal; flagged certificates go to review. Returns the counts for the toast. */
+    /** US-CRT-010: re-issue one Certificate; only flags the original didn't have send it to review. */
+    reissueCertificate(baseId: string, input: { marks: Record<string, CertMarks>; delivery: string; policyIds: string[] }, actorId: string, now: Date = new Date()) {
+      const s = state
+      const certs = s.certificates ?? []
+      const c = must(certs.find((x) => x.id === baseId), 'Certificate')
+      if ((c.status !== 'Issued' && c.status !== 'Re-issued') || c.replacedById) throw new Error('Only the latest issued Certificate can be re-issued.')
+      if (!input.policyIds.length) throw new Error('Include at least one policy.')
+      const had = (k: keyof CertMarks) => Object.values(c.marks ?? {}).some((m) => m[k]) || (k === 'ai' ? c.additionalInsured : k === 'wvd' ? c.waiver : c.primaryNonContrib)
+      const added = (['ai', 'wvd', 'pnc'] as const).filter((k) => Object.values(input.marks).some((m) => m[k]) && !had(k))
+      const review = added.length > 0
+      const any = (k: keyof CertMarks) => Object.values(input.marks).some((m) => m[k])
+      const at = now.toISOString()
+      const nid = `CERT-${String(certs.reduce((m, x) => Math.max(m, Number(x.id.replace(/\D/g, '')) || 0), 0) + 1).padStart(4, '0')}`
+      const fresh = { ...c, id: nid, policyIds: input.policyIds, marks: input.marks, delivery: input.delivery, additionalInsured: any('ai'), waiver: any('wvd'), primaryNonContrib: any('pnc'), status: review ? ('Needs review' as const) : ('Re-issued' as const), reissueOfId: c.id, replacedById: null, createdOffset: 0, createdById: actorId, submittedById: review ? actorId : null, submittedAt: review ? at : null, issuedById: review ? null : actorId, issuedAt: review ? at : null, issuedOffset: review ? null : 0, history: [{ at, text: `Re-issue of ${c.id}${review ? ` · added ${added.map((k) => ({ ai: 'ADDL INSD', wvd: 'SUBR WVD', pnc: 'P&NC' })[k]).join(', ')}, sent for Principal review` : ` · issued by ${userName(actorId)}`}`, byId: actorId }] }
+      commit({ ...s, certificates: [...certs.map((x) => (x.id === baseId ? { ...x, status: 'Replaced' as const, replacedById: nid, history: [...(x.history ?? []), { at, text: `Replaced by ${nid}`, byId: actorId }] } : x)), fresh], activities: [...s.activities, activity(s, { accountId: c.accountId, type: 'system', subject: `${c.id} re-issued as ${nid}${review ? ' (sent for review)' : ''}`, body: null, createdById: actorId, linked: { kind: 'certificate', id: nid } })] })
+      return { id: nid, review }
+    },
     reissueCertificates(ids: string[], actorId: string, now: Date = new Date()) {
       const s = state
       let certs = s.certificates ?? []

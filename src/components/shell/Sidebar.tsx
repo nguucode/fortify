@@ -26,7 +26,9 @@ function readPinned() {
 }
 
 export function Sidebar() {
-  const { user } = useApp()
+  const { user, data } = useApp()
+  // US-INB-011: unread conversations assigned to me.
+  const unread = (data.conversations ?? []).filter((c) => c.assigneeId === user.id && c.status === 'Open' && c.unreadBy.includes(user.id)).length
   const { pathname } = useLocation()
   const [pinned, setPinned] = useState(readPinned)
   const [hover, setHover] = useState(false)
@@ -74,8 +76,9 @@ export function Sidebar() {
           active ? 'bg-surface text-strong shadow-ring' : 'text-label hover:bg-recessed hover:text-strong',
         )}
       >
-        <Icon aria-hidden className={cx('size-4 shrink-0', active ? 'opacity-100' : 'opacity-60 group-hover:opacity-100')} strokeWidth={1.75} />
-        <span className={cx('truncate', !open && 'sr-only')}>{it.label}</span>
+        <span className="relative shrink-0"><Icon aria-hidden className={cx('size-4', active ? 'opacity-100' : 'opacity-60 group-hover:opacity-100')} strokeWidth={1.75} />{it.id === 'inbox' && unread > 0 && !open && <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" />}</span>
+        <span className={cx('truncate', !open && 'sr-only')}>{it.label}{it.id === 'inbox' && unread > 0 && <span className="sr-only">, {unread} unread</span>}</span>
+        {it.id === 'inbox' && unread > 0 && open && <span aria-hidden className="tabular ml-auto rounded-full bg-fill px-1.5 text-xs leading-5 text-label">{unread > 99 ? '99+' : unread}</span>}
       </NavLink>
     )
     return open ? link : <Tip key={it.id} label={it.label} side="right">{link}</Tip>
