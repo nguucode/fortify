@@ -25,12 +25,13 @@ import { XDatesPage } from '@/pages/XDatesPages'
 import { CertificatePage, CertificatesPage } from '@/pages/CertificatesPages'
 import { ClaimPage, ClaimsPage } from '@/pages/ClaimsPages'
 import { InboxPage } from '@/pages/InboxPage'
+import { ReportsPage } from '@/pages/ReportsPage'
 import { SettingsCarriers, SettingsDataSync, SettingsIndex, SettingsLayout, SettingsLicenses, SettingsOffices, SettingsPipeline, SettingsRoles, SettingsTemplates, SettingsUsers } from '@/pages/SettingsPages'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { TodayPage } from '@/pages/TodayPage'
 import { ProductBacklog, ProductEpic, ProductGlossary, ProductLayout, ProductObjectModel, ProductOverview, ProductRoles, ProductSitemap, ProductStory, ProductStoryMap } from '@/pages/ProductPages'
 
-const BUILT = new Set(['/accounts', '/contacts', '/tasks', '/calendar', '/x-dates', '/certificates', '/claims', '/settings', '/inbox', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
+const BUILT = new Set(['/accounts', '/contacts', '/tasks', '/calendar', '/x-dates', '/certificates', '/claims', '/settings', '/inbox', '/reports', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
 
 /** US-FND-011: below 768px editing is hidden; say so once per session. */
 function ReadOnlyBanner() {
@@ -106,6 +107,7 @@ export function App() {
                 <Route path="/claims" element={<ClaimsPage />} />
                 <Route path="/claims/:id" element={<ClaimPage />} />
                 <Route path="/inbox" element={<InboxPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<SettingsIndex />} />
                   <Route path="users" element={<SettingsUsers />} />
