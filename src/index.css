@@ -14,6 +14,8 @@
   --text-base--line-height: 21px;
   --text-lg: 16px;
   --text-lg--line-height: 24px;
+  --text-metric: 24px;
+  --text-metric--line-height: 32px;
   --text-title: 30px;
   --text-title--line-height: 36px;
 
@@ -104,4 +106,27 @@
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Spec documents in the Product menu (US-PRD-003): the same type ramp and table grammar as the app. */
+@layer components {
+  .prose-fortify {
+    @apply max-w-[80ch] text-base text-ink;
+  }
+  .prose-fortify h1 { @apply mt-6 mb-2 text-title font-semibold text-strong; }
+  .prose-fortify h2 { @apply mt-8 mb-2 text-lg font-medium text-strong; }
+  .prose-fortify h3 { @apply mt-5 mb-1.5 text-base font-semibold text-strong; }
+  .prose-fortify p { @apply my-2; }
+  .prose-fortify ul { @apply my-2 list-disc pl-5; }
+  .prose-fortify ol { @apply my-2 list-decimal pl-5; }
+  .prose-fortify li { @apply my-1; }
+  .prose-fortify a { @apply text-link underline-offset-2 hover:underline; }
+  .prose-fortify code { @apply rounded-sm bg-recessed px-1 font-mono text-sm; }
+  .prose-fortify pre { @apply my-3 overflow-x-auto rounded-md bg-recessed p-3 font-mono text-sm leading-relaxed; }
+  .prose-fortify pre code { @apply bg-transparent p-0; }
+  .prose-fortify table { @apply my-3 w-full border-collapse overflow-hidden rounded-md bg-surface text-left shadow-ring; }
+  .prose-fortify th { @apply h-10 border-b border-fill px-3 font-semibold text-strong; }
+  .prose-fortify td { @apply h-10 border-b border-fill px-3 align-middle; }
+  .prose-fortify tr:last-child td { @apply border-b-0; }
+  .prose-fortify strong { @apply font-semibold text-strong; }
 }

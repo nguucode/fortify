@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowDown, ArrowUp, RefreshCw } from 'lucide-react'
+import { ArrowDown, ArrowUp, Clock, RefreshCw } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditRenewal, canSeeAccount, visibleAccounts } from '@/domain/access'
@@ -55,7 +55,7 @@ export function RenewalsPage() {
     { key: 'account', label: 'Account', sort: (a, b) => a.accountName.localeCompare(b.accountName), render: (r) => <Link to={`/renewals/${r.id}`} className="font-medium text-strong hover:text-link hover:underline">{r.accountName}</Link> },
     { key: 'line', label: 'Line', width: 140, render: (r) => r.line },
     { key: 'status', label: 'Status', width: 130, render: (r) => <StatusCell status={r.status} /> },
-    { key: 'exp', label: 'Expires', width: 190, sort: (a, b) => a.term.expirationOffset - b.term.expirationOffset, render: (r) => <span className={cx('tabular', r.term.expirationOffset <= 14 && 'font-medium text-warning-text')}>{dateOf(r.term.expirationOffset)} · {inDays(r.term.expirationOffset)}</span> },
+    { key: 'exp', label: 'Expires', width: 230, sort: (a, b) => a.term.expirationOffset - b.term.expirationOffset, render: (r) => <span className={cx('tabular inline-flex items-center gap-1', r.term.expirationOffset <= 14 && 'font-medium text-warning-text')}>{r.term.expirationOffset <= 14 && <Clock aria-hidden className="size-3.5" />}{dateOf(r.term.expirationOffset)} · {inDays(r.term.expirationOffset)}</span> },
     { key: 'premium', label: 'Expiring premium', width: 140, align: 'right', render: (r) => usd(r.term.premium) },
     { key: 'change', label: 'Change', width: 100, align: 'right', sort: (a, b) => (changePct(a, a.term) ?? 0) - (changePct(b, b.term) ?? 0), render: (r) => <Change pct={changePct(r, r.term)} /> },
     { key: 'risk', label: 'Risk', width: 90, render: (r) => (isHighRisk(r, r.term) ? <span className="font-medium text-danger-text">High</span> : <span className="text-label">Low</span>) },
@@ -126,11 +126,11 @@ export function RenewalPage() {
         }
       />
       <div className="flex flex-col gap-4 px-8 pt-5 max-sm:px-4">
-        <ol aria-label="Renewal progress" className="flex gap-1">
+        <ol aria-label="Renewal progress" className="flex gap-1 overflow-x-auto pb-1.5 max-sm:[&>li]:min-w-[96px]">
           {STEPS.map((st) => {
             const reached = STEPS.indexOf(r.status) >= STEPS.indexOf(st)
             return (
-              <li key={st} aria-current={st === r.status ? 'step' : undefined} className={cx('flex-1 border-t-2 pt-1.5 text-sm', reached ? 'border-primary font-medium text-strong' : 'border-fill text-muted')}>
+              <li key={st} aria-current={st === r.status ? 'step' : undefined} className={cx('flex-1 border-t-2 pt-1.5 text-sm', st === r.status ? 'border-strong font-semibold text-strong' : reached ? 'border-label text-label' : 'border-fill text-muted')}>
                 {st}
               </li>
             )

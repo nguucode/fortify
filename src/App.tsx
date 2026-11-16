@@ -16,8 +16,9 @@ import { RenewalPage, RenewalsPage } from '@/pages/RenewalsPages'
 import { ServicePage, ServiceRequestPage } from '@/pages/ServicePages'
 import { AccountPage } from '@/pages/AccountPage'
 import { TodayPage } from '@/pages/TodayPage'
+import { ProductBacklog, ProductEpic, ProductGlossary, ProductLayout, ProductObjectModel, ProductOverview, ProductRoles, ProductSitemap, ProductStory, ProductStoryMap } from '@/pages/ProductPages'
 
-const BUILT = new Set(['/accounts', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service'])
+const BUILT = new Set(['/accounts', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
 
 function Shell() {
   const [palette, setPalette] = useState(false)
@@ -57,6 +58,17 @@ export function App() {
                 <Route path="/renewals/:id" element={<RenewalPage />} />
                 <Route path="/service" element={<ServicePage />} />
                 <Route path="/service/:id" element={<ServiceRequestPage />} />
+                <Route path="/product" element={<ProductLayout />}>
+                  <Route index element={<ProductOverview />} />
+                  <Route path="sitemap" element={<ProductSitemap />} />
+                  <Route path="object-model" element={<ProductObjectModel />} />
+                  <Route path="roles" element={<ProductRoles />} />
+                  <Route path="glossary" element={<ProductGlossary />} />
+                  <Route path="backlog" element={<ProductBacklog />} />
+                  <Route path="backlog/map" element={<ProductStoryMap />} />
+                  <Route path="epics/:code" element={<ProductEpic />} />
+                  <Route path="stories/:id" element={<ProductStory />} />
+                </Route>
                 {allNavItems.filter((i) => !BUILT.has(i.route)).map((i) => (
                   <Route key={i.id} path={`${i.route}/*`} element={<NotBuiltPage />} />
                 ))}

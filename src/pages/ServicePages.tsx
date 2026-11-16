@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { ClipboardCheck, Plus } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import * as Menu from '@radix-ui/react-dropdown-menu'
+import { ClipboardCheck, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { useApp } from '@/app/store'
-import { dateOf, inDays, useLookups, useMutate } from '@/app/hooks'
+import { dateOf, useLookups, useMutate } from '@/app/hooks'
 import { canEditService, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { canServiceTransition } from '@/domain/rules'
 import type { ServiceRequest, ServiceStatus, ServiceType } from '@/domain/types'
-import { Confirm, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet } from '@/components/patterns'
-import { Button, cx } from '@/components/ui/primitives'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, type Column } from '@/components/patterns'
+import { menuContent, menuItem } from '@/components/shell/TopBar'
+import { Button, CountPill, cx } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { AccessDenied, NotFound } from './SystemPages'
@@ -19,58 +21,152 @@ const POLICY_CHANGE_KINDS = ['Add vehicle', 'Remove vehicle', 'Add driver', 'Rem
 /** US-SRV-001: board by status; Done shows the last 30 days. Scoped by role. */
 export function ServicePage() {
   const { data, user } = useApp()
-  const { account, userName } = useLookups()
+  const { account, userName, policy } = useLookups()
   const navigate = useNavigate()
+  const mutate = useMutate()
+  const [params, setParams] = useSearchParams()
   const [creating, setCreating] = useState(false)
+  const [q, setQ] = useState('')
+  const [mineOnly, setMineOnly] = useState(user.role === 'account-manager')
+  const list = params.get('view') === 'list'
+  const setView = (v: 'board' | 'list') => {
+    const next = new URLSearchParams(params)
+    if (v === 'list') next.set('view', 'list')
+    else next.delete('view')
+    setParams(next, { replace: true })
+  }
+  const readOnly = user.role === 'admin'
   const scoped = new Set(visibleAccounts(user, data.accounts).map((a) => a.id))
-  const items = data.serviceRequests.filter((r) => scoped.has(r.accountId) && (r.status !== 'Done' || r.createdOffset > -30))
+  const t = q.trim().toLowerCase()
+  const items = data.serviceRequests.filter(
+    (r) =>
+      scoped.has(r.accountId) &&
+      (!mineOnly || r.ownerId === user.id) &&
+      // shortcut: there is no doneAt field yet, so "done in the last 14 days" uses the created date; switch when US-SRV-014 adds it.
+      (list || r.status !== 'Done' || r.createdOffset >= -14) &&
+      (!t || r.id.toLowerCase().includes(t) || r.subject.toLowerCase().includes(t) || (account(r.accountId)?.name.toLowerCase().includes(t) ?? false) || (policy(r.policyId)?.policyNumber.toLowerCase().includes(t) ?? false)),
+  )
+  const open = items.filter((r) => r.status !== 'Done')
+  const moveTo = (r: ServiceRequest, to: ServiceStatus) => {
+    // Done needs a resolution, which the record asks for.
+    if (to === 'Done') return navigate(`/service/${r.id}?close=1`)
+    mutate((s) => s.setServiceStatus(r.id, to, user.id), `${r.id} moved to ${to}`)
+  }
+  const columns: Column<ServiceRequest>[] = [
+    { key: 'id', label: 'ID', width: 110, render: (r) => <span className="font-mono text-sm text-label">{r.id}</span> },
+    { key: 'subject', label: 'Subject', render: (r) => <span className="font-medium text-strong">{r.subject}</span> },
+    { key: 'account', label: 'Account', width: 220, render: (r) => account(r.accountId)?.name },
+    { key: 'type', label: 'Type', width: 160, render: (r) => r.type },
+    { key: 'status', label: 'Status', width: 170, render: (r) => <StatusCell status={r.status} /> },
+    { key: 'due', label: 'Due', width: 120, sort: (a, b) => a.dueOffset - b.dueOffset, render: (r) => <span className={cx('tabular', r.status !== 'Done' && r.dueOffset < 0 && 'font-medium text-danger-text')}>{dateOf(r.dueOffset)}</span> },
+    { key: 'owner', label: 'Assigned to', width: 150, render: (r) => userName(r.ownerId) },
+  ]
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle
         title="Service"
-        description="Policy changes, certificates, claim reports, and client requests."
+        description="Post-sale work for your Accounts: changes, certificates, claims, billing."
         actions={
-          <Gate allowed={user.role !== 'admin'} reason="Admins can view Service Requests only.">
+          <Gate allowed={!readOnly} reason="Admins have read-only access to Service Requests.">
             <Button variant="primary" onClick={() => setCreating(true)}>
               <Plus aria-hidden className="size-4" /> New request
             </Button>
           </Gate>
         }
       />
-      <div className="mt-6 grid grid-cols-5 gap-3 overflow-x-auto max-lg:min-w-[1000px]">
-        {COLUMNS.map((st) => {
-          const col = items.filter((r) => r.status === st).sort((a, b) => a.dueOffset - b.dueOffset)
-          return (
-            <section key={st} aria-label={st} className="flex min-w-0 flex-col rounded-md bg-recessed p-2">
-              <h2 className="flex justify-between px-1.5 pb-2 text-sm font-semibold text-strong">
-                {st}
-                <span className="tabular font-normal text-muted">{col.length}</span>
-              </h2>
-              <ol className="flex flex-col gap-2">
-                {col.slice(0, 30).map((r) => {
-                  const overdue = r.status !== 'Done' && r.dueOffset < 0
-                  return (
-                    <li key={r.id}>
-                      <button onClick={() => navigate(`/service/${r.id}`)} className="w-full rounded-md bg-surface p-2.5 text-left shadow-ring transition-shadow duration-150 hover:shadow-pop">
-                        <span className="flex items-center justify-between gap-2 text-sm text-muted">
-                          <span className="font-mono">{r.id}</span>
-                          {r.priority === 'High' && <span className="font-medium text-danger-text">High</span>}
-                        </span>
-                        <span className="block truncate text-base font-medium text-strong">{r.subject}</span>
-                        <span className="block truncate text-sm text-label">{account(r.accountId)?.name} · {r.type}</span>
-                        <span className="mt-1 flex justify-between text-sm text-muted">
-                          <span>{userName(r.ownerId)}</span>
-                          {r.status !== 'Done' && <span className={cx(overdue && 'font-medium text-danger-text')}>due {inDays(r.dueOffset)}</span>}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ol>
-            </section>
-          )
-        })}
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <label className="relative w-80 max-sm:w-full">
+          <span className="sr-only">Search requests</span>
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search requests, Accounts, policy numbers" className={cx(inputCls, 'pl-8')} />
+        </label>
+        <button aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)} className={cx('h-9 rounded-md px-3 text-sm shadow-ring', mineOnly ? 'bg-recessed font-semibold text-strong' : 'bg-surface text-label hover:bg-recessed')}>
+          Assigned to me
+        </button>
+        <div role="group" aria-label="Layout" className="ml-auto inline-flex rounded-md bg-recessed p-0.5 max-sm:ml-0">
+          {(['board', 'list'] as const).map((v) => (
+            <button key={v} aria-pressed={list === (v === 'list')} onClick={() => setView(v)} className={cx('h-8 rounded-[5px] px-3 text-sm capitalize', list === (v === 'list') ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
+      <p className="tabular mt-3 text-sm text-muted">
+        {open.length} open · {open.filter((r) => r.dueOffset < 0).length} overdue · {open.filter((r) => r.status === 'Waiting on carrier' && r.createdOffset < -5).length} waiting on carrier more than 5 days
+      </p>
+      {list ? (
+        <div className="mt-3">
+          <DataTable rows={items} columns={columns} onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1000} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
+        </div>
+      ) : (
+        <div className="mt-3 overflow-x-auto pb-2">
+          <div className="grid min-w-[1440px] grid-cols-5 gap-3 xl:min-w-0">
+            {COLUMNS.map((st) => {
+              const col = items.filter((r) => r.status === st).sort((a, b) => a.dueOffset - b.dueOffset)
+              return (
+                <section key={st} aria-label={st} className="flex min-w-0 flex-col rounded-md bg-recessed p-2">
+                  <h2 className="flex items-center justify-between px-1.5 pb-2 text-base font-semibold text-strong">
+                    {st}
+                    <CountPill n={col.length} />
+                  </h2>
+                  <ol className="flex flex-col gap-2">
+                    {col.slice(0, 50).map((r) => {
+                      const overdue = r.status !== 'Done' && r.dueOffset < 0
+                      return (
+                        <li key={r.id} className="relative rounded-md bg-surface shadow-ring transition-shadow duration-150 hover:shadow-pop">
+                          <Link to={`/service/${r.id}`} className="block p-3 pr-10 outline-offset-2">
+                            <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                              <span className="font-mono whitespace-nowrap">{r.id}</span>
+                              <span className="truncate">{r.type}</span>
+                              {r.priority === 'High' && <span className="shrink-0 font-medium text-danger-text">High</span>}
+                            </span>
+                            <span title={r.subject} className="mt-0.5 line-clamp-2 text-base font-medium text-strong">{r.subject}</span>
+                            <span className="block truncate text-sm text-label">{account(r.accountId)?.name}</span>
+                            <span className="mt-1.5 flex justify-between gap-2 text-sm text-muted">
+                              <span title={userName(r.ownerId)} className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-xs font-medium text-label">
+                                {userName(r.ownerId).split(' ').map((w) => w[0]).join('').slice(0, 2)}
+                              </span>
+                              {r.status !== 'Done' && <span className={cx('tabular shrink-0', overdue && 'font-medium text-danger-text')}>{dateOf(r.dueOffset)}</span>}
+                            </span>
+                          </Link>
+                          <Menu.Root>
+                            <Menu.Trigger aria-label={`Actions for ${r.id}`} className="absolute top-2 right-2 grid size-7 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong">
+                              <MoreHorizontal className="size-4" />
+                            </Menu.Trigger>
+                            <Menu.Portal>
+                              <Menu.Content align="end" sideOffset={4} className={menuContent}>
+                                <Menu.Label className="px-2 py-1 text-xs text-muted">Move to…</Menu.Label>
+                                {COLUMNS.map((to) => {
+                                  const check = canServiceTransition(r.status, to, -r.createdOffset)
+                                  const blocked = readOnly || !check.ok || !canEditService(user, account(r.accountId)!, r.createdById)
+                                  return (
+                                    <Menu.Item key={to} disabled={blocked} className={cx(menuItem, 'data-[disabled]:text-muted')} onSelect={() => moveTo(r, to)}>
+                                      <StatusCell status={to} />
+                                      {to === 'Done' && <span className="ml-auto text-xs text-muted">Add resolution</span>}
+                                    </Menu.Item>
+                                  )
+                                })}
+                                {readOnly && <p className="px-2 py-1 text-xs text-muted">Admins have read-only access to Service Requests.</p>}
+                              </Menu.Content>
+                            </Menu.Portal>
+                          </Menu.Root>
+                        </li>
+                      )
+                    })}
+                    {col.length > 50 && <li className="px-1.5 text-sm text-muted">Showing 50 of {col.length}. Switch to List to see all.</li>}
+                  </ol>
+                  {st === 'Done' && (
+                    <p className="mt-2 px-1.5 text-sm text-muted">
+                      Showing done in the last 14 days ·{' '}
+                      <Link to="/service?view=list" className="text-link hover:underline">View all in list</Link>
+                    </p>
+                  )}
+                </section>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {creating && <NewServiceRequestSheet onClose={() => setCreating(false)} />}
     </div>
   )
@@ -180,7 +276,8 @@ export function ServiceRequestPage() {
   const { data, user } = useApp()
   const { account: getAccount, userName, policy } = useLookups()
   const mutate = useMutate()
-  const [doneOpen, setDoneOpen] = useState(false)
+  const [params] = useSearchParams()
+  const [doneOpen, setDoneOpen] = useState(params.get('close') === '1')
   const [resolution, setResolution] = useState('')
   const r = data.serviceRequests.find((x) => x.id === id)
   if (!r) return <NotFound what="Service Request" />

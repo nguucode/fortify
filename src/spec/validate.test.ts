@@ -49,6 +49,23 @@ describe('validateSpec rules (decision F5)', () => {
   })
 })
 
+describe('PRD-004 rules', () => {
+  it('reports gaps in Epic numbering', () => {
+    const errs = validateSpec(
+      [
+        { path: 'epics/acc/US-ACC-001.md', text: story('US-ACC-001', {}) },
+        { path: 'epics/acc/US-ACC-003.md', text: story('US-ACC-003', {}) },
+      ],
+      routes,
+    )
+    expect(errs).toEqual([expect.stringContaining('ACC numbering has a gap: missing US-ACC-002')])
+  })
+  it('asks to write Principal instead of Sales Manager', () => {
+    const text = story('US-ACC-001', {}).replace('roles: [Producer]', 'roles: [Sales Manager]')
+    expect(validateSpec([{ path: 'epics/acc/US-ACC-001.md', text }], routes)).toEqual([expect.stringContaining('Write Principal')])
+  })
+})
+
 describe('the repo spec', () => {
   it('is valid', () => {
     const root = join(import.meta.dirname, '../../spec')

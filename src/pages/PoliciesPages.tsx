@@ -115,8 +115,9 @@ export function PolicyPage() {
         actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setChange(true)}>Request a change</Button>}
       />
       <div className="grid grid-cols-[1fr_360px] gap-4 px-8 pt-5 max-lg:grid-cols-1 max-sm:px-4">
-        <Panel title="Terms">
-          <table className="w-full border-collapse text-left">
+        <Panel title="Terms" className="min-w-0">
+          <div className="-mx-4 overflow-x-auto px-4">
+          <table className="w-full min-w-[440px] border-collapse text-left">
             <thead>
               <tr className="h-10 border-b border-fill text-base font-semibold text-strong">
                 <th className="px-2">Effective</th>
@@ -128,7 +129,7 @@ export function PolicyPage() {
             <tbody>
               {terms.map((t) => (
                 <tr key={t.id} className="tabular h-10 border-b border-fill last:border-0">
-                  <td className="px-2">{dateOf(t.effectiveOffset)}</td>
+                  <td className="sticky left-0 bg-surface px-2">{dateOf(t.effectiveOffset)}</td>
                   <td className="px-2">{dateOf(t.expirationOffset)}</td>
                   <td className="px-2"><StatusCell status={t.status} /></td>
                   <td className="px-2 text-right">{usd(t.premium)}</td>
@@ -136,6 +137,7 @@ export function PolicyPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Panel>
         <Panel title="Details">
           <KeyValue items={[['Carrier', carrierName(p.carrierId)], ['Line', p.line], ['Current premium', usd(term?.premium)], ['Binder', term?.binderNumber ?? null], ['Producer', userName(account.producerId)], ['Account Manager', userName(account.accountManagerId)]]} />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Dialog from '@radix-ui/react-dialog'
-import { AlertTriangle, Building2, CheckCircle2, Home, Search, UserPlus } from 'lucide-react'
+import { Building2, Clock, CheckCircle2, Home, Search, UserPlus } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { ago, dateOf, inDays, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, canWorkLead, scopeOf } from '@/domain/access'
@@ -48,20 +48,20 @@ export function LeadsPage() {
     { key: 'name', label: 'Name', sort: (a, b) => a.name.localeCompare(b.name), render: (l) => (
       <span className="flex min-w-0 items-center gap-2">
         {l.kind === 'Household' ? <Home aria-label="Personal" className="size-4 shrink-0 text-muted" strokeWidth={1.75} /> : <Building2 aria-label="Commercial" className="size-4 shrink-0 text-muted" strokeWidth={1.75} />}
-        <Link to={`/leads/${l.id}`} className="truncate font-medium text-strong hover:text-link hover:underline">{l.name}</Link>
-        {l.businessName && <span className="truncate text-sm text-muted">{l.businessName}</span>}
+        <Link to={`/leads/${l.id}`} className="shrink-0 font-medium text-strong hover:text-link hover:underline">{l.name}</Link>
+        {l.businessName && <span className="min-w-0 truncate text-sm text-muted max-sm:hidden">{l.businessName}</span>}
       </span>
     ) },
     { key: 'status', label: 'Status', width: 120, render: (l) => <StatusCell status={l.status} reason={l.disqualifyReason ?? undefined} /> },
-    { key: 'source', label: 'Source', width: 140, render: (l) => l.source },
-    { key: 'lines', label: 'Lines of interest', width: 180, render: (l) => l.linesOfInterest.join(', ') },
+    { key: 'source', label: 'Source', width: 120, render: (l) => l.source },
+    { key: 'lines', label: 'Lines of interest', width: 140, render: (l) => l.linesOfInterest.join(', ') },
     { key: 'assignee', label: 'Assigned to', width: 150, render: (l) => (l.assigneeId ? userName(l.assigneeId) : <span className="text-muted">Unassigned</span>) },
     { key: 'office', label: 'Office', width: 110, render: (l) => office(l.officeId)?.name },
     { key: 'received', label: 'Received', width: 120, sort: (a, b) => a.createdOffset - b.createdOffset, render: (l) => {
       const stale = l.status === 'New' && l.attempts.length === 0 && l.createdOffset < 0
       return (
         <span className={cx('inline-flex items-center gap-1', stale && 'font-medium text-warning-text')} title={stale ? `No contact attempt in ${-l.createdOffset} day(s)` : undefined}>
-          {stale && <AlertTriangle aria-hidden className="size-3.5" />}
+          {stale && <Clock aria-hidden className="size-3.5" />}
           {ago(l.createdOffset)}
         </span>
       )

@@ -10,8 +10,8 @@ import type { Role } from '@/domain/types'
 export const ROLE_LABEL: Record<Role, string> = { producer: 'Producer', 'account-manager': 'Account Manager', principal: 'Principal', admin: 'Admin' }
 const initials = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('')
 
-const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base shadow-pop'
-const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
+export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base shadow-pop'
+export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
 
 function OfficeControl() {
   const { user, data, officeFilter, setOfficeFilter } = useApp()

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { AlertTriangle, Briefcase, Plus, Trophy } from 'lucide-react'
+import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Plus, Trophy } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, inDays, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditOpportunity, canSeeAccount, visibleAccounts } from '@/domain/access'
@@ -113,28 +113,56 @@ export function OpportunityPage() {
         }
       />
       <div className="flex flex-col gap-4 px-8 pt-5 max-sm:px-4">
-        {/* US-PIP-005 stage bar */}
-        <ol aria-label="Stage" className="flex overflow-hidden rounded-md shadow-ring">
-          {OPEN_STAGES.map((st, i) => {
-            const reached = OPEN_STAGES.indexOf(o.stage as OpportunityStage) >= i || o.stage === 'Won'
-            const check = checkStageMove(o, st, quotes)
-            const disabled = closed || !canEdit || st === o.stage || !check.ok
-            return (
-              <li key={st} className="flex-1">
-                <Tip label={!check.ok ? check.message : st === o.stage ? 'Current stage' : `Move to ${st}`}>
-                  <button
-                    disabled={disabled}
-                    onClick={() => move(st)}
-                    aria-current={st === o.stage ? 'step' : undefined}
-                    className={cx('h-9 w-full border-r border-surface text-sm font-medium transition-colors duration-150 disabled:cursor-default', reached ? 'bg-primary text-white' : 'bg-surface text-label hover:bg-recessed', st === o.stage && 'ring-2 ring-strong ring-inset')}
-                  >
-                    {st}
+        {/* US-PIP-005 stage bar. One Blue Rule: reached stages are a neutral fill, the current stage is strong text with an underline. */}
+        <div className="flex items-stretch gap-1">
+          {(() => {
+            const cur = OPEN_STAGES.indexOf(o.stage as OpportunityStage)
+            const step = (d: -1 | 1) => {
+              const st = OPEN_STAGES[cur + d]
+              const check = st ? checkStageMove(o, st, quotes) : null
+              const ok = !!check?.ok && !closed && canEdit
+              return (
+                <Tip label={!st ? 'No more stages' : !canEdit ? editReason : ok ? `Move to ${st}` : check && !check.ok ? check.message : st}>
+                  <button aria-label={d < 0 ? 'Previous stage' : 'Next stage'} disabled={!ok} onClick={() => ok && move(st)} className="grid w-9 shrink-0 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed disabled:text-muted disabled:hover:bg-surface min-[900px]:hidden">
+                    {d < 0 ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
                   </button>
                 </Tip>
-              </li>
+              )
+            }
+            return (
+              <>
+                {step(-1)}
+                <ol aria-label="Stage" className="flex flex-1 overflow-hidden rounded-md shadow-ring">
+                  {OPEN_STAGES.map((st, i) => {
+                    const current = st === o.stage
+                    const reached = (cur >= i || o.stage === 'Won') && !current
+                    const check = checkStageMove(o, st, quotes)
+                    const disabled = closed || !canEdit || current || !check.ok
+                    return (
+                      <li key={st} className={cx('flex-1 border-r border-fill last:border-r-0', !current && 'max-[899px]:hidden')}>
+                        <Tip label={!check.ok ? check.message : current ? 'Current stage' : `Move to ${st}`}>
+                          <button
+                            disabled={disabled}
+                            onClick={() => move(st)}
+                            aria-current={current ? 'step' : undefined}
+                            className={cx(
+                              'h-9 w-full text-sm transition-colors duration-150 disabled:cursor-default',
+                              current ? 'bg-surface font-semibold text-strong' : reached ? 'bg-recessed text-label hover:bg-fill' : 'bg-surface text-muted hover:bg-recessed',
+                            )}
+                          >
+                            <span className="font-normal text-label min-[900px]:hidden">{`${cur + 1} of ${OPEN_STAGES.length} · `}</span>
+                            <span className={cx(current && 'underline decoration-strong decoration-2 underline-offset-[10px]')}>{st}</span>
+                          </button>
+                        </Tip>
+                      </li>
+                    )
+                  })}
+                </ol>
+                {step(1)}
+              </>
             )
-          })}
-        </ol>
+          })()}
+        </div>
 
         <Panel
           title="Quotes"
@@ -235,7 +263,8 @@ function QuoteMatrix({ o, quotes, canEdit, onRespond }: { o: Opportunity; quotes
                         {isLow && <span className="text-sm font-medium text-success-text">Lowest</span>}
                         <span className={cx(ql.accepted && 'font-semibold text-strong')}>{usd(ql.premium)}</span>
                         {acceptable && (
-                          <input type="checkbox" aria-label={`Accept ${line} from ${carrierName(q.carrierId)}`} checked={ql.accepted} onChange={(e) => accept(line, q.id, e.target.checked)} className="size-4 accent-primary" />
+                          // One carrier per line, so a radio group per line; clicking the chosen radio again clears it.
+                          <input type="radio" name={`accept-${o.id}-${line}`} aria-label={`Accept ${line} from ${carrierName(q.carrierId)}`} checked={ql.accepted} onChange={() => accept(line, q.id, true)} onClick={() => ql.accepted && accept(line, q.id, false)} className="size-4 accent-primary" />
                         )}
                       </span>
                     ) : (

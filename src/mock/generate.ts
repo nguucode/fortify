@@ -335,7 +335,8 @@ export function generateDataset(seed = 20261115): Dataset {
       assigneeId: f.datatype.boolean({ probability: 0.85 }) ? pick(byOffice(office.id, 'producer')).id : null,
       status,
       disqualifyReason: status === 'Disqualified' ? pick(['No response', 'Not interested', 'Bought elsewhere', 'Price only']) : null,
-      createdOffset: -int(0, 40),
+      // New Leads are fresh (agencies work them within hours); a few are days old and get the stale warning.
+      createdOffset: status === 'New' ? (f.datatype.boolean({ probability: 0.6 }) ? 0 : -int(1, 3)) : -int(0, 40),
       attempts: status === 'New' ? [] : Array.from({ length: int(1, 3) }, () => ({ offset: -int(0, 20), channel: pick(['Call', 'Email', 'SMS'] as const), outcome: pick(['Connected', 'Left voicemail', 'No answer']) })),
       qualifiedAccountId: target?.id ?? null,
       qualifiedOpportunityId: null,
@@ -343,7 +344,7 @@ export function generateDataset(seed = 20261115): Dataset {
   }
   // Two seeded duplicate scenarios for the Qualify demo: one matches Mike Torres by phone.
   leads[0] = { ...leads[0], name: 'Michael Torres', kind: 'Business', businessName: 'Torres Roofing, L.L.C.', phone: contacts.find((c) => c.name === 'Mike Torres')!.phone, officeId: 'off-hou', state: 'TX', city: 'Houston', status: 'New', assigneeId: dana.id, linesOfInterest: ['BOP'], attempts: [], qualifiedAccountId: null, disqualifyReason: null, createdOffset: 0 }
-  leads[1] = { ...leads[1], name: 'Rosa Delgado', kind: 'Household', businessName: null, officeId: 'off-hou', state: 'TX', city: 'Houston', status: 'Contacted', assigneeId: dana.id, linesOfInterest: ['Auto', 'Home'], qualifiedAccountId: null, disqualifyReason: null }
+  leads[1] = { ...leads[1], name: 'Rosa Delgado', kind: 'Household', businessName: null, officeId: 'off-hou', state: 'TX', city: 'Houston', status: 'Contacted', assigneeId: dana.id, linesOfInterest: ['Auto', 'Home'], qualifiedAccountId: null, disqualifyReason: null, attempts: [{ offset: -3, channel: 'Call', outcome: 'Left voicemail' }, { offset: -1, channel: 'Call', outcome: 'Connected' }] }
 
   // Opportunities: 220 across stages; Quotes about 2 per Opportunity past New.
   const STAGES = ['New', 'Contacted', 'Gathering info', 'Quoting', 'Quoting', 'Quoting', 'Proposed', 'Proposed', 'Won', 'Lost'] as const
@@ -467,25 +468,36 @@ export function generateDataset(seed = 20261115): Dataset {
     'Cancellation request': ['Cancel boat policy, sold the boat', 'Cancel renters, moved out'],
     General: ['Question about deductible', 'Review coverage before renewal'],
   }
+  const DESC: Record<string, string> = {
+    'Policy change': 'Client asked for this change by phone. Confirm the effective date and send the endorsement request to the carrier.',
+    'Certificate request': 'Certificate holder details came in by email. Check the contract wording for additional insured and waiver of subrogation.',
+    'Claim report': 'Client reported the loss by phone. Get photos and the date of loss, then file the first notice with the carrier.',
+    'ID card / evidence': 'Client needs proof of coverage. Pull the current declarations and send the document by email.',
+    'Billing question': 'Client called about billing. Pull the carrier invoice and explain the change, or update the payment method.',
+    'Cancellation request': 'Client asked to cancel. Get a signed cancellation request and confirm any return premium with the carrier.',
+    General: 'Client question that needs a call back. Review the policy before calling.',
+  }
   const withPolicies = live.filter((a) => policiesByAccount.has(a.id))
   for (let i = 0; i < 300; i++) {
     const a = pick(withPolicies)
     const type = pick(TYPES)
     const status = pick(SSTAT)
-    const created = -int(0, 60)
+    // Open requests are recent; only Done ones reach back two months, so the board is not a wall of overdue cards.
+    const created = status === 'Done' ? -int(0, 60) : -int(0, 8)
     serviceRequests.push({
       id: `SR-${10183 + i}`,
       accountId: a.id,
       policyId: pick(policiesByAccount.get(a.id)!).id,
       type,
       subject: pick(SUBJECT[type]),
-      description: 'Client called in; details captured by the Account Manager.',
+      description: DESC[type],
       priority: f.datatype.boolean({ probability: 0.2 }) ? 'High' : 'Normal',
       status,
       ownerId: a.accountManagerId,
       createdById: a.accountManagerId,
       createdOffset: created,
-      dueOffset: created + int(0, 3),
+      // Open requests spread from a few days overdue to two weeks out, so red still means something.
+      dueOffset: status === 'Done' ? created + int(0, 3) : created + int(3, 16),
       resolution: status === 'Done' ? 'Completed and confirmed with the client.' : null,
       details: {},
     })

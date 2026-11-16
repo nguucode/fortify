@@ -89,9 +89,9 @@ export function RecordHeader({ back, icon: Icon, title, meta, status, actions }:
       </Link>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-title font-semibold text-strong">
-            {Icon && <Icon aria-hidden className="size-6 shrink-0 text-muted" strokeWidth={1.75} />}
-            <span className="truncate">{title}</span>
+          <h1 className="flex items-start gap-2 text-title font-semibold text-strong">
+            {Icon && <Icon aria-hidden className="mt-[3px] size-6 shrink-0 text-muted" strokeWidth={1.75} />}
+            <span className="min-w-0 sm:truncate">{title}</span>
           </h1>
           {(meta || status) && (
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-label">
@@ -100,7 +100,8 @@ export function RecordHeader({ back, icon: Icon, title, meta, status, actions }:
             </div>
           )}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {/* Mobile is read-only (PRODUCT.md): record actions hide below 640px. */}
+        {actions && <div className="flex flex-wrap items-center gap-2 max-sm:hidden">{actions}</div>}
       </div>
     </header>
   )
@@ -163,8 +164,8 @@ export function DataTable<T extends { id: string }>({ rows, columns, onRowClick,
         </colgroup>
         <thead>
           <tr className="h-10 border-b border-fill">
-            {columns.map((c) => (
-              <th key={c.key} scope="col" aria-sort={key === c.key ? (dir === 1 ? 'ascending' : 'descending') : undefined} className={cx('px-3 text-base font-semibold whitespace-nowrap text-strong', c.align === 'right' && 'text-right')}>
+            {columns.map((c, i) => (
+              <th key={c.key} scope="col" aria-sort={key === c.key ? (dir === 1 ? 'ascending' : 'descending') : undefined} className={cx('px-3 text-base font-semibold whitespace-nowrap text-strong', c.align === 'right' && 'text-right', i === 0 && 'sticky left-0 z-10 bg-surface')}>
                 {c.sort ? (
                   <button onClick={() => onSort(c.key)} className={cx('inline-flex items-center gap-1 rounded-sm hover:text-link', c.align === 'right' && 'flex-row-reverse')}>
                     {c.label}
@@ -179,9 +180,9 @@ export function DataTable<T extends { id: string }>({ rows, columns, onRowClick,
         </thead>
         <tbody>
           {sorted.map((r) => (
-            <tr key={r.id} onClick={(e) => onRowClick && !(e.target as HTMLElement).closest('a,button') && onRowClick(r)} className={cx('h-10 border-b border-fill text-base transition-colors duration-100', onRowClick && 'cursor-pointer hover:bg-recessed')}>
-              {columns.map((c) => (
-                <td key={c.key} className={cx('truncate px-3', c.align === 'right' && 'tabular text-right')}>
+            <tr key={r.id} onClick={(e) => onRowClick && !(e.target as HTMLElement).closest('a,button') && onRowClick(r)} className={cx('h-10 border-b border-fill bg-surface text-base transition-colors duration-100', onRowClick && 'cursor-pointer hover:bg-recessed')}>
+              {columns.map((c, i) => (
+                <td key={c.key} className={cx('truncate px-3', c.align === 'right' && 'tabular text-right', i === 0 && 'sticky left-0 z-10 bg-inherit')}>
                   {c.render(r)}
                 </td>
               ))}
@@ -257,7 +258,7 @@ export function KeyValue({ items }: { items: [string, ReactNode][] }) {
       {items.map(([k, v]) => (
         <div key={k} className="contents">
           <dt className="text-label">{k}</dt>
-          <dd className="min-w-0 text-ink">{v ?? <span className="text-muted">—</span>}</dd>
+          <dd className="min-w-0 text-ink [overflow-wrap:anywhere]">{v ?? <span className="text-muted">—</span>}</dd>
         </div>
       ))}
     </dl>
@@ -270,7 +271,7 @@ export function Panel({ title, children, actions, className }: { title?: string;
       {(title || actions) && (
         <div className="mb-3 flex items-center justify-between gap-2">
           {title && <h2 className="text-lg font-medium text-strong">{title}</h2>}
-          {actions}
+          {actions && <div className="max-sm:hidden">{actions}</div>}
         </div>
       )}
       {children}

@@ -30,6 +30,12 @@ typography:
     lineHeight: "36px"
     letterSpacing: "-0.16px"
     fontFeature: "\"cv11\", \"ss01\""
+  metric:
+    fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: "32px"
+    fontFeature: "\"tnum\""
   section:
     fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "16px"
@@ -209,6 +215,7 @@ A restrained, achromatic palette with a single saturated blue and four status hu
 
 ### Hierarchy
 - **Title** (600, 30px/36px): the page H1 only.
+- **Metric** (600, 24px/32px, tabular): one number per stat cell (Today pipeline strip, Product overview). Never a heading.
 - **Section** (500, 16px/24px): empty and error state titles, palette input.
 - **Body** (400 or 500, 14px/21px): the default for cells, buttons, nav, descriptions. Medium for primary-column names and button labels.
 - **Table Header** (600, 14px/21px): column headers.

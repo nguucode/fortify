@@ -47,6 +47,11 @@ export function validateSpec(files: { path: string; text: string }[], routes: Se
 
   for (const { path, text } of files) {
     const { fm, body } = parseStory(text)
+    const roles = (fm as { roles?: unknown })?.roles
+    if (Array.isArray(roles) && roles.some((x) => /sales manager/i.test(String(x)))) {
+      errors.push(`${path}: role "${roles.find((x) => /sales manager/i.test(String(x)))}" — Write Principal (rules.md)`)
+      continue
+    }
     const r = StoryFrontmatter.safeParse(fm)
     if (!r.success) {
       errors.push(`${path}: invalid frontmatter (${r.error.issues.map((i) => i.path.join('.')).join(', ')})`)
@@ -61,6 +66,13 @@ export function validateSpec(files: { path: string; text: string }[], routes: Se
     if (folder !== s.epic.toLowerCase() || s.id.slice(3, 6) !== s.epic) errors.push(`${path}: epic folder or code does not match ${s.id}`)
     for (const h of SECTIONS) if (!new RegExp(`^## ${h}$`, 'm').test(body)) errors.push(`${path}: missing section "${h}"`)
     for (const route of s.routes) if (!routes.has(route)) errors.push(`${path}: route ${route} not in sitemap`)
+  }
+
+  const byEpic = new Map<string, number[]>()
+  for (const s of parsed) byEpic.set(s.epic, [...(byEpic.get(s.epic) ?? []), Number(s.id.slice(-3))])
+  for (const [epic, nums] of byEpic) {
+    const max = Math.max(...nums)
+    for (let n = 1; n <= max; n++) if (!nums.includes(n)) errors.push(`${epic} numbering has a gap: missing US-${epic}-${String(n).padStart(3, '0')}`)
   }
 
   for (const s of parsed) {
