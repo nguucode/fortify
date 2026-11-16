@@ -44,6 +44,8 @@ export interface Carrier {
   kinds: LineKind[]
   lines: Line[]
   note?: string
+  /** Commission rate per line from the carrier schedule (synced from the AMS). */
+  commission?: Partial<Record<Line, number>>
 }
 
 export type AccountKind = 'Household' | 'Business'
@@ -238,6 +240,8 @@ export interface Opportunity {
   closedOffset: number | null
   /** US-PIP-003 fields; absent on seeded rows. */
   name?: string
+  /** US-PIP-014 */
+  renewedWithIncumbent?: boolean
   probability?: number
   notes?: string | null
   lineDetails?: Partial<Record<Line, { currentCarrier?: string; currentPremium?: number; xDateOffset?: number }>>

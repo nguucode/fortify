@@ -648,16 +648,66 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       })
     },
 
-    markLost(opportunityId: string, reason: string, actorId: string) {
+    /**
+     * US-PIP-011: a reason is required (Other needs a note). Acceptance is cleared, every live Quote becomes Not taken,
+     * and the chosen X-dates are created.
+     */
+    markLost(opportunityId: string, reason: string, actorId: string, opts: { note?: string; xDates?: { line: Line; carrier: string; premium: number | null; offset: number }[] } = {}) {
       const s = state
       const o = must(s.opportunities.find((x) => x.id === opportunityId), 'Opportunity')
       if (o.stage === 'Won' || o.stage === 'Lost') throw new Error('This Opportunity is closed.')
+      if (reason === 'Other' && !opts.note?.trim()) throw new Error('Add a note for Other.')
+      const xd = reason === 'Duplicate' ? [] : (opts.xDates ?? [])
+      let xDates = s.xDates
+      for (const x of xd) xDates = [...xDates, { id: seq('xdt-', xDates), accountId: o.accountId, line: x.line, currentCarrier: x.carrier, xDateOffset: x.offset, premium: x.premium, interestLevel: 'Medium' as const }]
       commit({
         ...s,
-        opportunities: s.opportunities.map((x) => (x.id === o.id ? { ...x, stage: 'Lost', lostReason: reason, stageEnteredOffset: 0, closedOffset: 0 } : x)),
-        quotes: s.quotes.map((q) => (q.opportunityId === o.id && ['Requested', 'Quoted', 'Referred', 'Presented'].includes(q.status) ? { ...q, status: 'Not taken' } : q)),
-        activities: [...s.activities, activity(s, { accountId: o.accountId, type: 'system', subject: `Opportunity marked Lost: ${reason}`, body: null, createdById: actorId, linked: { kind: 'opportunity', id: o.id } })],
+        xDates,
+        opportunities: s.opportunities.map((x) => (x.id === o.id ? { ...x, stage: 'Lost', lostReason: reason, notes: opts.note ?? x.notes, stageEnteredOffset: 0, closedOffset: 0 } : x)),
+        quotes: s.quotes.map((q) => (q.opportunityId === o.id && ['Requested', 'Quoted', 'Referred', 'Presented', 'Accepted'].includes(q.status) ? { ...q, status: 'Not taken', lines: q.lines.map((l) => ({ ...l, accepted: false })) } : q)),
+        activities: [...s.activities, activity(s, { accountId: o.accountId, type: 'system', subject: `Opportunity marked Lost: ${reason}${xd.length ? ` · ${xd.length} X-date${xd.length === 1 ? '' : 's'} saved` : ''}`, body: opts.note ?? null, createdById: actorId, linked: { kind: 'opportunity', id: o.id } })],
       })
+    },
+
+    /** US-PIP-011: within 90 days of the loss; Quotes stay Not taken, X-dates are kept. */
+    reopenOpportunity(opportunityId: string, actorId: string) {
+      const s = state
+      const o = must(s.opportunities.find((x) => x.id === opportunityId), 'Opportunity')
+      if (o.stage !== 'Lost') throw new Error('Only a Lost Opportunity can be reopened.')
+      if ((o.closedOffset ?? 0) < -90) throw new Error('Lost more than 90 days ago. Start a new Opportunity instead.')
+      commit({
+        ...s,
+        opportunities: s.opportunities.map((x) => (x.id === o.id ? { ...x, stage: 'Gathering info', lostReason: null, closedOffset: null, stageEnteredOffset: 0 } : x)),
+        activities: [...s.activities, activity(s, { accountId: o.accountId, type: 'system', subject: 'Opportunity reopened', body: null, createdById: actorId, linked: { kind: 'opportunity', id: o.id } })],
+      })
+    },
+
+    /** US-PIP-014: a Remarket that keeps the incumbent's renewal is Won without creating a Policy. */
+    markWonWithIncumbent(opportunityId: string, actorId: string) {
+      const s = state
+      const o = must(s.opportunities.find((x) => x.id === opportunityId), 'Opportunity')
+      if (o.type !== 'Remarket') throw new Error('Only a Remarket Opportunity can renew with the incumbent.')
+      if (o.stage === 'Won' || o.stage === 'Lost') throw new Error('This Opportunity is closed.')
+      commit({
+        ...s,
+        opportunities: s.opportunities.map((x) => (x.id === o.id ? { ...x, stage: 'Won', stageEnteredOffset: 0, closedOffset: 0, renewedWithIncumbent: true } : x)),
+        quotes: s.quotes.map((q) => (q.opportunityId === o.id && ['Requested', 'Quoted', 'Referred', 'Presented'].includes(q.status) ? { ...q, status: 'Not taken' } : q)),
+        activities: [...s.activities, activity(s, { accountId: o.accountId, type: 'system', subject: 'Remarket won · renewed with incumbent', body: null, createdById: actorId, linked: { kind: 'opportunity', id: o.id } })],
+      })
+    },
+
+    updateXDate(id: string, patch: Partial<Omit<Dataset['xDates'][number], 'id'>>, actorId: string) {
+      const s = state
+      const x = must(s.xDates.find((v) => v.id === id), 'X-date')
+      commit({ ...s, xDates: s.xDates.map((v) => (v.id === id ? { ...v, ...patch } : v)), activities: [...s.activities, activity(s, { accountId: x.accountId, type: 'system', subject: `X-date updated by ${userName(actorId)}: ${patch.line ?? x.line}`, body: null, createdById: actorId, linked: null })] })
+    },
+
+    /** US-XDT: add an X-date to an Account. */
+    createXDate(input: Omit<Dataset['xDates'][number], 'id'>) {
+      const s = state
+      const id = seq('xdt-', s.xDates)
+      commit({ ...s, xDates: [...s.xDates, { ...input, id }] })
+      return id
     },
 
     setRenewalStatus(renewalId: string, to: RenewalStatus, actorId: string, note?: string) {

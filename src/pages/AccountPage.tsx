@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { Archive, Building2, Home, MoreHorizontal, Plus } from 'lucide-react'
+import { Archive, Building2, Home, MoreHorizontal } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { useToast } from '@/components/ui/toast'
 import { AccountFormSheet, ArchiveDialog, ContactSheet, LinkedAccounts, ManageContactsSheet, MergeDialog, ReassignDialog } from './AccountSheets'
-import { ActivityTab, DetailsPanel, DocumentsTab } from './AccountPanels'
+import { ActivityTab, DetailsPanel, DocumentsTab, SalesTab } from './AccountPanels'
 import { canSeeAccount } from '@/domain/access'
 import { KeyValue, Panel, RecordHeader, TabBar, useTab } from '@/components/patterns'
 import { Button } from '@/components/ui/primitives'
@@ -16,7 +16,6 @@ import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeli
 import { AmsBadge, currentTerm } from './PoliciesPages'
 import { NewServiceRequestSheet } from './ServicePages'
 import { changePct } from './RenewalsPages'
-import { oppCode } from './PipelinePages'
 import { OpportunitySheet } from './OpportunitySheet'
 import { TaskSheet } from './TaskSheet'
 import type { Task } from '@/domain/types'
@@ -211,25 +210,7 @@ export function AccountPage() {
               )}
             </Panel>
           )}
-          {tab === 'sales' && (
-            <Panel
-              title="Opportunities"
-              actions={
-                user.role !== 'admin' && (
-                  <Button size="sm" onClick={() => setNewOpp(true)}>
-                    <Plus aria-hidden className="size-4" /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}
-                  </Button>
-                )
-              }
-            >
-              {newOpp && <OpportunitySheet accountId={a.id} onClose={() => setNewOpp(false)} />}
-              {opps.length ? (
-                <Table head={['Opportunity', 'Type', 'Stage', 'Lines', 'Estimated premium']} rows={opps.map((o) => [<Link key="o" to={`/pipeline/${o.id}`} className="font-mono text-sm text-link hover:underline">{oppCode(o.id)}</Link>, o.type, <StatusCell key="s" status={o.stage} reason={o.lostReason ?? undefined} />, o.lines.join(', '), usd(o.estimatedPremium)])} />
-              ) : (
-                <p className="text-base text-muted">No opportunities yet.</p>
-              )}
-            </Panel>
-          )}
+          {tab === 'sales' && <SalesTab account={a} onNewOpp={() => setNewOpp(true)} />}
           {tab === 'service' && (
             <Panel title="Service requests">
               {services.length ? (
@@ -243,6 +224,7 @@ export function AccountPage() {
           {tab === 'documents' && <DocumentsTab account={a} />}
         </div>
       </div>
+      {newOpp && <OpportunitySheet accountId={a.id} onClose={() => setNewOpp(false)} />}
       {dialog === 'edit' && <AccountFormSheet account={a} onClose={() => setDialog(null)} />}
       {dialog === 'contacts' && <ManageContactsSheet account={a} onClose={() => setDialog(null)} />}
       {dialog === 'contact' && <ContactSheet accountId={a.id} onClose={() => setDialog(null)} />}

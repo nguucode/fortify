@@ -541,7 +541,10 @@ export function generateDataset(seed = 20261115): Dataset {
   }
 
   const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users, tasks, leads })
-  return { offices: OFFICES, users, carriers: CARRIERS, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents }
+  // US-PIP-013: a commission schedule per carrier and line (deterministic, no RNG so nothing else shifts).
+  const BASE_RATE: Partial<Record<Line, number>> = { Auto: 0.1, Home: 0.15, Umbrella: 0.15, Renters: 0.15, Condo: 0.15, Flood: 0.15, Boat: 0.12, BOP: 0.15, GL: 0.12, WC: 0.08, 'Commercial auto': 0.1, 'Commercial umbrella': 0.12 }
+  const carriers = CARRIERS.map((c, i) => ({ ...c, commission: Object.fromEntries(c.lines.map((l) => [l, Math.round(((BASE_RATE[l] ?? 0.12) + ((i % 3) - 1) * 0.01) * 1000) / 1000])) }))
+  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents }
 }
 
 /**

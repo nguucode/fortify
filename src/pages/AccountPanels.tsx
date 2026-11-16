@@ -3,7 +3,9 @@ import { Link } from 'react-router'
 import { AlertTriangle, FileText, Upload } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, usd, useLookups, useMutate } from '@/app/hooks'
-import type { Account, AccountDocument, Activity, DocumentType, InsuredItem, Task } from '@/domain/types'
+import type { Account, AccountDocument, Activity, DocumentType, InsuredItem, Opportunity, Task, XDate } from '@/domain/types'
+import { StatusCell } from '@/components/ui/status'
+import { XDateDialog } from './XDateDialog'
 import { DataTable, Field, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { Button, cx, Tip } from '@/components/ui/primitives'
@@ -267,5 +269,119 @@ export function DocumentsTab({ account }: { account: Account }) {
         </Sheet>
       )}
     </Panel>
+  )
+}
+
+/** US-PIP-012: Opportunities (open first, closed collapsed), Quotes across them, and X-dates. */
+export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: () => void }) {
+  const { data, user } = useApp()
+  const { userName, carrierName } = useLookups()
+  const [showClosed, setShowClosed] = useState(false)
+  const [quoteFilter, setQuoteFilter] = useState<'Open' | 'All'>('Open')
+  const [xd, setXd] = useState<XDate | 'new' | null>(null)
+  const opps = data.opportunities.filter((o) => o.accountId === account.id)
+  const isOpen = (o: Opportunity) => o.stage !== 'Won' && o.stage !== 'Lost'
+  const open = opps.filter(isOpen)
+  const closed = opps.filter((o) => !isOpen(o)).sort((a, b) => (b.closedOffset ?? 0) - (a.closedOffset ?? 0))
+  const oppName = (o: Opportunity) => o.name ?? `${account.name} · ${o.lines.join(', ')}`
+  const bound = (o: Opportunity) => data.quotes.filter((q) => q.opportunityId === o.id && q.status === 'Accepted').flatMap((q) => q.lines.filter((l) => l.accepted)).reduce((s, l) => s + (l.premium ?? 0), 0)
+  const quotes = data.quotes.filter((q) => opps.some((o) => o.id === q.opportunityId)).filter((q) => quoteFilter === 'All' || ['Requested', 'Quoted', 'Referred', 'Presented'].includes(q.status))
+  const xdates = data.xDates.filter((x) => x.accountId === account.id).sort((a, b) => a.xDateOffset - b.xDateOffset)
+  const th = 'h-9 px-2 text-left text-sm font-semibold text-strong'
+  const td = 'h-10 px-2 text-base'
+  const canCreate = user.role !== 'admin' && account.lifecycle === 'active'
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel title="Opportunities" actions={canCreate && <Button size="sm" onClick={onNewOpp}>{user.role === 'account-manager' ? '+ Cross-sell opportunity' : '+ Add opportunity'}</Button>}>
+        <div className="overflow-x-auto">
+          <table className="tabular w-full min-w-[760px] border-collapse">
+            <thead><tr className="border-b border-fill"><th className={th}>Name</th><th className={th}>Type</th><th className={th}>Stage</th><th className={th}>Lines</th><th className={cx(th, 'text-right')}>Premium</th><th className={th}>Target close</th><th className={th}>Producer</th></tr></thead>
+            <tbody>
+              {open.map((o) => (
+                <tr key={o.id} className="border-b border-fill">
+                  <td className={cx(td, 'max-w-0 truncate')}><Link to={`/pipeline/${o.id}`} className="font-medium text-strong hover:text-link hover:underline">{oppName(o)}</Link></td>
+                  <td className={td}>{o.type}</td>
+                  <td className={td}><StatusCell status={o.stage} /></td>
+                  <td className={td}>{o.lines.join(', ')}</td>
+                  <td className={cx(td, 'text-right')}>{usd(o.estimatedPremium)}</td>
+                  <td className={cx(td, o.targetCloseOffset < 0 && 'font-medium text-danger-text')}>{dateOf(o.targetCloseOffset)}</td>
+                  <td className={td}>{userName(o.ownerId)}</td>
+                </tr>
+              ))}
+              {open.length === 0 && <tr><td colSpan={7} className="px-2 py-3 text-base text-muted">No open opportunities.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        {closed.length > 0 && (
+          <div className="mt-2">
+            <button aria-expanded={showClosed} onClick={() => setShowClosed(!showClosed)} className="text-sm font-medium text-link hover:underline">{showClosed ? 'Hide' : 'Show'} closed ({closed.length})</button>
+            {showClosed && (
+              <ul className="mt-2 divide-y divide-fill">
+                {closed.map((o) => (
+                  <li key={o.id} className="flex items-center gap-3 py-2 text-base">
+                    <Link to={`/pipeline/${o.id}`} className="min-w-0 flex-1 truncate text-strong hover:text-link hover:underline">{oppName(o)}</Link>
+                    <StatusCell status={o.stage} reason={o.lostReason ?? undefined} />
+                    <span className="tabular w-24 text-right text-sm text-label">{o.closedOffset != null ? dateOf(o.closedOffset) : ''}</span>
+                    <span className="tabular w-24 text-right text-sm">{o.stage === 'Won' ? usd(bound(o)) : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </Panel>
+      <Panel
+        title="Quotes"
+        actions={
+          <div role="group" aria-label="Quote status" className="inline-flex rounded-md bg-recessed p-0.5">
+            {(['Open', 'All'] as const).map((v) => <button key={v} aria-pressed={quoteFilter === v} onClick={() => setQuoteFilter(v)} className={cx('h-7 rounded-[5px] px-2.5 text-sm', quoteFilter === v ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label')}>{v}</button>)}
+          </div>
+        }
+      >
+        {quotes.length ? (
+          <div className="overflow-x-auto">
+            <table className="tabular w-full min-w-[760px] border-collapse">
+              <thead><tr className="border-b border-fill"><th className={th}>Carrier</th><th className={th}>Lines</th><th className={th}>Status</th><th className={cx(th, 'text-right')}>Total quoted</th><th className={th}>Valid until</th><th className={th}>Opportunity</th></tr></thead>
+              <tbody>
+                {quotes.map((q) => {
+                  const o = opps.find((x) => x.id === q.opportunityId)!
+                  const total = q.lines.reduce((s, l) => s + (l.premium ?? 0), 0)
+                  return (
+                    <tr key={q.id} className="border-b border-fill last:border-0">
+                      <td className={td}>{carrierName(q.carrierId)}</td>
+                      <td className={td}>{q.lines.map((l) => l.line).join(', ')}</td>
+                      <td className={td}><StatusCell status={q.status} /></td>
+                      <td className={cx(td, 'text-right')}>{total ? usd(total) : '—'}</td>
+                      <td className={td}>{q.validUntilOffset != null ? dateOf(q.validUntilOffset) : '—'}</td>
+                      <td className={cx(td, 'max-w-0 truncate')}><Link to={`/pipeline/${o.id}`} className="text-link hover:underline">{oppName(o)}</Link></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-base text-muted">{quoteFilter === 'Open' ? 'No open quotes.' : 'No quotes yet.'}</p>
+        )}
+      </Panel>
+      <Panel title="X-dates" actions={canCreate && <Button size="sm" onClick={() => setXd('new')}>+ Add X-date</Button>}>
+        {xdates.length ? (
+          <ul className="divide-y divide-fill">
+            {xdates.map((x) => (
+              <li key={x.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 text-base max-md:grid-cols-[1fr_auto]">
+                <button onClick={() => canCreate && setXd(x)} className="min-w-0 truncate text-left text-strong hover:text-link hover:underline">{x.line} · {x.currentCarrier}</button>
+                <span className="tabular text-sm text-label max-md:hidden">{x.premium ? usd(x.premium) : '—'}</span>
+                <span className="text-sm text-label max-md:hidden">{x.interestLevel}</span>
+                <span className="tabular text-sm">{dateOf(x.xDateOffset)}</span>
+                <span className={cx('tabular w-24 text-right text-sm max-md:hidden', x.xDateOffset < 0 ? 'text-muted' : x.xDateOffset <= 60 ? 'font-medium text-warning-text' : 'text-label')}>{x.xDateOffset < 0 ? 'passed' : `${x.xDateOffset} days`}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-base text-muted">No X-dates. Add one when the client mentions coverage elsewhere.</p>
+        )}
+      </Panel>
+      {xd && <XDateDialog account={account} xdate={xd === 'new' ? undefined : xd} onClose={() => setXd(null)} />}
+    </div>
   )
 }
