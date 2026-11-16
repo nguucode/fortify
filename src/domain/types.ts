@@ -318,6 +318,63 @@ export interface ServiceRequest {
   dueOffset: number
   resolution: string | null
   details: Record<string, unknown>
+  /** US-SRV-014: SLA due time (ISO); older rows fall back to dueOffset at 5:00 PM. */
+  dueAt?: string
+  waitingSince?: string | null
+  dueReason?: string | null
+  requestedVia?: string | null
+  /** US-SRV-007 policy change result. */
+  outcome?: { kind: 'Endorsement issued' | 'Carrier declined' | 'Withdrawn by Account'; effectiveOffset?: number; premium?: { kind: 'Additional premium' | 'Return premium' | 'No change'; amount?: number }; reason?: string }
+  attachments?: { name: string; size: number }[]
+}
+
+/** CRT: a certificate holder on a Business Account. */
+export interface Holder {
+  id: string
+  accountId: string
+  name: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  email: string
+}
+export type CertificateStatus = 'Requested' | 'Needs review' | 'Approved' | 'Issued' | 'Rejected'
+export interface Certificate {
+  id: string
+  accountId: string
+  holderId: string
+  policyIds: string[]
+  additionalInsured: boolean
+  waiver: boolean
+  primaryNonContrib: boolean
+  operations: string
+  status: CertificateStatus
+  serviceRequestId: string | null
+  createdOffset: number
+  createdById: string
+  issuedOffset?: number | null
+  approvedById?: string | null
+  rejectReason?: string | null
+}
+export type ClaimStatus = 'Reported' | 'Submitted to carrier' | 'Claim # assigned' | 'Open' | 'Closed'
+export interface Claim {
+  id: string
+  accountId: string
+  policyId: string | null
+  serviceRequestId: string | null
+  lossType: 'Property' | 'Auto' | 'Liability' | "Workers' compensation"
+  lossOffset: number
+  lossTime?: string | null
+  description: string
+  status: ClaimStatus
+  carrierClaimNumber?: string | null
+  adjuster?: { name: string; phone?: string; email?: string } | null
+  outcome?: 'Paid' | 'Denied' | 'Withdrawn' | null
+  paidAmount?: number | null
+  details: Record<string, unknown>
+  createdOffset: number
+  events?: { offset: number; text: string; byId: string }[]
 }
 
 export type ActivityType = 'call' | 'email' | 'sms' | 'meeting' | 'note' | 'system'
@@ -364,6 +421,9 @@ export interface Task {
 }
 
 export interface Dataset {
+  certificates?: Certificate[]
+  holders?: Holder[]
+  claims?: Claim[]
   insuredItems?: InsuredItem[]
   documents?: AccountDocument[]
   offices: Office[]

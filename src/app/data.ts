@@ -1,6 +1,8 @@
 import type {
   Account,
   AccountDetails,
+  Claim,
+  Holder,
   AccountDocument,
   Contact,
   DocumentType,
@@ -20,6 +22,7 @@ import type {
 } from '@/domain/types'
 import { addMonths, canQuoteTransition, canServiceTransition, checkStageMove, nextRenewalStatuses } from '@/domain/rules'
 import { daysBetween, formatUSDate, resolveOffset } from '@/mock/dates'
+import { addBusinessHours, businessHoursBetween, slaHours } from '@/domain/sla'
 
 /**
  * The mutable mock store (US-FND-005). Every action builds the next state and commits it once,
@@ -786,39 +789,99 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       return decided.length
     },
 
-    createServiceRequest(input: Pick<ServiceRequest, 'accountId' | 'policyId' | 'type' | 'subject' | 'description' | 'priority' | 'details'>, actorId: string) {
+    /**
+     * US-SRV-005 + type forms (008/009/010/011/012): SLA Due in business hours (US-SRV-014); certificate and claim
+     * requests create their linked records; cancellations can create a retention Task and an X-date.
+     */
+    createServiceRequest(input: Pick<ServiceRequest, 'accountId' | 'policyId' | 'type' | 'subject' | 'description' | 'priority' | 'details'> & { requestedVia?: string | null; attachments?: { name: string; size: number }[] }, actorId: string, now: Date = new Date()) {
       const s = state
       const account = must(s.accounts.find((a) => a.id === input.accountId), 'Account')
+      const d = input.details as Record<string, unknown>
       const max = s.serviceRequests.reduce((m, r) => Math.max(m, Number(r.id.slice(3))), 10482)
-      const sr: ServiceRequest = {
-        ...input,
-        id: `SR-${max + 1}`,
-        status: 'New',
-        ownerId: account.accountManagerId,
-        createdById: actorId,
-        createdOffset: 0,
-        dueOffset: input.priority === 'High' ? 0 : 1,
-        resolution: null,
+      const id = `SR-${max + 1}`
+      const special = !!(d.additionalInsured || d.waiver || d.primaryNonContrib)
+      const nonpayment = d.topic === 'Missed payment or late notice' && d.noticeReceived === true
+      const due = addBusinessHours(now, slaHours(input.type, { special, nonpayment }))
+      let certificates = s.certificates ?? []
+      let holders = s.holders ?? []
+      let claims = s.claims ?? []
+      let tasks = s.tasks
+      let xDates = s.xDates
+      const linked: Record<string, string> = {}
+      if (input.type === 'Certificate request') {
+        if (account.kind !== 'Business') throw new Error('Certificates are for Business Accounts. Use ID card / evidence for a Household.')
+        let holderId = d.holderId as string | undefined
+        if (!holderId && d.holder) {
+          holderId = seq('hld-', holders)
+          holders = [...holders, { id: holderId, accountId: account.id, ...(d.holder as Omit<Holder, 'id' | 'accountId'>) }]
+        }
+        if (!holderId) throw new Error('Choose a holder.')
+        if (!(d.policyIds as string[] | undefined)?.length) throw new Error('Include at least one policy.')
+        const certId = `CRT-${String(certificates.length + 3100).padStart(4, '0')}`
+        certificates = [...certificates, { id: certId, accountId: account.id, holderId, policyIds: d.policyIds as string[], additionalInsured: !!d.additionalInsured, waiver: !!d.waiver, primaryNonContrib: !!d.primaryNonContrib, operations: String(d.operations ?? ''), status: special ? 'Needs review' : 'Requested', serviceRequestId: id, createdOffset: 0, createdById: actorId }]
+        linked.certificateId = certId
       }
+      if (input.type === 'Claim report') {
+        const claimId = `CL-${2042 + claims.length}`
+        claims = [...claims, { id: claimId, accountId: account.id, policyId: input.policyId, serviceRequestId: id, lossType: (d.lossType as Claim['lossType']) ?? 'Property', lossOffset: Number(d.lossOffset ?? 0), lossTime: (d.lossTime as string) ?? null, description: String(d.description ?? input.description), status: 'Reported', details: d, createdOffset: 0, events: [{ offset: 0, text: `Reported by ${userName(actorId)}`, byId: actorId }] }]
+        linked.claimId = claimId
+      }
+      if (input.type === 'Cancellation request') {
+        const pol = s.policies.find((p) => p.id === input.policyId)
+        if (d.retention && account.producerId) {
+          tasks = [...tasks, { id: seq('tsk-', tasks), accountId: account.id, title: `Retention call: ${account.name}, ${pol?.policyNumber ?? ''}`.replace(/, $/, ''), type: 'Call', priority: 'High', source: 'Service Request', assigneeId: account.producerId, dueOffset: 1, status: 'Open', linked: { kind: 'service', id } }]
+        }
+        if (d.reason === 'Replaced with another carrier' && d.newCarrier && d.newExpirationOffset != null) {
+          xDates = [...xDates, { id: seq('xdt-', xDates), accountId: account.id, line: (d.line as Line) ?? pol?.line ?? 'Auto', currentCarrier: String(d.newCarrier), xDateOffset: Number(d.newExpirationOffset), premium: null, interestLevel: 'Medium' }]
+        }
+      }
+      const srv: ServiceRequest = { ...input, details: { ...d, ...linked }, id, status: 'New', ownerId: account.accountManagerId, createdById: actorId, createdOffset: 0, dueOffset: offsetOf(due), dueAt: due.toISOString(), resolution: null }
       commit({
         ...s,
-        serviceRequests: [...s.serviceRequests, sr],
-        activities: [...s.activities, activity(s, { accountId: account.id, type: 'system', subject: `${userName(actorId)} opened ${sr.id}: ${sr.subject}`, body: null, createdById: actorId, linked: { kind: 'service', id: sr.id } })],
+        serviceRequests: [...s.serviceRequests, srv],
+        certificates,
+        holders,
+        claims,
+        tasks,
+        xDates,
+        activities: [...s.activities, activity(s, { accountId: account.id, type: 'system', subject: `${userName(actorId)} opened ${srv.id}: ${srv.subject}`, body: null, createdById: actorId, linked: { kind: 'service', id: srv.id } })],
       })
-      return sr.id
+      return srv.id
     },
 
-    setServiceStatus(id: string, to: ServiceStatus, actorId: string, meta: { note?: string; resolution?: string } = {}) {
+    /** US-SRV-004/007/014: Waiting on client pauses the SLA; leaving it pushes Due later by the waited business hours. */
+    setServiceStatus(id: string, to: ServiceStatus, actorId: string, meta: { note?: string; resolution?: string; outcome?: ServiceRequest['outcome'] } = {}, now: Date = new Date()) {
       const s = state
       const sr = must(s.serviceRequests.find((x) => x.id === id), 'Service Request')
       const check = canServiceTransition(sr.status, to, sr.status === 'Done' ? 0 : 0)
       if (!check.ok) throw new Error(check.reason)
       if (to === 'Done' && !meta.resolution?.trim()) throw new Error('Add a resolution before closing.')
+      let dueAt = sr.dueAt
+      let waitingSince = sr.waitingSince ?? null
+      if (to === 'Waiting on client') waitingSince = now.toISOString()
+      else if (sr.status === 'Waiting on client' && waitingSince && dueAt) {
+        const waited = businessHoursBetween(new Date(waitingSince), now)
+        dueAt = addBusinessHours(new Date(dueAt), waited).toISOString()
+        waitingSince = null
+      }
       commit({
         ...s,
-        serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, status: to, resolution: to === 'Done' ? meta.resolution! : x.resolution } : x)),
+        serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, status: to, dueAt, waitingSince, dueOffset: dueAt ? offsetOf(new Date(dueAt)) : x.dueOffset, resolution: to === 'Done' ? meta.resolution! : x.resolution, outcome: meta.outcome ?? x.outcome } : x)),
         activities: [...s.activities, activity(s, { accountId: sr.accountId, type: 'system', subject: `${userName(actorId)} moved ${sr.id} from ${sr.status} to ${to}${meta.note ? `: ${meta.note}` : ''}`, body: null, createdById: actorId, linked: { kind: 'service', id: sr.id } })],
       })
+    },
+
+    /** US-SRV-015: Type and Account never change; a hand-set Due needs a reason; reassignment is logged. */
+    updateServiceRequest(id: string, patch: Partial<Pick<ServiceRequest, 'subject' | 'description' | 'ownerId' | 'dueAt' | 'priority' | 'details' | 'requestedVia' | 'attachments'>> & { dueReason?: string }, actorId: string) {
+      const s = state
+      const sr = must(s.serviceRequests.find((x) => x.id === id), 'Service Request')
+      if (sr.status === 'Done') throw new Error('Reopen the request to edit it.')
+      if (patch.dueAt && patch.dueAt !== sr.dueAt && !patch.dueReason?.trim()) throw new Error('Add a reason for the new due date.')
+      const acts: Activity[] = []
+      if (patch.ownerId && patch.ownerId !== sr.ownerId) acts.push(activity(s, { accountId: sr.accountId, type: 'system', subject: `${userName(actorId)} reassigned ${sr.id} to ${userName(patch.ownerId)}`, body: null, createdById: actorId, linked: { kind: 'service', id: sr.id } }))
+      if (patch.dueAt && patch.dueAt !== sr.dueAt) acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, { accountId: sr.accountId, type: 'system', subject: `Due changed to ${formatUSDate(new Date(patch.dueAt))}: ${patch.dueReason}`, body: null, createdById: actorId, linked: { kind: 'service', id: sr.id } }))
+      const { dueReason, ...rest } = patch
+      commit({ ...s, serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, ...rest, dueReason: dueReason ?? x.dueReason, dueOffset: rest.dueAt ? offsetOf(new Date(rest.dueAt)) : x.dueOffset } : x)), activities: [...s.activities, ...acts] })
     },
 
     logActivity(input: Omit<Activity, 'id' | 'occurredOffset'>) {

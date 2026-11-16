@@ -1,23 +1,24 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { ClipboardCheck, MoreHorizontal, Plus, Search } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ChevronDown, ClipboardCheck, Clock, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { useApp } from '@/app/store'
+import { ServiceRequestSheet } from './ServiceRequestSheet'
+import { dueLabel } from '@/domain/sla'
+import { useToast } from '@/components/ui/toast'
 import { useIsMobile } from '@/app/media'
-import { dateOf, useLookups, useMutate } from '@/app/hooks'
+import { dateOf, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditService, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { canServiceTransition } from '@/domain/rules'
-import type { ServiceRequest, ServiceStatus, ServiceType } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel, type Column } from '@/components/patterns'
+import type { ServiceRequest, ServiceStatus } from '@/domain/types'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, type Column } from '@/components/patterns'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
-import { Button, CountPill, cx } from '@/components/ui/primitives'
+import { Button, CountPill, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { AccessDenied, NotFound } from './SystemPages'
 
 const COLUMNS: ServiceStatus[] = ['New', 'In progress', 'Waiting on carrier', 'Waiting on client', 'Done']
-const TYPES: ServiceType[] = ['Policy change', 'Certificate request', 'Claim report', 'ID card / evidence', 'Billing question', 'Cancellation request', 'General']
-const POLICY_CHANGE_KINDS = ['Add vehicle', 'Remove vehicle', 'Add driver', 'Remove driver', 'Change address', 'Add mortgagee or lienholder', 'Change limits or deductibles']
 
 /** US-SRV-001: board by status; Done shows the last 30 days. Scoped by role. */
 export function ServicePage() {
@@ -49,6 +50,26 @@ export function ServicePage() {
       (!t || r.id.toLowerCase().includes(t) || r.subject.toLowerCase().includes(t) || (account(r.accountId)?.name.toLowerCase().includes(t) ?? false) || (policy(r.policyId)?.policyNumber.toLowerCase().includes(t) ?? false)),
   )
   const open = items.filter((r) => r.status !== 'Done')
+  // US-SRV-002 saved views and filters (list only); state lives in the URL.
+  const now = new Date()
+  const LVIEWS = ['My open', 'Overdue', 'Waiting on carrier', 'Waiting on client', 'Done last 30 days']
+  const lview = LVIEWS.find((v) => v.toLowerCase().replace(/\s+/g, '-') === params.get('saved')) ?? LVIEWS[0]
+  const inLView: Record<string, (r: ServiceRequest) => boolean> = {
+    'My open': (r) => r.status !== 'Done' && (user.role === 'producer' ? r.createdById === user.id : user.role === 'account-manager' ? r.ownerId === user.id : true),
+    Overdue: (r) => r.status !== 'Done' && r.status !== 'Waiting on client' && dueDate(r) < now,
+    'Waiting on carrier': (r) => r.status === 'Waiting on carrier',
+    'Waiting on client': (r) => r.status === 'Waiting on client',
+    'Done last 30 days': (r) => r.status === 'Done' && r.createdOffset >= -30,
+  }
+  const fl = { type: params.get('type'), status: params.get('status'), assignee: params.get('assignee'), office: params.get('office') }
+  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); if (k !== 'page') n.delete('page'); setParams(n, { replace: true }) }
+  const listRows = items
+    .filter(inLView[lview])
+    .filter((r) => (!fl.type || r.type === fl.type) && (!fl.status || r.status === fl.status) && (!fl.assignee || r.ownerId === fl.assignee) && (!fl.office || account(r.accountId)?.officeId === fl.office))
+    .sort((a, b) => dueDate(a).getTime() - dueDate(b).getTime())
+  const page = Math.max(1, Number(params.get('page')) || 1)
+  const attention = open.filter((r) => (r.status !== 'Waiting on client' && dueDate(r) < now) || waitingDays(r) > 5)
+  const [showAttention, setShowAttention] = useState(true)
   const moveTo = (r: ServiceRequest, to: ServiceStatus) => {
     // Done needs a resolution, which the record asks for.
     if (to === 'Done') return navigate(`/service/${r.id}?close=1`)
@@ -56,12 +77,15 @@ export function ServicePage() {
   }
   const columns: Column<ServiceRequest>[] = [
     { key: 'id', label: 'ID', width: 110, render: (r) => <span className="font-mono text-sm text-label">{r.id}</span> },
-    { key: 'subject', label: 'Subject', render: (r) => <span className="font-medium text-strong">{r.subject}</span> },
-    { key: 'account', label: 'Account', width: 220, render: (r) => account(r.accountId)?.name },
-    { key: 'type', label: 'Type', width: 160, render: (r) => r.type },
-    { key: 'status', label: 'Status', width: 170, render: (r) => <StatusCell status={r.status} /> },
-    { key: 'due', label: 'Due', width: 120, sort: (a, b) => a.dueOffset - b.dueOffset, render: (r) => <span className={cx('tabular', r.status !== 'Done' && r.dueOffset < 0 && 'font-medium text-danger-text')}>{dateOf(r.dueOffset)}</span> },
-    { key: 'owner', label: 'Assigned to', width: 150, render: (r) => userName(r.ownerId) },
+    { key: 'subject', label: 'Subject', render: (r) => <span className="flex min-w-0 flex-col leading-tight"><span className="truncate font-medium text-strong">{r.subject}</span><span className="truncate text-sm text-muted">{account(r.accountId)?.name}</span></span>, csv: (r) => r.subject },
+    { key: 'type', label: 'Type', width: 150, sort: (a, b) => a.type.localeCompare(b.type), render: (r) => r.type },
+    { key: 'status', label: 'Status', width: 160, sort: (a, b) => COLUMNS.indexOf(a.status) - COLUMNS.indexOf(b.status), render: (r) => <StatusCell status={r.status} />, csv: (r) => r.status },
+    { key: 'policy', label: 'Policy', width: 160, render: (r) => <span className="font-mono text-sm">{policy(r.policyId)?.policyNumber ?? '—'}</span>, csv: (r) => policy(r.policyId)?.policyNumber ?? '' },
+    { key: 'owner', label: 'Assignee', width: 140, render: (r) => userName(r.ownerId) },
+    { key: 'office', label: 'Office', width: 100, render: (r) => data.offices.find((o) => o.id === account(r.accountId)?.officeId)?.name ?? '' },
+    { key: 'created', label: 'Created', width: 110, sort: (a, b) => a.createdOffset - b.createdOffset, render: (r) => dateOf(r.createdOffset) },
+    { key: 'due', label: 'Due', width: 150, mobile: true, sort: (a, b) => dueDate(a).getTime() - dueDate(b).getTime(), render: (r) => <DueIndicator r={r} />, csv: (r) => dateOf(r.dueOffset) },
+    { key: 'age', label: 'Age', width: 70, align: 'right', sort: (a, b) => b.createdOffset - a.createdOffset, render: (r) => `${-r.createdOffset}d` },
   ]
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
@@ -93,12 +117,53 @@ export function ServicePage() {
           ))}
         </div>
       </div>
+      {attention.length > 0 && (
+        <section className="mt-4 rounded-md bg-warning-tint px-4 py-2.5 shadow-ring">
+          <button aria-expanded={showAttention} onClick={() => setShowAttention(!showAttention)} className="flex w-full items-center gap-2 text-left text-base font-medium text-ink">
+            <AlertTriangle aria-hidden className="size-4 text-warning-text" /> {attention.length} request{attention.length === 1 ? '' : 's'} need attention
+            <ChevronDown aria-hidden className={cx('ml-auto size-4 transition-transform', showAttention && 'rotate-180')} />
+          </button>
+          {showAttention && (
+            <ul className="mt-1.5 flex flex-col gap-0.5 text-sm">
+              {attention.slice(0, 6).map((r) => (
+                <li key={r.id}><Link to={`/service/${r.id}`} className="text-link underline">{r.id}</Link> · {r.type} · {waitingDays(r) > 5 ? `Waiting ${waitingDays(r)}d` : dueLabel(dueDate(r), now, false).text}</li>
+              ))}
+              {attention.length > 6 && <li className="text-label">and {attention.length - 6} more</li>}
+            </ul>
+          )}
+        </section>
+      )}
       <p className="tabular mt-3 text-sm text-muted">
-        {open.length} open · {open.filter((r) => r.dueOffset < 0).length} overdue · {open.filter((r) => r.status === 'Waiting on carrier' && r.createdOffset < -5).length} waiting on carrier more than 5 days
+        {list ? `Showing ${Math.min(50, listRows.length)} of ${listRows.length} ${lview === 'Done last 30 days' ? 'done' : 'open'} requests` : `${open.length} open · ${open.filter((r) => r.status !== 'Waiting on client' && dueDate(r) < now).length} overdue · ${open.filter((r) => r.status === 'Waiting on carrier' && waitingDays(r) > 5).length} waiting on carrier more than 5 days`}
       </p>
       {list ? (
-        <div className="mt-3">
-          <DataTable rows={items} columns={columns} listId="service" exportName="service-requests" onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1000} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
+        <div className="mt-2">
+          <nav aria-label="Saved views" className="mb-3 flex gap-1 overflow-x-auto border-b border-line">
+            {LVIEWS.map((v) => (
+              <button key={v} aria-current={v === lview ? 'page' : undefined} onClick={() => setP('saved', v === LVIEWS[0] ? null : v.toLowerCase().replace(/\s+/g, '-'))} className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', v === lview ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>
+                {v} <CountPill n={items.filter(inLView[v]).length} />
+              </button>
+            ))}
+          </nav>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {([['type', 'Type', ['Policy change', 'Certificate request', 'Claim report', 'ID card / evidence', 'Billing question', 'Cancellation request', 'General'].map((x) => [x, x])], ['status', 'Status', COLUMNS.map((x) => [x, x])], ['assignee', 'Assignee', data.users.filter((u) => u.role === 'account-manager' && (user.role !== 'account-manager' || u.officeId === user.officeId)).map((u) => [u.id, u.name])], ...(user.role === 'principal' || user.role === 'admin' ? [['office', 'Office', data.offices.map((o) => [o.id, o.name])]] : [])] as [string, string, string[][]][]).map(([k, label, opts]) => (
+              <select key={k} aria-label={label} value={params.get(k) ?? ''} onChange={(e) => setP(k, e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control">
+                <option value="">{label}</option>
+                {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            ))}
+            {Object.values(fl).some(Boolean) && <button onClick={() => { const n = new URLSearchParams(); n.set('view', 'list'); setParams(n, { replace: true }) }} className="text-sm text-link hover:underline">Clear filters</button>}
+          </div>
+          <DataTable rows={listRows.slice((page - 1) * 50, page * 50)} columns={columns} listId="service" exportName="service-requests" onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1300} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
+          {listRows.length > 50 && (
+            <div className="tabular mt-3 flex items-center justify-between text-sm text-label">
+              <span>{(page - 1) * 50 + 1}–{Math.min(page * 50, listRows.length)} of {listRows.length}</span>
+              <span className="flex gap-2">
+                <Button size="sm" disabled={page <= 1} onClick={() => setP('page', String(page - 1))}>Previous</Button>
+                <Button size="sm" disabled={page * 50 >= listRows.length} onClick={() => setP('page', String(page + 1))}>Next</Button>
+              </span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="mt-3 overflow-x-auto pb-2">
@@ -113,7 +178,7 @@ export function ServicePage() {
                   </h2>
                   <ol className="flex flex-col gap-2">
                     {col.slice(0, 50).map((r) => {
-                      const overdue = r.status !== 'Done' && r.dueOffset < 0
+                      const waiting = waitingDays(r)
                       return (
                         <li key={r.id} className="relative rounded-md bg-surface shadow-ring transition-shadow duration-150 hover:shadow-pop">
                           <Link to={`/service/${r.id}`} className="block p-3 pr-10 outline-offset-2">
@@ -124,11 +189,12 @@ export function ServicePage() {
                             </span>
                             <span title={r.subject} className="mt-0.5 line-clamp-2 text-base font-medium text-strong">{r.subject}</span>
                             <span className="block truncate text-sm text-label">{account(r.accountId)?.name}</span>
+                            {waiting > 5 && <span className="mt-0.5 flex items-center gap-1 text-sm text-label"><Clock aria-hidden className="size-3.5" /> Waiting {waiting}d</span>}
                             <span className="mt-1.5 flex justify-between gap-2 text-sm text-muted">
                               <span title={userName(r.ownerId)} className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-xs font-medium text-label">
                                 {userName(r.ownerId).split(' ').map((w) => w[0]).join('').slice(0, 2)}
                               </span>
-                              {r.status !== 'Done' && <span className={cx('tabular shrink-0', overdue && 'font-medium text-danger-text')}>{dateOf(r.dueOffset)}</span>}
+                              {r.status !== 'Done' && <span className="shrink-0 text-sm"><DueIndicator r={r} now={now} /></span>}
                             </span>
                           </Link>
                           <Menu.Root>
@@ -174,103 +240,30 @@ export function ServicePage() {
   )
 }
 
-/** US-SRV-005 / US-SRV-006: one sheet for every entry point; Policy change gets its own fields. */
-export function NewServiceRequestSheet({ onClose, accountId: presetAccount, policyId: presetPolicy, type: presetType, presetDescription }: { onClose: () => void; accountId?: string; policyId?: string; type?: ServiceType; presetDescription?: string }) {
-  const { data, user } = useApp()
-  const mutate = useMutate()
-  const navigate = useNavigate()
-  const accounts = visibleAccounts(user, data.accounts).filter((a) => a.lifecycle === 'active' && data.policies.some((p) => p.accountId === a.id))
-  const [accountId, setAccountId] = useState(presetAccount ?? '')
-  const [policyId, setPolicyId] = useState(presetPolicy ?? '')
-  const [type, setType] = useState<ServiceType>(presetType ?? 'Policy change')
-  const [kind, setKind] = useState(POLICY_CHANGE_KINDS[0])
-  const [effective, setEffective] = useState('')
-  const [subject, setSubject] = useState('')
-  const [description, setDescription] = useState(presetDescription ? `Change requested for: ${presetDescription}. ` : '')
-  const [priority, setPriority] = useState<'Normal' | 'High'>('Normal')
-  const [busy, setBusy] = useState(false)
-  const policies = data.policies.filter((p) => p.accountId === accountId)
-  const finalSubject = subject.trim() || (type === 'Policy change' ? kind : type)
-  const errors = {
-    account: !accountId ? 'Choose an Account.' : '',
-    policy: type === 'Policy change' && !policyId ? 'A Policy change needs a Policy.' : '',
-    effective: type === 'Policy change' && !effective ? 'Choose the date the change takes effect.' : '',
-    description: description.trim().length < 10 ? 'Describe the request (at least 10 characters).' : '',
-  }
-  const valid = Object.values(errors).every((e) => !e)
-  const save = async () => {
-    setBusy(true)
-    try {
-      const id = await mutate(
-        (s) => s.createServiceRequest({ accountId, policyId: policyId || null, type, subject: finalSubject, description: description.trim(), priority, details: type === 'Policy change' ? { effectiveDate: effective, changes: [{ kind }] } : {} }, user.id),
-        'Service Request created',
-      )
-      onClose()
-      navigate(`/service/${id}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-  const [touched, setTouched] = useState(false)
+/** Kept for existing imports; the full form lives in ServiceRequestSheet (US-SRV-005..012, 015). */
+export const NewServiceRequestSheet = ServiceRequestSheet
+
+/** US-SRV-014: SLA due as a Date (older seeded rows have only a day offset: 5:00 PM that day). */
+export function dueDate(r: ServiceRequest) {
+  if (r.dueAt) return new Date(r.dueAt)
+  const d = new Date()
+  d.setDate(d.getDate() + r.dueOffset)
+  d.setHours(17, 0, 0, 0)
+  return d
+}
+export function DueIndicator({ r, now = new Date() }: { r: ServiceRequest; now?: Date }) {
+  if (r.status === 'Done') return <span className="text-muted">—</span>
+  const l = dueLabel(dueDate(r), now, r.status === 'Waiting on client')
   return (
-    <Sheet
-      open
-      onOpenChange={(v) => !v && onClose()}
-      title="New service request"
-      busy={busy}
-      footer={
-        <>
-          <SheetCancel />
-          <Button variant="primary" disabled={busy} onClick={() => (valid ? save() : setTouched(true))}>{busy ? 'Creating…' : 'Create request'}</Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <Field label="Type">
-          <select className={inputCls} value={type} onChange={(e) => setType(e.target.value as ServiceType)}>
-            {TYPES.map((t) => <option key={t}>{t}</option>)}
-          </select>
-        </Field>
-        <Field label="Account" error={touched ? errors.account : undefined}>
-          <select className={inputCls} value={accountId} disabled={!!presetAccount} onChange={(e) => { setAccountId(e.target.value); setPolicyId('') }}>
-            <option value="">Choose an Account</option>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </Field>
-        <Field label={type === 'Policy change' ? 'Policy' : 'Policy (optional)'} error={touched ? errors.policy : undefined}>
-          <select className={inputCls} value={policyId} disabled={!accountId || !!presetPolicy} onChange={(e) => setPolicyId(e.target.value)}>
-            <option value="">{accountId ? 'Choose a Policy' : 'Choose an Account first'}</option>
-            {policies.map((p) => <option key={p.id} value={p.id}>{p.line} · {p.policyNumber}</option>)}
-          </select>
-        </Field>
-        {type === 'Policy change' && (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Change">
-              <select className={inputCls} value={kind} onChange={(e) => setKind(e.target.value)}>
-                {POLICY_CHANGE_KINDS.map((k) => <option key={k}>{k}</option>)}
-              </select>
-            </Field>
-            <Field label="Effective date" error={touched ? errors.effective : undefined}>
-              <input type="date" className={inputCls} value={effective} onChange={(e) => setEffective(e.target.value)} />
-            </Field>
-          </div>
-        )}
-        <Field label="Subject" hint={`Defaults to “${type === 'Policy change' ? kind : type}”`}>
-          <input className={inputCls} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Add 2024 Ford F-150" />
-        </Field>
-        <Field label="Description" error={touched ? errors.description : undefined}>
-          <textarea className={`${inputCls} h-28 py-2`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What the client asked for, VINs, names, dates." />
-        </Field>
-        <Field label="Priority">
-          <select className={inputCls} value={priority} onChange={(e) => setPriority(e.target.value as 'Normal' | 'High')}>
-            <option>Normal</option>
-            <option>High</option>
-          </select>
-        </Field>
-      </div>
-    </Sheet>
+    <span className={cx('tabular inline-flex items-center gap-1 whitespace-nowrap', l.tone === 'danger' ? 'font-medium text-danger-text' : l.tone === 'warning' ? 'font-medium text-warning-text' : l.tone === 'muted' ? 'text-label' : '')}>
+      {l.tone === 'danger' && <AlertCircle aria-hidden className="size-3.5" />}
+      {l.tone === 'warning' && <AlertTriangle aria-hidden className="size-3.5" />}
+      {l.tone === 'muted' && <Clock aria-hidden className="size-3.5" />}
+      {l.text}
+    </span>
   )
 }
+const waitingDays = (r: ServiceRequest) => (r.status === 'Waiting on carrier' || r.status === 'Waiting on client' ? -r.createdOffset : 0)
 
 /** US-SRV-003 / US-SRV-004 */
 export function ServiceRequestPage() {
@@ -281,6 +274,13 @@ export function ServiceRequestPage() {
   const [params] = useSearchParams()
   const [doneOpen, setDoneOpen] = useState(params.get('close') === '1')
   const [resolution, setResolution] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [outcome, setOutcome] = useState<'Endorsement issued' | 'Carrier declined' | 'Withdrawn by Account'>('Endorsement issued')
+  const [effective, setEffective] = useState('')
+  const [premKind, setPremKind] = useState<'Additional premium' | 'Return premium' | 'No change'>('No change')
+  const [premAmt, setPremAmt] = useState('')
+  const [idFollow, setIdFollow] = useState<string | null>(null)
+  const toast = useToast()
   const r = data.serviceRequests.find((x) => x.id === id)
   if (!r) return <NotFound what="Service Request" />
   const account = getAccount(r.accountId)!
@@ -303,16 +303,20 @@ export function ServiceRequestPage() {
             <span>{r.type}</span>
             <Link className="text-link hover:underline" to={`/accounts/${account.id}?tab=service`}>{account.name}</Link>
             <span>Owner {userName(r.ownerId)}</span>
-            {r.status !== 'Done' && <span className={cx(r.dueOffset < 0 && 'font-medium text-danger-text')}>Due {dateOf(r.dueOffset)}</span>}
+            <DueIndicator r={r} />
           </>
         }
         actions={
           <Gate allowed={canEdit} reason={reason}>
             <span className="flex flex-wrap gap-2">
               {r.status === 'Done' ? (
-                <Button onClick={() => move('In progress', 'Reopened')}>Reopen</Button>
+                <>
+                  <Tip label="Reopen the request to edit it."><span tabIndex={0}><Button disabled>Edit</Button></span></Tip>
+                  <Button onClick={() => move('In progress', 'Reopened')}>Reopen</Button>
+                </>
               ) : (
                 <>
+                  <Button onClick={() => setEditing(true)}>Edit</Button>
                   {options.map((to) => (
                     <Button key={to} onClick={() => move(to, to.startsWith('Waiting') ? (to === 'Waiting on carrier' ? 'Endorsement requested from carrier' : 'Waiting for client documents') : undefined)}>
                       {r.status === 'New' && to === 'In progress' ? 'Start work' : `Move to ${to}`}
@@ -327,6 +331,17 @@ export function ServiceRequestPage() {
       />
       <div className="grid grid-cols-[1fr_360px] gap-4 px-8 pt-5 max-lg:grid-cols-1 max-sm:px-4">
         <div className="flex flex-col gap-4">
+          {r.outcome && (
+            <div className="rounded-md bg-surface px-4 py-3 shadow-ring">
+              <p className="text-base font-medium text-strong">
+                {r.outcome.kind}
+                {r.outcome.effectiveOffset != null && ` · effective ${dateOf(r.outcome.effectiveOffset)}`}
+                {r.outcome.premium && r.outcome.premium.kind !== 'No change' && ` · ${r.outcome.premium.kind} ${usd(r.outcome.premium.amount)}`}
+                {r.outcome.reason && ` · ${r.outcome.reason}`}
+              </p>
+              {r.outcome.kind === 'Endorsement issued' && <p className="text-sm text-muted">The policy updates in Fortify when the AMS syncs the endorsement.</p>}
+            </div>
+          )}
           <Panel title="Request">
             <p className="text-base text-ink">{r.description}</p>
             {r.type === 'Policy change' && 'changes' in r.details && (
@@ -334,6 +349,7 @@ export function ServiceRequestPage() {
                 Change: {(r.details.changes as { kind: string }[]).map((c) => c.kind).join(', ')} · effective {String(r.details.effectiveDate ?? '—')}
               </p>
             )}
+            <RequestDetails r={r} />
             {r.resolution && <p className="mt-3 rounded-md bg-success-tint px-3 py-2 text-base text-ink">Resolution: {r.resolution}</p>}
           </Panel>
           <Panel title="Activity" actions={<LogActivityButton accountId={account.id} linked={{ kind: 'service', id: r.id }} />}>
@@ -341,15 +357,94 @@ export function ServiceRequestPage() {
           </Panel>
         </div>
         <Panel title="Details">
-          <KeyValue items={[['Priority', r.priority], ['Policy', p ? <Link className="text-link hover:underline" to={`/policies/${p.id}`}>{p.line} · {p.policyNumber}</Link> : null], ['Created', `${dateOf(r.createdOffset)} by ${userName(r.createdById)}`], ['Assigned to', userName(r.ownerId)]]} />
+          <KeyValue
+            items={[
+              ['Priority', r.priority],
+              ['Policy', p ? <Link className="text-link hover:underline" to={`/policies/${p.id}`}>{p.line} · {p.policyNumber}</Link> : null],
+              ['Created', `${dateOf(r.createdOffset)} by ${userName(r.createdById)}`],
+              ['Requested via', r.requestedVia ?? null],
+              ['Assigned to', userName(r.ownerId)],
+              ['Due', <DueIndicator key="d" r={r} />],
+              ['Due reason', r.dueReason ?? null],
+              ['Attachments', r.attachments?.length ? r.attachments.map((a) => a.name).join(', ') : null],
+              [
+                'Linked records',
+                r.details.claimId ? <Link key="c" to={`/claims/${r.details.claimId}`} className="text-link hover:underline">Claim {String(r.details.claimId)} · {data.claims?.find((c) => c.id === r.details.claimId)?.status}</Link>
+                : r.details.certificateId ? <Link key="c" to={`/certificates/${r.details.certificateId}`} className="text-link hover:underline">Certificate {String(r.details.certificateId)} · {data.certificates?.find((c) => c.id === r.details.certificateId)?.status}</Link>
+                : null,
+              ],
+            ]}
+          />
         </Panel>
       </div>
-      <Confirm open={doneOpen} onOpenChange={setDoneOpen} title={`Close ${r.id}?`} body="Add the resolution the client will hear." confirmLabel="Mark done" onConfirm={() => mutate((s) => s.setServiceStatus(r.id, 'Done', user.id, { resolution }), 'Request closed')}>
-        <Field label="Resolution" hint="e.g. Vehicle added effective 11/15/2026; new ID cards emailed">
+      <Confirm
+        open={doneOpen}
+        onOpenChange={setDoneOpen}
+        title={`Close ${r.id}?`}
+        body={r.type === 'ID card / evidence' ? 'Attach the ID card or evidence you sent.' : 'Add the resolution the client will hear.'}
+        confirmLabel="Mark done"
+        onConfirm={async () => {
+          if (r.type === 'ID card / evidence' && !r.attachments?.length) throw new Error('Attach the ID card or evidence before marking done.')
+          if (r.type === 'Policy change') {
+            const o = outcome === 'Endorsement issued'
+              ? { kind: outcome, effectiveOffset: effective ? offsetOfDate(new Date(`${effective}T12:00:00`)) : (r.details.effectiveDate ? offsetOfDate(new Date(`${r.details.effectiveDate}T12:00:00`)) : 0), premium: { kind: premKind, amount: premKind === 'No change' ? undefined : Number(premAmt) } }
+              : { kind: outcome, reason: resolution.trim() }
+            if (outcome === 'Endorsement issued' && premKind !== 'No change' && !(Number(premAmt) > 0)) throw new Error('Enter the premium change amount.')
+            if (outcome !== 'Endorsement issued' && !resolution.trim()) throw new Error('Add a reason.')
+            await mutate((s) => s.setServiceStatus(r.id, 'Done', user.id, { resolution: resolution.trim() || outcome, outcome: o }), 'Request closed')
+            const kind = (r.details.changes as { kind: string }[] | undefined)?.[0]?.kind ?? String(r.details.kind ?? '')
+            if (outcome === 'Endorsement issued' && (kind === 'Add vehicle' || kind === 'Replace vehicle')) toast('Policy change done', 'success', { duration: 8000, action: { label: 'Create ID card request', onClick: () => setIdFollow(kind) } })
+            return
+          }
+          await mutate((s) => s.setServiceStatus(r.id, 'Done', user.id, { resolution }), 'Request closed')
+        }}
+      >
+        {r.type === 'Policy change' && (
+          <>
+            <Field label="Outcome">
+              <select className={inputCls} value={outcome} onChange={(e) => setOutcome(e.target.value as typeof outcome)}>
+                <option>Endorsement issued</option>
+                <option>Carrier declined</option>
+                <option>Withdrawn by Account</option>
+              </select>
+            </Field>
+            {outcome === 'Endorsement issued' && (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Endorsement effective date"><input type="date" className={inputCls} value={effective || String(r.details.effectiveDate ?? '')} onChange={(e) => setEffective(e.target.value)} /></Field>
+                <Field label="Premium change">
+                  <select className={inputCls} value={premKind} onChange={(e) => setPremKind(e.target.value as typeof premKind)}><option>No change</option><option>Additional premium</option><option>Return premium</option></select>
+                </Field>
+                {premKind !== 'No change' && <Field label="Amount"><input inputMode="decimal" className={inputCls} value={premAmt} onChange={(e) => setPremAmt(e.target.value.replace(/[^\d.]/g, ''))} placeholder="214.00" /></Field>}
+              </div>
+            )}
+          </>
+        )}
+        <Field label={r.type === 'Policy change' && outcome !== 'Endorsement issued' ? 'Reason' : 'Resolution'} hint="e.g. Vehicle added effective 11/15/2026; new ID cards emailed">
           <textarea className={`${inputCls} h-24 py-2`} value={resolution} onChange={(e) => setResolution(e.target.value)} />
         </Field>
       </Confirm>
+      {editing && <ServiceRequestSheet request={r} onClose={() => setEditing(false)} />}
+      {idFollow && <ServiceRequestSheet accountId={r.accountId} policyId={r.policyId ?? undefined} type="ID card / evidence" presetVehicle={(data.insuredItems ?? []).filter((i) => i.policyId === r.policyId && i.kind === 'Vehicle').map((v) => (v.kind === 'Vehicle' ? `${v.year} ${v.make} ${v.model}` : '')).at(-1)} onClose={() => setIdFollow(null)} />}
     </div>
+  )
+}
+
+/** Type-specific details captured on the request (US-SRV-008..012). */
+function RequestDetails({ r }: { r: ServiceRequest }) {
+  const d = r.details as Record<string, unknown>
+  const rows: [string, string][] = []
+  const add = (k: string, v: unknown) => v != null && v !== '' && rows.push([k, String(v)])
+  if (r.type === 'Policy change') { add('Change', (d.changes as { kind: string }[] | undefined)?.map((c) => c.kind).join(', ') ?? d.kind); add('Effective', d.effectiveDate) }
+  if (r.type === 'Claim report') { add('Loss type', d.lossType); add('Date of loss', d.lossDate); add('Cause', d.cause); add('Location', d.location); add('Injuries', d.injuries); add('Report #', d.reportNumber) }
+  if (r.type === 'ID card / evidence') { add('Document', d.document); add('Vehicles', (d.vehicles as string[] | undefined)?.join(', ')); add('Delivery', d.delivery) }
+  if (r.type === 'Billing question') { add('Topic', d.topic); add('Amount', d.amount ? `$${d.amount}` : null); add('Notice of cancellation', d.noticeReceived ? `Yes · effective ${d.cancelEffective}` : null) }
+  if (r.type === 'Cancellation request') { add('Requested date', d.cancelDate); add('Reason', d.reason); add('Signed request', d.signed === 'Yes' ? 'Received' : 'Signed request outstanding'); add('New carrier', d.newCarrier) }
+  if (r.type === 'Certificate request') { add('Additional insured', d.additionalInsured ? 'Yes' : null); add('Waiver of subrogation', d.waiver ? 'Yes' : null); add('Primary & noncontributory', d.primaryNonContrib ? 'Yes' : null); add('Operations', d.operations) }
+  if (!rows.length) return null
+  return (
+    <dl className="mt-3 grid grid-cols-[160px_1fr] gap-x-4 gap-y-1 text-base">
+      {rows.map(([k, v]) => <div key={k} className="contents"><dt className="text-label">{k}</dt><dd className={cx(v === 'Signed request outstanding' && 'font-medium text-warning-text')}>{v}</dd></div>)}
+    </dl>
   )
 }
 
