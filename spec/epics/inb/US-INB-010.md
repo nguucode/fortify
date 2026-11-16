@@ -4,7 +4,7 @@ title: Triage conversations by assigning, marking done, and marking unread
 epic: INB
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/inbox]
 dependsOn: [US-INB-001]

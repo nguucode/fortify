@@ -4,7 +4,7 @@ title: Move an Opportunity through stages
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/pipeline/:id]
 dependsOn: [US-PIP-004]

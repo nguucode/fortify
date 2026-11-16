@@ -4,7 +4,7 @@ title: Compose and reply by email (simulated)
 epic: INB
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/inbox]
 dependsOn: [US-INB-002, US-SET-007, US-WRK-002]

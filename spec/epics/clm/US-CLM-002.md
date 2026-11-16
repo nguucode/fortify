@@ -4,7 +4,7 @@ title: Claim page
 epic: CLM
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/claims/:id]
 dependsOn: [US-FND-005, US-FND-006, US-WRK-001, US-WRK-002]

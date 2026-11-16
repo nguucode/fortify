@@ -4,7 +4,7 @@ title: View as role switcher (demo)
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-FND-002, US-FND-005]

@@ -4,7 +4,7 @@ title: Linked Accounts through a shared Contact
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-ACC-003, US-ACC-010]

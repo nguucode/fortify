@@ -4,7 +4,7 @@ title: SLA due dates with due-soon and overdue indicators
 epic: SRV
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/service, /service/:id]
 dependsOn: [US-SRV-001, US-SRV-003, US-FND-008]

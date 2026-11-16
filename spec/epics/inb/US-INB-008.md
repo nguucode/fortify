@@ -4,7 +4,7 @@ title: Create a Task or Service Request from a message
 epic: INB
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/inbox]
 dependsOn: [US-INB-007, US-SRV-005, US-SRV-014, US-WRK-005]

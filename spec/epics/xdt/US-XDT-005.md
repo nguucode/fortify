@@ -4,7 +4,7 @@ title: Start an Opportunity from an X-date
 epic: XDT
 roles: [Producer, Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/x-dates, /accounts/:id]
 dependsOn: [US-XDT-002, US-XDT-004, US-PIP-003, US-PIP-004, US-WRK-006]

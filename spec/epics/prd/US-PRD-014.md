@@ -4,7 +4,7 @@ title: Filter the backlog by role and status
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/product/backlog, /product/backlog/map]
 dependsOn: [US-PRD-010, US-FND-004]

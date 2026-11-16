@@ -4,7 +4,7 @@ title: Templates list
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/settings/templates]
 dependsOn: [US-FND-007, US-SET-001]

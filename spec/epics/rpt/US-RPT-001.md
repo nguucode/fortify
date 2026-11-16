@@ -4,7 +4,7 @@ title: Reports home with a role-scoped catalog
 epic: RPT
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/reports]
 dependsOn: [US-FND-001, US-FND-004, US-FND-005]

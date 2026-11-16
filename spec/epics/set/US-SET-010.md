@@ -4,7 +4,7 @@ title: Licenses by user and state (read-only)
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/settings/licenses]
 dependsOn: [US-FND-007, US-SET-001]

@@ -4,7 +4,7 @@ title: Agency-wide X-dates list
 epic: XDT
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/x-dates]
 dependsOn: [US-FND-001, US-FND-005, US-FND-007]

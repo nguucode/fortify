@@ -4,7 +4,7 @@ title: Unread badge and simulated new messages
 epic: INB
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/inbox]
 dependsOn: [US-INB-001, US-FND-001, US-FND-008]

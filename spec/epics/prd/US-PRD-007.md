@@ -4,7 +4,7 @@ title: Object model page
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/product/object-model]
 dependsOn: [US-PRD-001, US-PRD-003, US-FND-017]

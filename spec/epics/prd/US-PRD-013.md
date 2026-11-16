@@ -4,7 +4,7 @@ title: Story page with metadata, sections, and Copy file path
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/product/stories/:id]
 dependsOn: [US-PRD-002, US-PRD-003, US-FND-015]

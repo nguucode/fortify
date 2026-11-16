@@ -4,7 +4,7 @@ title: X-date report
 epic: RPT
 roles: [Producer, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/reports]
 dependsOn: [US-RPT-001, US-RPT-002, US-FND-020, US-XDT-001]

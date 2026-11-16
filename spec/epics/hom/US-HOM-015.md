@@ -4,7 +4,7 @@ title: Needs-attention callout on Today
 epic: HOM
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-HOM-001]

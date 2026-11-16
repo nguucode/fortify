@@ -4,7 +4,7 @@ title: Record the carrier result when closing a Policy change
 epic: SRV
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/service/:id]
 dependsOn: [US-SRV-004, US-SRV-006]

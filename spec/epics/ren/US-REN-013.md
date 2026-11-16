@@ -4,7 +4,7 @@ title: Bulk actions on the Renewals worklist
 epic: REN
 roles: [Account Manager, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/renewals]
 dependsOn: [US-REN-001, US-REN-005, US-FND-019, US-WRK-005]

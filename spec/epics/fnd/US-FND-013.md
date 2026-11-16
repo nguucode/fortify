@@ -4,7 +4,7 @@ title: Record page header and tabs pattern
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id, /pipeline/:id, /policies/:id, /renewals/:id, /service/:id]
 dependsOn: [US-FND-001, US-FND-017, US-FND-018]

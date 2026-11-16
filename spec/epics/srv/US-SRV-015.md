@@ -4,7 +4,7 @@ title: Edit and reassign a Service Request
 epic: SRV
 roles: [Account Manager, Producer, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/service/:id]
 dependsOn: [US-SRV-003, US-SRV-005]

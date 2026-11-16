@@ -4,7 +4,7 @@ title: Responsive layout (desktop-first, tablet usable, mobile read-only)
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/today, /accounts, /accounts/:id]
 dependsOn: [US-FND-001, US-FND-007]

@@ -4,7 +4,7 @@ title: Mark an Opportunity Lost with a reason and X-dates
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/pipeline/:id, /pipeline]
 dependsOn: [US-PIP-004, US-XDT-002]

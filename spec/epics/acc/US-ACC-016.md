@@ -4,7 +4,7 @@ title: Move a Book in bulk
 epic: ACC
 roles: [Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts]
 dependsOn: [US-ACC-001, US-ACC-015, US-FND-019, US-FND-008]

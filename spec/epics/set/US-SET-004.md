@@ -4,7 +4,7 @@ title: Offices page with editable details
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/settings/offices]
 dependsOn: [US-SET-001]

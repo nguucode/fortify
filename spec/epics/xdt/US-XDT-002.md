@@ -4,7 +4,7 @@ title: View, add, and edit an X-date
 epic: XDT
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/x-dates, /accounts/:id]
 dependsOn: [US-FND-005, US-XDT-001]

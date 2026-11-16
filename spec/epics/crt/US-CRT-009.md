@@ -4,7 +4,7 @@ title: Re-issue Certificates when a Term renews
 epic: CRT
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id, /certificates]
 dependsOn: [US-CRT-003, US-CRT-005, US-CRT-008]

@@ -4,7 +4,7 @@ title: Follow-up Task created ahead of each X-date
 epic: XDT
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/x-dates, /accounts/:id]
 dependsOn: [US-FND-005, US-FND-008, US-XDT-002, US-WRK-004]

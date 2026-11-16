@@ -4,7 +4,7 @@ title: Create and edit a template with merge fields and preview
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/settings/templates]
 dependsOn: [US-SET-007]

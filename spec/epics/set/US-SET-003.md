@@ -4,7 +4,7 @@ title: Invite, edit, and deactivate a user
 epic: SET
 roles: [Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/settings/users]
 dependsOn: [US-SET-002, US-ACC-016]

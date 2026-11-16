@@ -4,7 +4,7 @@ title: Log Activity and create Tasks on a Renewal
 epic: REN
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/renewals/:id]
 dependsOn: [US-REN-004, US-WRK-001, US-WRK-002, US-WRK-005]

@@ -4,7 +4,7 @@ title: Contact page
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/contacts/:id]
 dependsOn: [US-ACC-011, US-ACC-013, US-WRK-001, US-FND-006]

@@ -4,7 +4,7 @@ title: "Account Manager Today: Certificates waiting"
 epic: HOM
 roles: [Account Manager]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007, US-CRT-008]

@@ -4,7 +4,7 @@ title: Disqualify a Lead with a reason
 epic: LEA
 roles: [Producer, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/leads, /leads/:id]
 dependsOn: [US-LEA-003, US-XDT-002]

@@ -4,7 +4,7 @@ title: Commission on the Policy page by role
 epic: POL
 roles: [Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/policies/:id]
 dependsOn: [US-POL-002, US-FND-004]

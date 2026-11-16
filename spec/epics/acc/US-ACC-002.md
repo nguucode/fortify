@@ -4,7 +4,7 @@ title: Create a Household or Business Account
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts]
 dependsOn: [US-ACC-001, US-FND-005]

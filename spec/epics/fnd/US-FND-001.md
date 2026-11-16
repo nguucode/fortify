@@ -4,7 +4,7 @@ title: App shell with grouped sidebar from sitemap.yaml
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: []

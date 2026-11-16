@@ -4,7 +4,7 @@ title: Close or reopen a Claim
 epic: CLM
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/claims/:id]
 dependsOn: [US-CLM-004]

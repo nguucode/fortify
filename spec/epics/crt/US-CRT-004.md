@@ -4,7 +4,7 @@ title: Certificate page with status, coverage, and history
 epic: CRT
 roles: [Account Manager, Principal, Producer, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/certificates/:id]
 dependsOn: [US-FND-005, US-FND-006]

@@ -4,7 +4,7 @@ title: Commission visibility on Opportunities and Quotes
 epic: PIP
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/pipeline, /pipeline/:id]
 dependsOn: [US-PIP-002, US-PIP-004, US-PIP-008, US-PIP-010]

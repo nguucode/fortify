@@ -4,7 +4,7 @@ title: Compare Quotes side by side and mark them Presented
 epic: PIP
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/pipeline/:id]
 dependsOn: [US-PIP-007]

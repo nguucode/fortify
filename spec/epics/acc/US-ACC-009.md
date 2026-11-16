@@ -4,7 +4,7 @@ title: Account Documents tab
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-ACC-003, US-FND-005, US-FND-007]

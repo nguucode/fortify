@@ -4,7 +4,7 @@ title: Term history on the Policy page
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/policies/:id]
 dependsOn: [US-POL-002]

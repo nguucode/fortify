@@ -4,7 +4,7 @@ title: TX and FL notice milestones on the Renewal page
 epic: REN
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/renewals/:id]
 dependsOn: [US-REN-004]

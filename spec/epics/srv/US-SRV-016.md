@@ -4,7 +4,7 @@ title: Bulk reassign and status change from the Service list
 epic: SRV
 roles: [Account Manager, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/service]
 dependsOn: [US-SRV-002, US-SRV-004, US-SRV-015]

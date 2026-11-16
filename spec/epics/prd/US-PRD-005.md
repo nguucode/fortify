@@ -4,7 +4,7 @@ title: Product overview page
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/product]
 dependsOn: [US-PRD-001, US-PRD-002, US-PRD-004]

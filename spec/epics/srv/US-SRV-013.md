@@ -4,7 +4,7 @@ title: Account page Service tab
 epic: SRV
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-FND-007, US-SRV-005, US-ACC-003]

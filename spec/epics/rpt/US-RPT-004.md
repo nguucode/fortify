@@ -4,7 +4,7 @@ title: Production report with quoted and bound premium
 epic: RPT
 roles: [Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/reports]
 dependsOn: [US-RPT-001, US-RPT-002, US-FND-020, US-PIP-010, US-PIP-013, US-POL-001]

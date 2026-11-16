@@ -4,7 +4,7 @@ title: Record the carrier claim number and adjuster
 epic: CLM
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/claims/:id]
 dependsOn: [US-CLM-003]

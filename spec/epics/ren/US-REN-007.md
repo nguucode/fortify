@@ -4,7 +4,7 @@ title: Record a Renewal decision
 epic: REN
 roles: [Account Manager, Producer, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/renewals/:id]
 dependsOn: [US-REN-004, US-REN-005, US-FND-005]

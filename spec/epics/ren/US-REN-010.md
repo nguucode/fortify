@@ -4,7 +4,7 @@ title: Account Renewals tab
 epic: REN
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-REN-001, US-REN-002, US-ACC-003]

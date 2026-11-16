@@ -4,7 +4,7 @@ title: Mention a teammate in a note
 epic: WRK
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-WRK-002, US-FND-008]

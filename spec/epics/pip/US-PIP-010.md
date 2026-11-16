@@ -4,7 +4,7 @@ title: Mark an Opportunity Won and create Bound Terms
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/pipeline/:id, /pipeline]
 dependsOn: [US-PIP-009, US-FND-005, US-WRK-005]

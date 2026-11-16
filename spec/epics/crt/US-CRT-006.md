@@ -4,7 +4,7 @@ title: Mock ACORD 25 certificate preview
 epic: CRT
 roles: [Account Manager, Principal, Producer, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/certificates/:id]
 dependsOn: [US-CRT-004]

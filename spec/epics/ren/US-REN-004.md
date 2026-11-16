@@ -4,7 +4,7 @@ title: Renewal page with expiring and renewal Term summary
 epic: REN
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/renewals/:id]
 dependsOn: [US-FND-005, US-FND-006, US-REN-001]

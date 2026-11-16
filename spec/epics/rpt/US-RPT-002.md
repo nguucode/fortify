@@ -4,7 +4,7 @@ title: Report filters, date range, and CSV export
 epic: RPT
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/reports]
 dependsOn: [US-RPT-001]

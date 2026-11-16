@@ -4,7 +4,7 @@ title: Import a purchased lead list
 epic: LEA
 roles: [Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: M
 routes: [/leads]
 dependsOn: [US-FND-005, US-LEA-001, US-LEA-002]

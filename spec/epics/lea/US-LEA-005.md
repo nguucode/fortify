@@ -4,7 +4,7 @@ title: Log contact attempts on a Lead
 epic: LEA
 roles: [Producer, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/leads/:id]
 dependsOn: [US-LEA-003]

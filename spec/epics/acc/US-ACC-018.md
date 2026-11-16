@@ -4,7 +4,7 @@ title: Merge duplicate Accounts
 epic: ACC
 roles: [Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-ACC-003, US-ACC-017]

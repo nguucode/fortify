@@ -4,7 +4,7 @@ title: Status cells and badges for every lifecycle
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/pipeline, /policies, /renewals]
 dependsOn: []

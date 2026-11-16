@@ -4,7 +4,7 @@ title: Settings layout, navigation, and access
 epic: SET
 roles: [Admin, Principal, Producer, Account Manager]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/settings, /settings/users, /403]
 dependsOn: [US-FND-001, US-FND-004, US-FND-006]

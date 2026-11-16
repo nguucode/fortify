@@ -4,7 +4,7 @@ title: Pipeline nudges for stalled Opportunities and expiring Quotes
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/pipeline]
 dependsOn: [US-PIP-001, US-PIP-002, US-PIP-015, US-SET-006]

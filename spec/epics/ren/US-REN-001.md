@@ -4,7 +4,7 @@ title: Renewals worklist with windows and saved views
 epic: REN
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/renewals]
 dependsOn: [US-FND-001, US-FND-005, US-FND-007]

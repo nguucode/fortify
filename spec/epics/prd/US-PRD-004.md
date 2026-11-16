@@ -4,7 +4,7 @@ title: Spec validation in npm test and spec health on the Overview
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/product]
 dependsOn: [US-PRD-002]

@@ -4,7 +4,7 @@ title: "My day: Tasks due and today's meetings"
 epic: HOM
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-HOM-001, US-WRK-006]

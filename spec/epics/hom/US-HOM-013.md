@@ -4,7 +4,7 @@ title: "Admin Today: users, Licenses, and Offices"
 epic: HOM
 roles: [Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007, US-SET-010]

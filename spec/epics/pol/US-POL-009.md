@@ -4,7 +4,7 @@ title: Commercial Insured items with locations, vehicles, and WC payroll
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/policies/:id]
 dependsOn: [US-POL-002, US-POL-003, US-POL-007]

@@ -4,7 +4,7 @@ title: Spec loader and index for stories, Epics, sitemap, and glossary
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/product]
 dependsOn: []

@@ -4,7 +4,7 @@ title: Roll forward passed X-dates
 epic: XDT
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/x-dates]
 dependsOn: [US-XDT-001, US-XDT-004]

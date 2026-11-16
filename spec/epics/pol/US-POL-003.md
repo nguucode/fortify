@@ -4,7 +4,7 @@ title: Request a change from a Policy
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/policies/:id]
 dependsOn: [US-POL-002, US-SRV-005, US-SRV-006]

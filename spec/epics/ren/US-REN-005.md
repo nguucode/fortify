@@ -4,7 +4,7 @@ title: Move a Renewal through review and presentation
 epic: REN
 roles: [Account Manager, Producer, Principal]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/renewals/:id, /renewals]
 dependsOn: [US-REN-004]

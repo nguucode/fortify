@@ -4,7 +4,7 @@ title: Keyboard shortcuts and shortcut help
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/today, /accounts]
 dependsOn: [US-FND-001, US-FND-003, US-FND-007]

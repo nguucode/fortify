@@ -4,7 +4,7 @@ title: New Service Request with type picker and shared fields
 epic: SRV
 roles: [Account Manager, Producer, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/service, /accounts/:id]
 dependsOn: [US-FND-005, US-SRV-001]

@@ -4,7 +4,7 @@ title: Pipeline board by stage
 epic: PIP
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/pipeline]
 dependsOn: [US-FND-001, US-FND-005, US-FND-007, US-PIP-005]

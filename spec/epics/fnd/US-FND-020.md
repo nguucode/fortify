@@ -4,7 +4,7 @@ title: Chart primitives (Recharts)
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-FND-012, US-FND-016]

@@ -4,7 +4,7 @@ title: Service board by status
 epic: SRV
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/service]
 dependsOn: [US-FND-001, US-FND-005]

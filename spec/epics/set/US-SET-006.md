@@ -4,7 +4,7 @@ title: Pipeline stages, reasons, and timing rules
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/settings/pipeline]
 dependsOn: [US-SET-001, US-SRV-014]

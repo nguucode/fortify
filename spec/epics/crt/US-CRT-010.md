@@ -4,7 +4,7 @@ title: Re-issue a single Certificate after a change
 epic: CRT
 roles: [Account Manager, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/certificates/:id]
 dependsOn: [US-CRT-005]

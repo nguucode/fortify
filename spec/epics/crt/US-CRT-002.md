@@ -4,7 +4,7 @@ title: Add, edit, and deactivate a Holder
 epic: CRT
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id, /certificates/:id]
 dependsOn: [US-FND-005]

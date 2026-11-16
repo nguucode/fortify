@@ -4,7 +4,7 @@ title: "Producer Today: my pipeline by stage"
 epic: HOM
 roles: [Producer]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007, US-PIP-003, US-PIP-010]

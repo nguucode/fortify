@@ -4,7 +4,7 @@ title: Create and edit an Opportunity
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/pipeline, /pipeline/:id, /accounts/:id]
 dependsOn: [US-FND-005, US-PIP-004]

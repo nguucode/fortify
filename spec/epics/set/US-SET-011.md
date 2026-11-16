@@ -4,7 +4,7 @@ title: Integrations page (mock)
 epic: SET
 roles: [Admin, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/settings/integrations]
 dependsOn: [US-SET-001]

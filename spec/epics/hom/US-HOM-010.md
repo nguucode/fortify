@@ -4,7 +4,7 @@ title: "Principal Today: agency pipeline and Producer leaderboard"
 epic: HOM
 roles: [Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007, US-FND-020]

@@ -4,7 +4,7 @@ title: Reassign an Account's Producer or Account Manager
 epic: ACC
 roles: [Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-ACC-003, US-WRK-001, US-FND-008]

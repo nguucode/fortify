@@ -4,7 +4,7 @@ title: Compare the expiring Term with the renewal terms
 epic: REN
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/renewals/:id]
 dependsOn: [US-REN-004]

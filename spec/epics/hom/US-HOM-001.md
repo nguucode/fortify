@@ -4,7 +4,7 @@ title: Today page frame with role-based layout
 epic: HOM
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-FND-001, US-FND-002, US-FND-004, US-FND-005]

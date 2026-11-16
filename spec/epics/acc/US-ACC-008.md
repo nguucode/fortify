@@ -4,7 +4,7 @@ title: Account Activity tab with open Tasks
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-ACC-003, US-WRK-001, US-WRK-002, US-WRK-004]

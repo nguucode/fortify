@@ -4,7 +4,7 @@ title: Create and edit a Contact
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id, /contacts/:id]
 dependsOn: [US-FND-005]

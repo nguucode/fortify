@@ -4,7 +4,7 @@ title: Remarket progress on the Renewal page
 epic: REN
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/renewals/:id]
 dependsOn: [US-REN-007, US-REN-008, US-PIP-014]

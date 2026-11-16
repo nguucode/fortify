@@ -4,7 +4,7 @@ title: Glossary page with search and term links
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/product/glossary]
 dependsOn: [US-PRD-001, US-PRD-002, US-FND-015]

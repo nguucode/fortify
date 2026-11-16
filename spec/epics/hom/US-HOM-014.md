@@ -4,7 +4,7 @@ title: "Admin Today: AMS sync status"
 epic: HOM
 roles: [Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-005, US-SET-012]

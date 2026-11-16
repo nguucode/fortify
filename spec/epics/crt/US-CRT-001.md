@@ -4,7 +4,7 @@ title: Holders sub-tab on a Business Account
 epic: CRT
 roles: [Account Manager, Principal, Producer, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-FND-005, US-FND-007, US-CRT-002, US-SRV-013]

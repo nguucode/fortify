@@ -4,7 +4,7 @@ title: Archive and restore an Account
 epic: ACC
 roles: [Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id, /accounts]
 dependsOn: [US-ACC-003, US-ACC-001]

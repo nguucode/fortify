@@ -4,7 +4,7 @@ title: Schedule a Meeting from the Calendar
 epic: WRK
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/calendar]
 dependsOn: [US-WRK-005, US-WRK-007]

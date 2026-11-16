@@ -4,7 +4,7 @@ title: Carriers and appointments (read-only)
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/settings/carriers]
 dependsOn: [US-FND-007, US-SET-001]

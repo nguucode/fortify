@@ -4,7 +4,7 @@ title: Product workspace layout with IA and Backlog navigation
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/product]
 dependsOn: [US-FND-001, US-FND-006]

@@ -4,7 +4,7 @@ title: Pipeline report
 epic: RPT
 roles: [Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/reports]
 dependsOn: [US-RPT-001, US-RPT-002, US-FND-020, US-PIP-002]

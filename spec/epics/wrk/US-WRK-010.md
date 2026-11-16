@@ -4,7 +4,7 @@ title: Bulk update Tasks
 epic: WRK
 roles: [Account Manager, Principal, Admin, Producer]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/tasks]
 dependsOn: [US-WRK-004, US-WRK-006]

@@ -4,7 +4,7 @@ title: "Producer Today: upcoming X-dates"
 epic: HOM
 roles: [Producer]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007, US-XDT-004]

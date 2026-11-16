@@ -4,7 +4,7 @@ title: Claims list
 epic: CLM
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/claims]
 dependsOn: [US-FND-007, US-CLM-002, US-SRV-009]

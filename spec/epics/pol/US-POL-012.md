@@ -4,7 +4,7 @@ title: Account Policies tab
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-FND-005, US-FND-007, US-POL-002, US-POL-004, US-ACC-003]

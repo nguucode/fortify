@@ -4,7 +4,7 @@ title: Submit a Claim to the carrier
 epic: CLM
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/claims/:id]
 dependsOn: [US-CLM-002, US-SRV-009]

@@ -4,7 +4,7 @@ title: AMS sync indicator and read-only affordances
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/policies, /policies/:id, /accounts/:id]
 dependsOn: [US-FND-005, US-POL-002]

@@ -4,7 +4,7 @@ title: Data table pattern with saved views, filters, sorting, and pagination
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/accounts]
 dependsOn: [US-FND-005, US-FND-016, US-FND-017]

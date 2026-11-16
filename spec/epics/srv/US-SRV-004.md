@@ -4,7 +4,7 @@ title: Change a Service Request's status
 epic: SRV
 roles: [Account Manager, Producer, Principal]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/service, /service/:id]
 dependsOn: [US-SRV-003]

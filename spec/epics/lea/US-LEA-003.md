@@ -4,7 +4,7 @@ title: Lead record view
 epic: LEA
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/leads/:id]
 dependsOn: [US-FND-001, US-FND-005, US-FND-006, US-LEA-001]

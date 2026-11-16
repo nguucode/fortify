@@ -4,7 +4,7 @@ title: Account Overview tab summary
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-ACC-003, US-WRK-001]

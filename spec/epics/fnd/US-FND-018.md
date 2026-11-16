@@ -4,7 +4,7 @@ title: Permission gates for actions, fields, and records
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/accounts, /accounts/:id, /pipeline/:id]
 dependsOn: [US-FND-004, US-FND-006]

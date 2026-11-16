@@ -4,7 +4,7 @@ title: Sitemap page with per-route story coverage
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/product/sitemap]
 dependsOn: [US-PRD-001, US-PRD-002]

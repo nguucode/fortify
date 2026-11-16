@@ -4,7 +4,7 @@ title: AMS data sync status and log
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/settings/data-sync]
 dependsOn: [US-FND-007, US-SET-001, US-FND-008]

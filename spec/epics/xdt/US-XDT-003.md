@@ -4,7 +4,7 @@ title: X-dates section on the Account page
 epic: XDT
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-XDT-002, US-ACC-003, US-ACC-004]

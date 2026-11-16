@@ -4,7 +4,7 @@ title: Read-only roles and permission matrix
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/settings/roles]
 dependsOn: [US-SET-001, US-FND-004]

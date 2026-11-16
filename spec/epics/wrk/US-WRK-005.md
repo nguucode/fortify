@@ -4,7 +4,7 @@ title: Create and edit a Task
 epic: WRK
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/tasks, /accounts/:id]
 dependsOn: []

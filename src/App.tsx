@@ -144,6 +144,8 @@ export function App() {
                   <Route path="glossary" element={<ProductGlossary />} />
                   <Route path="backlog" element={<ProductBacklog />} />
                   <Route path="backlog/map" element={<ProductStoryMap />} />
+                  <Route path="epics" element={<Navigate to="/product/backlog" replace />} />
+                  <Route path="stories" element={<Navigate to="/product/backlog" replace />} />
                   <Route path="epics/:code" element={<ProductEpic />} />
                   <Route path="stories/:id" element={<ProductStory />} />
                 </Route>

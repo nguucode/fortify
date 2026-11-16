@@ -4,7 +4,7 @@ title: Renewal nudges callout on the worklist
 epic: REN
 roles: [Account Manager, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/renewals]
 dependsOn: [US-REN-001, US-REN-002]

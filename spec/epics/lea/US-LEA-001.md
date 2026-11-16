@@ -4,7 +4,7 @@ title: Lead intake list
 epic: LEA
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/leads]
 dependsOn: [US-FND-001, US-FND-005, US-FND-007]

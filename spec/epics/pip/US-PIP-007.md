@@ -4,7 +4,7 @@ title: Record the carrier response on a Quote
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/pipeline/:id]
 dependsOn: [US-PIP-006, US-WRK-005]

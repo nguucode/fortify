@@ -4,7 +4,7 @@ title: Business details and Locations on the Overview tab
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-ACC-004, US-CRT-001]

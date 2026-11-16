@@ -4,7 +4,7 @@ title: Browse Accounts with saved views
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/accounts]
 dependsOn: [US-FND-001, US-FND-005, US-FND-007]

@@ -4,7 +4,7 @@ title: Qualify step 1, duplicate check against Accounts and Contacts
 epic: LEA
 roles: [Producer, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/leads/:id]
 dependsOn: [US-FND-005, US-LEA-003]

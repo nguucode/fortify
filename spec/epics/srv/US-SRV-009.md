@@ -4,7 +4,7 @@ title: Claim report form (first notice of loss)
 epic: SRV
 roles: [Account Manager, Producer, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/service, /accounts/:id]
 dependsOn: [US-SRV-005, US-CLM-002]

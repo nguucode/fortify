@@ -4,7 +4,7 @@ title: Add a Quote with license and appointment warnings
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/pipeline/:id]
 dependsOn: [US-FND-005, US-PIP-004, US-PIP-005]

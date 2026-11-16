@@ -4,7 +4,7 @@ title: Calendar month view with key-date overlays
 epic: WRK
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: M
 routes: [/calendar]
 dependsOn: [US-WRK-007, US-XDT-002, US-REN-004]

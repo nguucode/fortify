@@ -4,7 +4,7 @@ title: Mock data store, API latency, and Demo controls
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: []

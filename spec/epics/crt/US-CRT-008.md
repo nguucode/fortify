@@ -4,7 +4,7 @@ title: Agency-wide Certificates list with Needs review queue
 epic: CRT
 roles: [Account Manager, Principal, Producer, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/certificates]
 dependsOn: [US-FND-007, US-CRT-004]

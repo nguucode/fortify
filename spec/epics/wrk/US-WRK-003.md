@@ -4,7 +4,7 @@ title: Edit a note within 24 hours
 epic: WRK
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/accounts/:id]
 dependsOn: [US-WRK-001, US-WRK-002]

@@ -4,7 +4,7 @@ title: Start remarketing with a linked Remarket Opportunity
 epic: REN
 roles: [Account Manager, Principal]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/renewals/:id]
 dependsOn: [US-REN-004, US-REN-005, US-PIP-003]

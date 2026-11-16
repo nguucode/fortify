@@ -4,7 +4,7 @@ title: Mentions in the Inbox
 epic: INB
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/inbox]
 dependsOn: [US-INB-001, US-FND-008, US-ACC-008, US-WRK-011]

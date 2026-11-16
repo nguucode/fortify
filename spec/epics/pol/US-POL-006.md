@@ -4,7 +4,7 @@ title: Rewrite links between replaced and replacing Policies
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/policies, /policies/:id]
 dependsOn: [US-POL-002, US-POL-005]

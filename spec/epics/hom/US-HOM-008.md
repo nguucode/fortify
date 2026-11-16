@@ -4,7 +4,7 @@ title: "Account Manager Today: service queue"
 epic: HOM
 roles: [Account Manager]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007]

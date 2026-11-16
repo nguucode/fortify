@@ -4,7 +4,7 @@ title: Shared empty, loading, and error states
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/today, /accounts]
 dependsOn: [US-FND-005]

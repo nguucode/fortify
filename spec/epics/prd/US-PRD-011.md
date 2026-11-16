@@ -4,7 +4,7 @@ title: Story map by Epic and priority
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/product/backlog/map]
 dependsOn: [US-PRD-010]

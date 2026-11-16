@@ -4,7 +4,7 @@ title: Accessibility baseline for the shell and shared components (WCAG 2.2 AA)
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/today, /accounts]
 dependsOn: [US-FND-001, US-FND-002, US-FND-007]

@@ -4,7 +4,7 @@ title: Account page header and 7-tab shell with counts
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-FND-001, US-FND-005, US-FND-006, US-ACC-001, US-WRK-002, US-WRK-005, US-PIP-003, US-SRV-005]

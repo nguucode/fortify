@@ -4,7 +4,7 @@ title: Past Term detail drawer
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/policies/:id]
 dependsOn: [US-POL-005]

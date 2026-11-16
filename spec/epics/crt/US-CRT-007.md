@@ -4,7 +4,7 @@ title: Principal reviews a Certificate with AI, waiver, or P&NC
 epic: CRT
 roles: [Principal, Account Manager]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/certificates/:id]
 dependsOn: [US-FND-008, US-CRT-005, US-CRT-006]

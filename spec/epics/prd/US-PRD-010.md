@@ -4,7 +4,7 @@ title: Backlog table with search and Epic and Priority filters
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/product/backlog]
 dependsOn: [US-PRD-001, US-PRD-002, US-FND-007, US-FND-017]

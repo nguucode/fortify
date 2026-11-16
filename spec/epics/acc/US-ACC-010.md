@@ -4,7 +4,7 @@ title: Manage Contacts on an Account
 epic: ACC
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-ACC-004, US-ACC-013]

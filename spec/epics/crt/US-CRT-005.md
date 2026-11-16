@@ -4,7 +4,7 @@ title: Issue a Certificate from a Certificate request
 epic: CRT
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/certificates/:id]
 dependsOn: [US-CRT-002, US-CRT-004, US-SRV-008, US-SET-007]

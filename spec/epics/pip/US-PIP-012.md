@@ -4,7 +4,7 @@ title: Account Sales tab with Opportunities, Quotes, and X-dates
 epic: PIP
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id]
 dependsOn: [US-PIP-003, US-PIP-004, US-ACC-003, US-XDT-003]

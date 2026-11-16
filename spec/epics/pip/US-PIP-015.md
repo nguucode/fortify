@@ -4,7 +4,7 @@ title: Opportunity activity and next step
 epic: PIP
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/pipeline/:id, /pipeline]
 dependsOn: [US-PIP-004, US-WRK-001, US-WRK-002, US-WRK-005]

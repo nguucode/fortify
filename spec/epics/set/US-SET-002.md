@@ -4,7 +4,7 @@ title: Users list
 epic: SET
 roles: [Admin, Principal]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/settings/users]
 dependsOn: [US-FND-007, US-SET-001]

@@ -4,7 +4,7 @@ title: Table bulk selection, display options, and CSV export
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/accounts, /tasks]
 dependsOn: [US-FND-007, US-FND-018]

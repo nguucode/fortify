@@ -4,7 +4,7 @@ title: "Principal Today: Certificate approvals"
 epic: HOM
 roles: [Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007, US-CRT-007]

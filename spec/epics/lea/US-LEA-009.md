@@ -4,7 +4,7 @@ title: Reopen a Disqualified Lead
 epic: LEA
 roles: [Producer, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/leads/:id]
 dependsOn: [US-LEA-003, US-LEA-008]

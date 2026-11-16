@@ -4,7 +4,7 @@ title: Claim follow-up nudges
 epic: CLM
 roles: [Account Manager, Principal]
 priority: P2
-status: Draft
+status: Done
 size: S
 routes: [/claims, /claims/:id]
 dependsOn: [US-CLM-001, US-CLM-004, US-FND-008]

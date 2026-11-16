@@ -4,7 +4,7 @@ title: Top bar with office, global search entry, and avatar
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-FND-001]

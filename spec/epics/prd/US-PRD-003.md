@@ -4,7 +4,7 @@ title: Markdown renderer for spec documents
 epic: PRD
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/product/object-model, /product/roles, /product/stories/:id]
 dependsOn: [US-PRD-002]

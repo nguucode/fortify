@@ -4,7 +4,7 @@ title: "Producer Today: goal pacing"
 epic: HOM
 roles: [Producer]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-005]

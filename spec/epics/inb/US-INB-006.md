@@ -4,7 +4,7 @@ title: Reply by SMS with a consent guard (simulated)
 epic: INB
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/inbox]
 dependsOn: [US-INB-003, US-SET-007]

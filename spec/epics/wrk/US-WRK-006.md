@@ -4,7 +4,7 @@ title: Complete or cancel a Task
 epic: WRK
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/tasks, /accounts/:id, /calendar]
 dependsOn: [US-WRK-004, US-WRK-001]

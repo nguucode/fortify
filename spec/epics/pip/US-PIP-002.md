@@ -4,7 +4,7 @@ title: Pipeline list with saved views and filters
 epic: PIP
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/pipeline]
 dependsOn: [US-FND-007, US-PIP-001]

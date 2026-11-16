@@ -4,7 +4,7 @@ title: Personal auto Insured items with TX and FL auto coverages
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/policies/:id]
 dependsOn: [US-POL-002, US-POL-003]

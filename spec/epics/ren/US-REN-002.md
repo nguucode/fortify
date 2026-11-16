@@ -4,7 +4,7 @@ title: Triage renewals by premium change and risk
 epic: REN
 roles: [Account Manager, Principal]
 priority: P1
-status: Draft
+status: Done
 size: S
 routes: [/renewals]
 dependsOn: [US-REN-001]

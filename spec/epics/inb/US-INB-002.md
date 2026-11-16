@@ -4,7 +4,7 @@ title: Email conversation view
 epic: INB
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/inbox]
 dependsOn: [US-INB-001]

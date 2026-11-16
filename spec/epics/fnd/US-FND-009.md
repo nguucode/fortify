@@ -4,7 +4,7 @@ title: Sample data badge
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-FND-002]

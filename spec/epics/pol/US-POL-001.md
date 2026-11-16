@@ -4,7 +4,7 @@ title: Browse Policies list with saved views
 epic: POL
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/policies]
 dependsOn: [US-FND-001, US-FND-005, US-FND-007]

@@ -4,7 +4,7 @@ title: Accept Quote lines, including partial acceptance
 epic: PIP
 roles: [Producer, Account Manager, Principal]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/pipeline/:id]
 dependsOn: [US-PIP-008]

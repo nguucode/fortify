@@ -4,7 +4,7 @@ title: Qualify step 2, confirm and create the Account and Opportunity
 epic: LEA
 roles: [Producer, Principal]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/leads/:id]
 dependsOn: [US-FND-005, US-LEA-006, US-PIP-004, US-WRK-001]

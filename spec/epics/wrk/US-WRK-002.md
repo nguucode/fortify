@@ -4,7 +4,7 @@ title: Log an Activity
 epic: WRK
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/accounts/:id, /contacts/:id, /tasks]
 dependsOn: [US-WRK-001]

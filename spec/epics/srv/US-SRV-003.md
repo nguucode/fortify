@@ -4,7 +4,7 @@ title: Service Request page
 epic: SRV
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P0
-status: Draft
+status: Done
 size: M
 routes: [/service/:id]
 dependsOn: [US-FND-005, US-FND-006, US-SRV-001, US-WRK-001, US-WRK-005]

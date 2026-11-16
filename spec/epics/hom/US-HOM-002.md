@@ -4,7 +4,7 @@ title: "Producer Today: new Leads assigned to me"
 epic: HOM
 roles: [Producer]
 priority: P0
-status: Draft
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-HOM-001, US-FND-007, US-LEA-007]

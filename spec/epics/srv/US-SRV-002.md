@@ -4,7 +4,7 @@ title: Service list with filters and saved views
 epic: SRV
 roles: [Account Manager, Producer, Principal, Admin]
 priority: P1
-status: Draft
+status: Done
 size: M
 routes: [/service]
 dependsOn: [US-FND-007, US-SRV-001]
