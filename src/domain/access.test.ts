@@ -40,3 +40,39 @@ describe('commission visibility', () => {
     expect(canSeeCommission(u('y', 'admin'), 'p1')).toBe(true)
   })
 })
+
+describe('action gates (roles.md, rules.md)', async () => {
+  const { canWorkLead, canEditOpportunity, canEditRenewal, canEditService } = await import('./access')
+  const p = u('p1', 'producer'), m = u('m1', 'account-manager'), pr = u('x', 'principal'), ad = u('y', 'admin')
+  const account = acc('a1', 'p1', 'm1')
+
+  it('lets the assigned Producer or a Principal work a Lead; not Account Managers or Admins', () => {
+    const lead = { assigneeId: 'p1', officeId: 'off-hou' }
+    expect(canWorkLead(p, lead)).toBe(true)
+    expect(canWorkLead(u('p2', 'producer'), lead)).toBe(false)
+    expect(canWorkLead(pr, lead)).toBe(true)
+    expect(canWorkLead(m, lead)).toBe(false)
+    expect(canWorkLead(ad, lead)).toBe(false)
+  })
+
+  it('lets Account Managers edit only Remarket Opportunities; Admin reads', () => {
+    expect(canEditOpportunity(p, account, 'New business')).toBe(true)
+    expect(canEditOpportunity(m, account, 'New business')).toBe(false)
+    expect(canEditOpportunity(m, account, 'Remarket')).toBe(true)
+    expect(canEditOpportunity(ad, account, 'Remarket')).toBe(false)
+  })
+
+  it('lets Producers touch a Renewal only while remarketing', () => {
+    expect(canEditRenewal(m, account, 'In review')).toBe(true)
+    expect(canEditRenewal(p, account, 'In review')).toBe(false)
+    expect(canEditRenewal(p, account, 'Remarketing')).toBe(true)
+    expect(canEditRenewal(ad, account, 'In review')).toBe(false)
+  })
+
+  it('lets Producers edit only Service Requests they created', () => {
+    expect(canEditService(m, account, 'someone')).toBe(true)
+    expect(canEditService(p, account, 'p1')).toBe(true)
+    expect(canEditService(p, account, 'm1')).toBe(false)
+    expect(canEditService(ad, account, 'm1')).toBe(false)
+  })
+})

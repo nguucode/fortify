@@ -110,7 +110,8 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
         id: seq('opp-', s.opportunities),
         accountId: account.id,
         type: account.status === 'Client' ? 'Cross-sell' : 'New business',
-        stage: 'New',
+        // US-LEA-007: a Lead already contacted starts its Opportunity at Contacted.
+        stage: lead.status === 'Contacted' ? 'Contacted' : 'New',
         stageEnteredOffset: 0,
         lines: lead.linesOfInterest,
         ownerId: producerId,

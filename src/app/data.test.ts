@@ -33,7 +33,7 @@ describe('qualifyLead (US-LEA-007)', () => {
     const { accountId, opportunityId } = s.qualifyLead({ leadId: 'lea-1', targetAccountId: null, actorId: 'p' })
     const st = s.getState()
     expect(st.accounts.find((a) => a.id === accountId)).toMatchObject({ name: 'Delgado Household', status: 'Prospect', producerId: 'p', accountManagerId: 'm' })
-    expect(st.opportunities.find((o) => o.id === opportunityId)).toMatchObject({ type: 'New business', stage: 'New', lines: ['Auto'], leadId: 'lea-1' })
+    expect(st.opportunities.find((o) => o.id === opportunityId)).toMatchObject({ type: 'New business', stage: 'Contacted', lines: ['Auto'], leadId: 'lea-1' })
     expect(st.leads[0]).toMatchObject({ status: 'Qualified', qualifiedAccountId: accountId, qualifiedOpportunityId: opportunityId })
     expect(st.activities.filter((a) => a.accountId === accountId).map((a) => a.type)).toEqual(expect.arrayContaining(['call', 'system']))
   })

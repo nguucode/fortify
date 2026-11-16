@@ -9,6 +9,15 @@ import { CommandPalette } from '@/components/shell/CommandPalette'
 import { ToastProvider } from '@/components/ui/toast'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { NotBuiltPage } from '@/pages/NotBuiltPage'
+import { LeadPage, LeadsPage } from '@/pages/LeadsPages'
+import { OpportunityPage, PipelinePage } from '@/pages/PipelinePages'
+import { PoliciesPage, PolicyPage } from '@/pages/PoliciesPages'
+import { RenewalPage, RenewalsPage } from '@/pages/RenewalsPages'
+import { ServicePage, ServiceRequestPage } from '@/pages/ServicePages'
+import { AccountPage } from '@/pages/AccountPage'
+import { TodayPage } from '@/pages/TodayPage'
+
+const BUILT = new Set(['/accounts', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service'])
 
 function Shell() {
   const [palette, setPalette] = useState(false)
@@ -36,10 +45,21 @@ export function App() {
               <Route element={<Shell />}>
                 <Route index element={<Navigate to="/today" replace />} />
                 <Route path="/accounts" element={<AccountsPage />} />
-                {allNavItems.filter((i) => i.route !== '/accounts').map((i) => (
+                <Route path="/accounts/:id" element={<AccountPage />} />
+                <Route path="/today" element={<TodayPage />} />
+                <Route path="/leads" element={<LeadsPage />} />
+                <Route path="/leads/:id" element={<LeadPage />} />
+                <Route path="/pipeline" element={<PipelinePage />} />
+                <Route path="/pipeline/:id" element={<OpportunityPage />} />
+                <Route path="/policies" element={<PoliciesPage />} />
+                <Route path="/policies/:id" element={<PolicyPage />} />
+                <Route path="/renewals" element={<RenewalsPage />} />
+                <Route path="/renewals/:id" element={<RenewalPage />} />
+                <Route path="/service" element={<ServicePage />} />
+                <Route path="/service/:id" element={<ServiceRequestPage />} />
+                {allNavItems.filter((i) => !BUILT.has(i.route)).map((i) => (
                   <Route key={i.id} path={`${i.route}/*`} element={<NotBuiltPage />} />
                 ))}
-                <Route path="/accounts/:id" element={<NotBuiltPage />} />
                 <Route path="*" element={<NotBuiltPage />} />
               </Route>
             </Routes>

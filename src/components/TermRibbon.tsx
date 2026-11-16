@@ -12,7 +12,7 @@ export function RibbonAxis({ label, today = new Date() }: { label: string; today
   return (
     <span className="flex flex-col leading-none">
       <span>{label}</span>
-      <span aria-hidden className="relative mt-1 h-3 text-[11px] font-normal text-muted" style={{ width: RIBBON_WIDTH }}>
+      <span aria-hidden className="relative mt-1 h-3 text-xs font-normal text-muted" style={{ width: RIBBON_WIDTH }}>
         {QUARTERS.map((q) => (
           <span key={q} className="absolute -translate-x-1/2" style={{ left: q * RIBBON_WIDTH }}>
             {month(q)}

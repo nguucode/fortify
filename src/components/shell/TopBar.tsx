@@ -1,7 +1,7 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import * as Popover from '@radix-ui/react-popover'
 import { Bell, Building2, Check, ChevronDown, Search, SlidersHorizontal, UserRound } from 'lucide-react'
-import { officeName, useApp, useDemoControls, viewAsUsers } from '@/app/store'
+import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
 import { cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
 import { useLocation } from 'react-router'
@@ -48,6 +48,7 @@ function OfficeControl() {
 
 function DemoControlsButton() {
   const { api } = useApp()
+  const toast = useToast()
   const c = useDemoControls()
   const { pathname } = useLocation()
   const route = '/' + (pathname.split('/')[1] ?? '')
@@ -83,6 +84,15 @@ function DemoControlsButton() {
             {row('Latency', 'Adds 200–600ms to every call', c.latency, () => api.setControls({ latency: !c.latency }))}
             {row('Force error on this route', `Reads on ${route} fail`, c.forceErrorOn === route, () => api.setControls({ forceErrorOn: c.forceErrorOn === route ? null : route }))}
             {row('Simulate empty data', 'Lists return no rows', c.empty, () => api.setControls({ empty: !c.empty }))}
+          </div>
+          <div className="mt-2 flex flex-col gap-2 border-t border-fill pt-3">
+            <button className="rounded-md py-1.5 bg-surface px-2.5 text-left text-sm font-medium text-ink shadow-ring hover:bg-recessed" onClick={() => toast(`AMS sync: ${dataStore().syncRenewalOutcomes()} Decided renewals moved to Done; Won Terms matched.`, 'success')}>
+              Sync renewal outcome
+              <span className="block text-sm font-normal text-muted">Moves Decided Renewals to Done, as the AMS would</span>
+            </button>
+            <button className="h-8 rounded-md bg-surface px-2.5 text-left text-sm font-medium text-ink shadow-ring hover:bg-recessed" onClick={() => { resetData(); toast('Data reset to the seed.', 'info') }}>
+              Reset data
+            </button>
           </div>
         </Popover.Content>
       </Popover.Portal>
