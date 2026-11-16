@@ -1,6 +1,8 @@
 import { Faker, en_US, en, base } from '@faker-js/faker'
 import type {
+  AccountDocument,
   Activity,
+  InsuredItem,
   Lead,
   Opportunity,
   Quote,
@@ -538,5 +540,101 @@ export function generateDataset(seed = 20261115): Dataset {
     })
   }
 
-  return { offices: OFFICES, users, carriers: CARRIERS, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks }
+  const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users })
+  return { offices: OFFICES, users, carriers: CARRIERS, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents }
+}
+
+/**
+ * ACC P1 enrichment (details, contact fields, insured items, documents). Runs on its own seeded Faker after the
+ * main pass, so adding it changed none of the records generated before it.
+ */
+function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'policies' | 'terms' | 'users'>) {
+  const f = new Faker({ locale: [en_US, en, base] })
+  f.seed(seed + 7)
+  const int = (a: number, b: number) => f.number.int({ min: a, max: b })
+  const pick = <T,>(xs: readonly T[]) => f.helpers.arrayElement(xs)
+  const COUNTY: Record<string, string> = { TX: 'Harris County', FL: 'Hillsborough County' }
+  const NAICS: [string, string][] = [['238160', 'Roofing contractors'], ['238220', 'Plumbing and HVAC contractors'], ['722511', 'Full-service restaurants'], ['561730', 'Landscaping services'], ['621210', 'Offices of dentists'], ['811111', 'General automotive repair'], ['713940', 'Fitness centers'], ['484110', 'General freight trucking, local']]
+  const street = () => `${int(100, 9999)} ${f.location.street()}`
+  for (const a of d.accounts) {
+    const base = { street: street(), county: a.state === 'FL' ? (a.coastal ? 'Pinellas County' : 'Hillsborough County') : COUNTY[a.state] ?? 'Harris County', preferredContact: pick(['Phone', 'Phone', 'Email', 'SMS'] as const), source: pick(['Referral', 'Web form', 'Phone', 'Walk-in', 'Trusted Choice', 'X-date list']) }
+    if (a.kind === 'Household') a.details = base
+    else {
+      // Match the trade in the name when there is one (Roofing -> roofing contractors), otherwise pick.
+      const KEY: [RegExp, number][] = [[/roof/i, 0], [/plumb|hvac/i, 1], [/restaurant|grill|cafe|kitchen/i, 2], [/landscap|lawn/i, 3], [/dental|dentist/i, 4], [/auto|repair/i, 5], [/fitness|gym/i, 6], [/truck|freight|haul/i, 7]]
+      const hit = KEY.find(([re]) => re.test(a.name))
+      const roll = pick(NAICS)
+      const [naics, desc] = hit ? NAICS[hit[1]] : roll
+      const employees = int(2, 60)
+      a.details = {
+        ...base,
+        legalName: a.name.replace(/ LLC$| Inc\.?$/, '') + (a.name.endsWith('LLC') ? ', LLC' : a.name.endsWith('Inc.') ? ', Inc.' : ''),
+        dba: f.datatype.boolean({ probability: 0.25 }) ? a.name.split(' ')[0] + ' Services' : null,
+        entityType: a.name.endsWith('LLC') ? 'LLC' : a.name.endsWith('Inc.') ? 'Corporation' : pick(['LLC', 'Corporation', 'Partnership', 'Sole proprietor'] as const),
+        fein4: String(int(1000, 9999)),
+        naics,
+        naicsDescription: desc,
+        yearsInBusiness: int(1, 35),
+        employees,
+        revenue: Math.round((employees * int(80, 220)) / 10) * 10_000,
+        payroll: Math.round((employees * int(32, 70)) / 10) * 10_000,
+        website: f.datatype.boolean({ probability: 0.7 }) ? `www.${a.name.toLowerCase().replace(/[^a-z]+/g, '')}.example` : null,
+        wcStatus: a.state === 'TX' && f.datatype.boolean({ probability: 0.25 }) ? 'Non-subscriber (TX)' : f.datatype.boolean({ probability: 0.1 }) ? 'Exempt' : 'Covered',
+        dwc005Offset: null,
+      }
+      if (a.details.wcStatus === 'Non-subscriber (TX)') a.details.dwc005Offset = f.datatype.boolean({ probability: 0.6 }) ? -int(200, 300) : -int(400, 500)
+    }
+  }
+  const byId = new Map(d.accounts.map((a) => [a.id, a]))
+  for (const c of d.contacts) {
+    const parts = c.name.replace(/^(Mr|Mrs|Ms|Dr|Miss)\.? /, '').split(' ')
+    c.firstName = parts[0]
+    c.lastName = parts.slice(1).join(' ') || parts[0]
+    c.suffix = null
+    c.workPhone = f.datatype.boolean({ probability: 0.3 }) ? `(555) 020-${String(int(0, 9999)).padStart(4, '0')}` : null
+    c.dobOffset = byId.get(c.accountIds[0])?.kind === 'Household' ? -int(22 * 365, 75 * 365) : null
+    c.preferredContact = pick(['Phone', 'Email', 'SMS'] as const)
+    c.smsConsent = pick([{ state: 'Opted in', offset: -int(30, 900) }, { state: 'Unknown', offset: null }, { state: 'Unknown', offset: null }, { state: 'Opted out', offset: -int(10, 400) }] as const)
+    c.street = null
+    c.relationships = Object.fromEntries(c.accountIds.map((aid) => {
+      const a = byId.get(aid)
+      const primary = a?.primaryContactId === c.id
+      return [aid, a?.kind === 'Business' ? (primary ? 'Owner' : pick(['Officer', 'Employee', 'Billing contact'])) : primary ? 'Primary' : pick(['Spouse or partner', 'Child', 'Other relative'])]
+    }))
+  }
+
+  const insuredItems: InsuredItem[] = []
+  const documents: AccountDocument[] = []
+  const live = new Set(d.terms.filter((t) => t.status === 'Active' || t.status === 'Bound').map((t) => t.policyId))
+  const MAKES: [string, string[]][] = [['Ford', ['F-150', 'Explorer', 'Escape']], ['Toyota', ['Camry', 'RAV4', 'Tacoma']], ['Honda', ['Civic', 'CR-V', 'Accord']], ['Chevrolet', ['Silverado', 'Equinox']], ['Tesla', ['Model 3', 'Model Y']]]
+  const iid = () => `itm-${String(insuredItems.length + 1).padStart(5, '0')}`
+  const did = () => `doc-${String(documents.length + 1).padStart(5, '0')}`
+  for (const p of d.policies) {
+    const a = byId.get(p.accountId)!
+    if (!live.has(p.id)) continue
+    if (p.line === 'Auto') {
+      for (let k = 0; k < int(1, 3); k++) {
+        const [make, models] = pick(MAKES)
+        insuredItems.push({ id: iid(), policyId: p.id, accountId: a.id, kind: 'Vehicle', year: int(2012, 2026), make, model: pick(models), vin4: String(int(1000, 9999)) })
+      }
+      for (let k = 0; k < int(1, 3); k++) insuredItems.push({ id: iid(), policyId: p.id, accountId: a.id, kind: 'Driver', name: `${f.person.firstName()} ${a.name.replace(' Household', '')}`, age: int(17, 78) })
+    }
+    if (p.line === 'Home' || p.line === 'Condo') {
+      const fl = a.state === 'FL' && a.coastal
+      const value = int(18, 70) * 10_000
+      insuredItems.push({ id: iid(), policyId: p.id, accountId: a.id, kind: 'Property', address: `${a.details!.street}, ${a.city}, ${a.state} ${a.zip}`, yearBuilt: int(1962, 2022), hurricaneDeductiblePct: fl ? 2 : undefined, hurricaneDeductible: fl ? Math.round(value * 0.02) : undefined, windMitOffset: fl ? -int(200, 2600) : null, wpi8: a.state === 'TX' && a.coastal ? `WPI8-${int(100000, 999999)}` : null })
+    }
+    if (a.kind === 'Business' && (p.line === 'BOP' || p.line === 'GL')) {
+      for (let k = 0; k < int(1, 3); k++) insuredItems.push({ id: iid(), policyId: p.id, accountId: a.id, kind: 'Location', number: k + 1, address: `${street()}, ${a.city}, ${a.state}`, occupancy: pick(['Office', 'Warehouse', 'Retail', 'Shop']), buildingValue: int(20, 180) * 10_000 })
+    }
+    documents.push({ id: did(), accountId: a.id, name: `${p.policyNumber} Declarations.pdf`, type: 'Declarations', source: 'AMS', linked: { kind: 'policy', id: p.id, label: `Policy ${p.policyNumber}` }, addedById: null, addedOffset: -int(5, 300), size: int(120, 900) * 1024 })
+    if (p.line === 'Auto') documents.push({ id: did(), accountId: a.id, name: `${p.policyNumber} ID cards.pdf`, type: 'ID card', source: 'AMS', linked: { kind: 'policy', id: p.id, label: `Policy ${p.policyNumber}` }, addedById: null, addedOffset: -int(5, 300), size: int(80, 300) * 1024 })
+  }
+  for (const a of d.accounts) {
+    if (f.datatype.boolean({ probability: 0.35 })) {
+      const t = pick(['Application', 'Signed proposal', 'Loss run', 'Photo', 'Correspondence'] as const)
+      documents.push({ id: did(), accountId: a.id, name: `${t} - ${a.name}.${t === 'Photo' ? 'jpg' : 'pdf'}`, type: t, source: 'Uploaded', linked: null, addedById: f.datatype.boolean() ? a.producerId : a.accountManagerId, addedOffset: -int(1, 400), size: int(60, 4000) * 1024 })
+    }
+  }
+  return { insuredItems, documents }
 }

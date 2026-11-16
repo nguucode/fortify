@@ -19,10 +19,11 @@ import { PoliciesPage, PolicyPage } from '@/pages/PoliciesPages'
 import { RenewalPage, RenewalsPage } from '@/pages/RenewalsPages'
 import { ServicePage, ServiceRequestPage } from '@/pages/ServicePages'
 import { AccountPage } from '@/pages/AccountPage'
+import { ContactPage, ContactsPage } from '@/pages/ContactsPages'
 import { TodayPage } from '@/pages/TodayPage'
 import { ProductBacklog, ProductEpic, ProductGlossary, ProductLayout, ProductObjectModel, ProductOverview, ProductRoles, ProductSitemap, ProductStory, ProductStoryMap } from '@/pages/ProductPages'
 
-const BUILT = new Set(['/accounts', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
+const BUILT = new Set(['/accounts', '/contacts', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
 
 /** US-FND-011: below 768px editing is hidden; say so once per session. */
 function ReadOnlyBanner() {
@@ -90,6 +91,8 @@ export function App() {
                 <Route index element={<Navigate to="/today" replace />} />
                 <Route path="/accounts" element={<AccountsPage />} />
                 <Route path="/accounts/:id" element={<AccountPage />} />
+                <Route path="/contacts" element={<ContactsPage />} />
+                <Route path="/contacts/:id" element={<ContactPage />} />
                 <Route path="/today" element={<TodayPage />} />
                 <Route path="/leads" element={<LeadsPage />} />
                 <Route path="/leads/:id" element={<LeadPage />} />

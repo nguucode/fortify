@@ -64,14 +64,77 @@ export interface Account {
   createdOffset: number
   lastActivityOffset: number | null
   lifecycle: 'active' | 'archived' | 'merged'
+  /** US-ACC-005/006/007: Fortify-owned details (absent on hand-built fixtures). */
+  details?: AccountDetails
+  /** US-ACC-017 */
+  archived?: { offset: number; byId: string; reason: string; prevStatus: AccountStatus }
+  /** US-ACC-018 */
+  mergedIntoId?: string
 }
 
+export type EntityType = 'LLC' | 'Corporation' | 'Partnership' | 'Sole proprietor' | 'Nonprofit'
+export type WcStatus = 'Covered' | 'Exempt' | 'Non-subscriber (TX)'
+export type PreferredContact = 'Phone' | 'Email' | 'SMS'
+export interface AccountDetails {
+  street: string
+  county: string
+  preferredContact: PreferredContact
+  source: string
+  // Business facts
+  legalName?: string
+  dba?: string | null
+  entityType?: EntityType
+  fein4?: string
+  naics?: string
+  naicsDescription?: string
+  yearsInBusiness?: number
+  employees?: number
+  revenue?: number
+  payroll?: number
+  website?: string | null
+  wcStatus?: WcStatus
+  dwc005Offset?: number | null
+}
+
+export type SmsConsent = 'Opted in' | 'Opted out' | 'Unknown'
 export interface Contact {
   id: string
   name: string
   email: string
+  /** Mobile phone. */
   phone: string
   accountIds: string[]
+  /** US-ACC-010/013: relationship per linked Account. */
+  relationships?: Record<string, string>
+  firstName?: string
+  lastName?: string
+  suffix?: string | null
+  workPhone?: string | null
+  dobOffset?: number | null
+  preferredContact?: PreferredContact
+  smsConsent?: { state: SmsConsent; offset: number | null }
+  street?: string | null
+}
+
+/** US-ACC-005/006: AMS-synced items insured on a Policy (read-only in Fortify). */
+export type InsuredItem =
+  | { id: string; policyId: string; accountId: string; kind: 'Vehicle'; year: number; make: string; model: string; vin4: string }
+  | { id: string; policyId: string; accountId: string; kind: 'Driver'; name: string; age: number }
+  | { id: string; policyId: string; accountId: string; kind: 'Property'; address: string; yearBuilt: number; hurricaneDeductiblePct?: number; hurricaneDeductible?: number; windMitOffset?: number | null; wpi8?: string | null }
+  | { id: string; policyId: string; accountId: string; kind: 'Location'; number: number; address: string; occupancy: string; buildingValue: number }
+
+export type DocumentType = 'Declarations' | 'ID card' | 'Policy form' | 'Application' | 'Signed proposal' | 'Loss run' | 'Photo' | 'Correspondence' | 'Other'
+/** US-ACC-009 */
+export interface AccountDocument {
+  id: string
+  accountId: string
+  name: string
+  type: DocumentType
+  source: 'AMS' | 'Uploaded'
+  linked: { kind: 'policy' | 'opportunity' | 'service'; id: string; label: string } | null
+  addedById: string | null
+  addedOffset: number
+  size: number
 }
 
 export type TermStatus = 'Bound' | 'Active' | 'Renewed' | 'Rewritten' | 'Non-renewed' | 'Canceled' | 'Expired'
@@ -262,6 +325,8 @@ export interface Task {
 }
 
 export interface Dataset {
+  insuredItems?: InsuredItem[]
+  documents?: AccountDocument[]
   offices: Office[]
   users: User[]
   carriers: Carrier[]

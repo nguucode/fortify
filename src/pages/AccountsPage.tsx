@@ -1,4 +1,5 @@
 import { downloadCsv } from '@/app/csv'
+import { AccountFormSheet, ReassignDialog } from './AccountSheets'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import * as Popover from '@radix-ui/react-popover'
@@ -93,6 +94,10 @@ export function AccountsPage() {
   }, [draft])
 
   // `loaded` stays true across refetches so rows remain in place under a progress line (US-FND-007).
+  const [creating, setCreating] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [reassign, setReassign] = useState(false)
+  const canBulk = user.role === 'principal' || user.role === 'admin'
   const [state, setState] = useState<{ status: 'loading' | 'error' | 'ready'; loaded: boolean; rows: AccountRow[]; refId?: string }>({ status: 'loading', loaded: false, rows: [] })
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
@@ -226,10 +231,25 @@ export function AccountsPage() {
           <Download aria-hidden className="size-4" strokeWidth={1.75} /> Export
         </Button>
         <div className="flex-1" />
-        <Button variant="primary" className={cx('max-md:hidden', showEmpty && !isFiltered && 'invisible')} onClick={() => toast('Creating Accounts arrives with US-ACC-002.')}>
+        <Button variant="primary" className={cx('max-md:hidden', showEmpty && !isFiltered && 'invisible')} onClick={() => setCreating(true)}>
           <Plus aria-hidden className="size-4" /> New account
         </Button>
       </div>
+
+      {selected.size > 0 && (
+        <div role="region" aria-label="Selection" className="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-recessed px-3 py-1.5">
+          <span className="tabular text-sm font-medium text-strong">{selected.size.toLocaleString('en-US')} selected</span>
+          {result.total > selected.size && (
+            <button onClick={() => setSelected(new Set(queryAccounts(state.rows, { view, search: q, filters, sort, page: 1, pageSize: 100000, includeArchived }).rows.map((r) => r.id)))} className="text-sm text-link hover:underline">
+              Select all {result.total.toLocaleString('en-US')} matching
+            </button>
+          )}
+          <Button size="sm" onClick={() => setReassign(true)}>Reassign {selected.size.toLocaleString('en-US')} accounts</Button>
+          <button onClick={() => setSelected(new Set())} className="text-sm text-link hover:underline">Clear selection</button>
+        </div>
+      )}
+      {creating && <AccountFormSheet onClose={() => setCreating(false)} />}
+      {reassign && <ReassignDialog accountIds={[...selected]} onClose={() => setReassign(false)} onDone={(p) => { setSelected(new Set()); if (p) set({ producer: p }) }} />}
 
       {chips.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -275,6 +295,9 @@ export function AccountsPage() {
                     aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                     className={cx('px-3 text-base font-semibold whitespace-nowrap text-strong', c.align === 'right' && 'text-right', c.key === 'name' && 'sticky left-0 z-10 bg-surface')}
                   >
+                    {c.key === 'name' && canBulk && (
+                      <input type="checkbox" aria-label="Select all on this page" checked={result.rows.length > 0 && result.rows.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set([...selected, ...result.rows.map((r) => r.id)]) : new Set([...selected].filter((id) => !result.rows.some((r) => r.id === id))))} className="mr-2 size-4 align-middle accent-primary" />
+                    )}
                     {c.sortable ? (
                       <button onClick={() => onSort(c.key as AccountSortKey)} className={cx('inline-flex items-center gap-1 rounded-sm hover:text-link', c.align === 'right' && 'flex-row-reverse')}>
                         {c.label}
@@ -303,6 +326,7 @@ export function AccountsPage() {
                   >
                     <td className="sticky left-0 z-10 bg-inherit px-3">
                       <div className="flex min-w-0 items-center gap-2">
+                        {canBulk && <input type="checkbox" aria-label={`Select ${r.name}`} checked={selected.has(r.id)} onChange={() => setSelected((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n })} className="size-4 shrink-0 accent-primary" />}
                         {r.kind === 'Household' ? <Home aria-label="Household" className="size-4 shrink-0 text-muted" strokeWidth={1.75} /> : <Building2 aria-label="Business" className="size-4 shrink-0 text-muted" strokeWidth={1.75} />}
                         <Tip label={r.name}>
                           <Link to={`/accounts/${r.id}`} className="max-w-[72%] flex-none truncate font-medium text-strong hover:text-link hover:underline">

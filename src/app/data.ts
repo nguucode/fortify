@@ -1,5 +1,10 @@
 import type {
   Account,
+  AccountDetails,
+  AccountDocument,
+  Contact,
+  DocumentType,
+  SmsConsent,
   Activity,
   Dataset,
   Line,
@@ -20,6 +25,17 @@ import { daysBetween, formatUSDate, resolveOffset } from '@/mock/dates'
  * so a failure mid-action leaves no partial records and subscribers re-render once.
  * Dates are day offsets from `today`.
  */
+/** US-ACC-017: why an Account can't be archived, or null. Shared with the UI so the dialog shows the same reason. */
+export function archiveBlock(s: Pick<Dataset, 'policies' | 'terms' | 'opportunities' | 'serviceRequests'>, a: Pick<Account, 'id' | 'name'>): string | null {
+  const live = s.policies.filter((p) => p.accountId === a.id && s.terms.some((t) => t.policyId === p.id && (t.status === 'Active' || t.status === 'Bound'))).length
+  if (live) return `${a.name} has ${live} active ${live === 1 ? 'policy' : 'policies'}. Accounts with active policies can't be archived.`
+  const opps = s.opportunities.filter((o) => o.accountId === a.id && o.stage !== 'Won' && o.stage !== 'Lost').length
+  if (opps) return `${a.name} has ${opps} open opportunit${opps === 1 ? 'y' : 'ies'}. Close ${opps === 1 ? 'it' : 'them'} as Won or Lost before archiving.`
+  const srs = s.serviceRequests.filter((r) => r.accountId === a.id && r.status !== 'Done').length
+  if (srs) return `${a.name} has ${srs} open service request${srs === 1 ? '' : 's'}. Close ${srs === 1 ? 'it' : 'them'} before archiving.`
+  return null
+}
+
 export function createDataStore(seed: Dataset, today: Date = new Date()) {
   let state: Dataset = seed
   const listeners = new Set<() => void>()
@@ -138,6 +154,252 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
         activities: [...s.activities, ...acts],
       })
       return { accountId: account.id, opportunityId: opp.id }
+    },
+
+    // ---------- Accounts & Contacts (ACC P1) ----------
+
+    /** US-ACC-002: a new Account starts as Prospect with its primary Contact. */
+    createAccount(
+      input: { kind: Account['kind']; name: string; officeId: string; producerId: string; accountManagerId: string; street: string; city: string; state: Account['state']; zip: string; contact: { firstName: string; lastName: string; phone: string; email: string }; business?: Partial<AccountDetails> },
+      actorId: string,
+    ) {
+      const s = state
+      const id = seq('acc-', s.accounts)
+      const contactId = seq('con-', s.contacts)
+      const relationship = input.kind === 'Business' ? 'Owner' : 'Primary'
+      const contact: Contact = { id: contactId, name: `${input.contact.firstName} ${input.contact.lastName}`.trim(), firstName: input.contact.firstName, lastName: input.contact.lastName, email: input.contact.email, phone: input.contact.phone, accountIds: [id], relationships: { [id]: relationship }, smsConsent: { state: 'Unknown', offset: null }, preferredContact: 'Phone' }
+      const account: Account = {
+        id, name: input.name.trim(), kind: input.kind, status: 'Prospect', officeId: input.officeId, producerId: input.producerId, accountManagerId: input.accountManagerId,
+        state: input.state, city: input.city, zip: input.zip, coastal: false, primaryContactId: contactId, linkedAccountIds: [], createdOffset: 0, lastActivityOffset: 0, lifecycle: 'active',
+        details: { street: input.street, county: '', preferredContact: 'Phone', source: 'Created in Fortify', ...input.business },
+      }
+      commit({ ...s, accounts: [...s.accounts, account], contacts: [...s.contacts, contact], activities: [...s.activities, activity(s, { accountId: id, type: 'system', subject: `Account created by ${userName(actorId)}`, body: null, createdById: actorId, linked: null })] })
+      return id
+    },
+
+    /** US-ACC-007: Fortify-owned fields only; owners, status, and kind never change here. */
+    updateAccount(id: string, patch: Partial<AccountDetails> & { name?: string; city?: string; zip?: string }, actorId: string) {
+      const s = state
+      const a = must(s.accounts.find((x) => x.id === id), 'Account')
+      if (a.lifecycle !== 'active') throw new Error('Archived accounts are read-only.')
+      const { name, city, zip, ...details } = patch
+      const next: Account = { ...a, name: name?.trim() || a.name, city: city ?? a.city, zip: zip ?? a.zip, details: { ...(a.details ?? { street: '', county: '', preferredContact: 'Phone', source: '' }), ...details } }
+      const addressChanged = (patch.street !== undefined && patch.street !== a.details?.street) || (city !== undefined && city !== a.city) || (zip !== undefined && zip !== a.zip)
+      const subject = addressChanged ? `Mailing address changed by ${userName(actorId)}` : `Account details updated by ${userName(actorId)}`
+      commit({ ...s, accounts: s.accounts.map((x) => (x.id === id ? next : x)), activities: [...s.activities, activity(s, { accountId: id, type: 'system', subject, body: null, createdById: actorId, linked: null })] })
+    },
+
+    /** US-ACC-013: create (id null, linked to an Account) or edit a Contact everywhere it appears. */
+    saveContact(
+      id: string | null,
+      input: { firstName: string; lastName: string; phone: string; email: string; suffix?: string | null; workPhone?: string | null; dobOffset?: number | null; preferredContact?: Contact['preferredContact']; smsConsent?: SmsConsent; street?: string | null },
+      link: { accountId: string; relationship: string } | null,
+      actorId: string,
+    ) {
+      const s = state
+      if (!input.firstName.trim() || !input.lastName.trim()) throw new Error('Enter a first and last name.')
+      if (!input.phone.trim() && !input.email.trim()) throw new Error('Add a phone or email so the agency can reach them.')
+      const name = `${input.firstName.trim()} ${input.lastName.trim()}${input.suffix ? ` ${input.suffix}` : ''}`
+      const prev = id ? must(s.contacts.find((c) => c.id === id), 'Contact') : null
+      const consentState = input.smsConsent ?? prev?.smsConsent?.state ?? 'Unknown'
+      const consent = { state: consentState, offset: consentState !== (prev?.smsConsent?.state ?? 'Unknown') ? 0 : (prev?.smsConsent?.offset ?? null) }
+      if (!prev) {
+        if (!link) throw new Error('A new contact needs an account.')
+        const c: Contact = { id: seq('con-', s.contacts), name, firstName: input.firstName.trim(), lastName: input.lastName.trim(), suffix: input.suffix ?? null, email: input.email.trim(), phone: input.phone.trim(), workPhone: input.workPhone ?? null, dobOffset: input.dobOffset ?? null, preferredContact: input.preferredContact ?? 'Phone', smsConsent: consent, street: input.street ?? null, accountIds: [link.accountId], relationships: { [link.accountId]: link.relationship } }
+        commit({ ...s, contacts: [...s.contacts, c], activities: [...s.activities, activity(s, { accountId: link.accountId, type: 'system', subject: `${name} added as ${link.relationship} by ${userName(actorId)}`, body: null, createdById: actorId, linked: null })] })
+        return c.id
+      }
+      const next: Contact = { ...prev, ...input, name, firstName: input.firstName.trim(), lastName: input.lastName.trim(), smsConsent: consent }
+      const acts: Activity[] = []
+      for (const accountId of prev.accountIds) acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, { accountId, type: 'system', subject: `Contact details updated: ${name}`, body: null, createdById: actorId, linked: null }))
+      commit({ ...s, contacts: s.contacts.map((c) => (c.id === prev.id ? next : c)), activities: [...s.activities, ...acts] })
+      return prev.id
+    },
+
+    linkContact(contactId: string, accountId: string, relationship: string, actorId: string) {
+      const s = state
+      const c = must(s.contacts.find((x) => x.id === contactId), 'Contact')
+      if (c.accountIds.includes(accountId)) throw new Error(`${c.name} is already on this account.`)
+      const a = must(s.accounts.find((x) => x.id === accountId), 'Account')
+      commit({
+        ...s,
+        contacts: s.contacts.map((x) => (x.id === contactId ? { ...x, accountIds: [...x.accountIds, accountId], relationships: { ...x.relationships, [accountId]: relationship } } : x)),
+        accounts: s.accounts.map((x) => (x.id === accountId && !x.primaryContactId ? { ...x, primaryContactId: contactId } : x)),
+        activities: [...s.activities, activity(s, { accountId, type: 'system', subject: `${c.name} linked to ${a.name} as ${relationship} by ${userName(actorId)}`, body: null, createdById: actorId, linked: null })],
+      })
+    },
+
+    /** US-ACC-010: the Contact record is never deleted; it must stay on at least one Account. */
+    unlinkContact(contactId: string, accountId: string, actorId: string) {
+      const s = state
+      const c = must(s.contacts.find((x) => x.id === contactId), 'Contact')
+      const a = must(s.accounts.find((x) => x.id === accountId), 'Account')
+      if (c.accountIds.length <= 1) throw new Error(`${c.name} is on no other account. Every contact must belong to at least one account.`)
+      const others = s.contacts.filter((x) => x.id !== contactId && x.accountIds.includes(accountId))
+      if (a.primaryContactId === contactId && others.length) throw new Error('Choose a new primary contact first.')
+      const relationships = { ...c.relationships }
+      delete relationships[accountId]
+      commit({
+        ...s,
+        contacts: s.contacts.map((x) => (x.id === contactId ? { ...x, accountIds: x.accountIds.filter((id) => id !== accountId), relationships } : x)),
+        accounts: s.accounts.map((x) => (x.id === accountId && x.primaryContactId === contactId ? { ...x, primaryContactId: null } : x)),
+        activities: [...s.activities, activity(s, { accountId, type: 'system', subject: `${c.name} removed from ${a.name} by ${userName(actorId)}`, body: null, createdById: actorId, linked: null })],
+      })
+    },
+
+    makePrimary(accountId: string, contactId: string, actorId: string) {
+      const s = state
+      const c = must(s.contacts.find((x) => x.id === contactId && x.accountIds.includes(accountId)), 'Contact')
+      commit({ ...s, accounts: s.accounts.map((x) => (x.id === accountId ? { ...x, primaryContactId: contactId } : x)), activities: [...s.activities, activity(s, { accountId, type: 'system', subject: `${c.name} made primary contact by ${userName(actorId)}`, body: null, createdById: actorId, linked: null })] })
+    },
+
+    /**
+     * US-ACC-015/016: reassign one or many Accounts. Open work (Opportunities and Tasks for the Producer; Renewals,
+     * Service Requests and Tasks for the Account Manager) follows the new owner unless moveOpenWork is false.
+     */
+    reassignAccounts(ids: string[], change: { producerId?: string; accountManagerId?: string; moveOpenWork: boolean }, actorId: string) {
+      const s = state
+      const set = new Set(ids)
+      let changed = 0
+      let skipped = 0
+      const moveP = new Map<string, string>()
+      const moveM = new Map<string, string>()
+      const acts: Activity[] = []
+      const accounts = s.accounts.map((a) => {
+        if (!set.has(a.id)) return a
+        const p = change.producerId && change.producerId !== a.producerId ? change.producerId : null
+        const m = change.accountManagerId && change.accountManagerId !== a.accountManagerId ? change.accountManagerId : null
+        if (!p && !m) {
+          skipped++
+          return a
+        }
+        changed++
+        const by = userName(actorId)
+        if (p) {
+          moveP.set(a.id, a.producerId)
+          acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, { accountId: a.id, type: 'system', subject: `Producer changed from ${userName(a.producerId)} to ${userName(p)} by ${by}`, body: null, createdById: actorId, linked: null }))
+        }
+        if (m) {
+          moveM.set(a.id, a.accountManagerId)
+          acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, { accountId: a.id, type: 'system', subject: `Account Manager changed from ${userName(a.accountManagerId)} to ${userName(m)} by ${by}`, body: null, createdById: actorId, linked: null }))
+        }
+        return { ...a, producerId: p ?? a.producerId, accountManagerId: m ?? a.accountManagerId }
+      })
+      const open = (stage: string) => stage !== 'Won' && stage !== 'Lost'
+      commit({
+        ...s,
+        accounts,
+        opportunities: change.moveOpenWork ? s.opportunities.map((o) => (moveP.get(o.accountId) === o.ownerId && open(o.stage) ? { ...o, ownerId: change.producerId! } : o)) : s.opportunities,
+        renewals: change.moveOpenWork ? s.renewals.map((r) => (moveM.get(r.accountId) === r.ownerId && r.status !== 'Done' ? { ...r, ownerId: change.accountManagerId! } : r)) : s.renewals,
+        serviceRequests: change.moveOpenWork ? s.serviceRequests.map((r) => (moveM.get(r.accountId) === r.ownerId && r.status !== 'Done' ? { ...r, ownerId: change.accountManagerId! } : r)) : s.serviceRequests,
+        tasks: change.moveOpenWork
+          ? s.tasks.map((t) => (t.status !== 'Open' ? t : moveP.get(t.accountId) === t.assigneeId ? { ...t, assigneeId: change.producerId! } : moveM.get(t.accountId) === t.assigneeId ? { ...t, assigneeId: change.accountManagerId! } : t))
+          : s.tasks,
+        activities: [...s.activities, ...acts],
+      })
+      return { changed, skipped }
+    },
+
+    /** US-ACC-017: blocked with active policies, open Opportunities, or open Service Requests; open Tasks are canceled. */
+    archiveAccount(id: string, reason: string, actorId: string) {
+      const s = state
+      const a = must(s.accounts.find((x) => x.id === id), 'Account')
+      const block = archiveBlock(s, a)
+      if (block) throw new Error(block)
+      commit({
+        ...s,
+        accounts: s.accounts.map((x) => (x.id === id ? { ...x, lifecycle: 'archived', archived: { offset: 0, byId: actorId, reason, prevStatus: x.status } } : x)),
+        tasks: s.tasks.map((t) => (t.accountId === id && t.status === 'Open' ? { ...t, status: 'Canceled', closeNote: 'Account archived' } : t)),
+        activities: [...s.activities, activity(s, { accountId: id, type: 'system', subject: `Archived by ${userName(actorId)}: ${reason}`, body: null, createdById: actorId, linked: null })],
+      })
+    },
+
+    restoreAccount(id: string, actorId: string) {
+      const s = state
+      const a = must(s.accounts.find((x) => x.id === id), 'Account')
+      if (a.lifecycle !== 'archived') throw new Error('This account is not archived.')
+      commit({
+        ...s,
+        accounts: s.accounts.map((x) => (x.id === id ? { ...x, lifecycle: 'active', status: x.archived?.prevStatus ?? x.status, archived: undefined } : x)),
+        activities: [...s.activities, activity(s, { accountId: id, type: 'system', subject: `Restored by ${userName(actorId)}`, body: null, createdById: actorId, linked: null })],
+      })
+    },
+
+    /** US-ACC-018: Fortify-owned records move to the survivor; the duplicate becomes Merged and points at it. */
+    mergeAccounts(survivorId: string, duplicateId: string, fields: Partial<AccountDetails> & { name?: string }, actorId: string) {
+      const s = state
+      const keep = must(s.accounts.find((x) => x.id === survivorId), 'Account')
+      const dup = must(s.accounts.find((x) => x.id === duplicateId), 'Account')
+      if (keep.id === dup.id) throw new Error('Pick a different account.')
+      if (keep.kind !== dup.kind) throw new Error('Only accounts of the same kind can be merged.')
+      const live = (accId: string) => s.policies.some((p) => p.accountId === accId && s.terms.some((t) => t.policyId === p.id && (t.status === 'Active' || t.status === 'Bound')))
+      if (live(keep.id) && live(dup.id)) throw new Error('Both accounts have active policies. Merge the records in the AMS first; Fortify will follow the next sync.')
+      const move = <T extends { accountId: string }>(xs: T[]) => xs.map((x) => (x.accountId === dup.id ? { ...x, accountId: keep.id } : x))
+      let movedContacts = 0
+      const contacts = s.contacts.map((c) => {
+        if (!c.accountIds.includes(dup.id)) return c
+        const rel = { ...c.relationships }
+        const r = rel[dup.id]
+        delete rel[dup.id]
+        if (!c.accountIds.includes(keep.id)) {
+          movedContacts++
+          rel[keep.id] = r ?? 'Other'
+        }
+        return { ...c, accountIds: [...new Set(c.accountIds.map((id) => (id === dup.id ? keep.id : id)))], relationships: rel }
+      })
+      const movedActs = s.activities.filter((x) => x.accountId === dup.id).length
+      const movedOpps = s.opportunities.filter((x) => x.accountId === dup.id).length
+      const { name, ...details } = fields
+      const next = {
+        ...s,
+        accounts: s.accounts.map((x) => (x.id === keep.id ? { ...x, name: name ?? x.name, details: { ...x.details!, ...details } } : x.id === dup.id ? { ...x, lifecycle: 'merged' as const, mergedIntoId: keep.id } : x)),
+        contacts,
+        opportunities: move(s.opportunities),
+        xDates: move(s.xDates),
+        serviceRequests: move(s.serviceRequests),
+        activities: move(s.activities),
+        tasks: move(s.tasks),
+        documents: (s.documents ?? []).map((d) => (d.accountId === dup.id && d.source === 'Uploaded' ? { ...d, accountId: keep.id } : d)),
+      }
+      const summary = `Merged ${dup.name} into this account by ${userName(actorId)} · ${movedContacts} contacts, ${movedActs} activities, ${movedOpps} opportunit${movedOpps === 1 ? 'y' : 'ies'} moved`
+      commit({ ...next, activities: [...next.activities, activity(next, { accountId: keep.id, type: 'system', subject: summary, body: null, createdById: actorId, linked: null })] })
+    },
+
+    /** US-ACC-009: uploads are mock files; nothing is ever deleted. */
+    addDocuments(accountId: string, files: { name: string; size: number }[], type: DocumentType, linked: AccountDocument['linked'], actorId: string) {
+      const s = state
+      const docs = s.documents ?? []
+      const added: AccountDocument[] = []
+      for (const f of files) {
+        if (f.size > 25 * 1024 * 1024) throw new Error(`${f.name} is over 25 MB.`)
+        added.push({ id: seq('doc-', [...docs, ...added]), accountId, name: f.name, type, source: 'Uploaded', linked, addedById: actorId, addedOffset: 0, size: f.size })
+      }
+      commit({ ...s, documents: [...added, ...docs], activities: [...s.activities, activity(s, { accountId, type: 'system', subject: `Uploaded ${files.length} document${files.length === 1 ? '' : 's'}`, body: null, createdById: actorId, linked: null })] })
+    },
+
+    updateDocument(id: string, patch: Partial<Pick<AccountDocument, 'name' | 'type' | 'linked'>>) {
+      const s = state
+      const d = must((s.documents ?? []).find((x) => x.id === id), 'Document')
+      if (d.source === 'AMS') throw new Error('AMS documents are read-only.')
+      commit({ ...s, documents: s.documents!.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
+    },
+
+    /** US-WRK-006: complete or cancel an open Task; completion is logged on its Account. */
+    completeTask(id: string, actorId: string, note?: string) {
+      const s = state
+      const t = must(s.tasks.find((x) => x.id === id), 'Task')
+      if (t.status !== 'Open') throw new Error('This task is already closed.')
+      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Done', closeNote: note ?? null } : x)), activities: [...s.activities, activity(s, { accountId: t.accountId, type: 'system', subject: `Task completed: ${t.title}`, body: note ?? null, createdById: actorId, linked: t.linked })] })
+    },
+    reopenTask(id: string) {
+      const s = state
+      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Open', closeNote: null } : x)) })
+    },
+    cancelTask(id: string, reason: string, actorId: string) {
+      const s = state
+      const t = must(s.tasks.find((x) => x.id === id), 'Task')
+      if (t.status !== 'Open') throw new Error('This task is already closed.')
+      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Canceled', closeNote: reason } : x)), activities: [...s.activities, activity(s, { accountId: t.accountId, type: 'system', subject: `Task canceled: ${t.title} (${reason})`, body: null, createdById: actorId, linked: t.linked })] })
     },
 
     /** US-FND-019 bulk Reassign: open Leads only; returns how many changed. */

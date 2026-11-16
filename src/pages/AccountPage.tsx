@@ -1,8 +1,13 @@
-import { useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { Building2, Home, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
+import * as Menu from '@radix-ui/react-dropdown-menu'
+import { Archive, Building2, Home, MoreHorizontal, Plus } from 'lucide-react'
 import { useApp } from '@/app/store'
-import { dateOf, inDays, usd, useLookups } from '@/app/hooks'
+import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
+import { menuContent, menuItem } from '@/components/shell/TopBar'
+import { useToast } from '@/components/ui/toast'
+import { AccountFormSheet, ArchiveDialog, ContactSheet, LinkedAccounts, ManageContactsSheet, MergeDialog, ReassignDialog } from './AccountSheets'
+import { ActivityTab, DetailsPanel, DocumentsTab } from './AccountPanels'
 import { canSeeAccount } from '@/domain/access'
 import { KeyValue, Panel, RecordHeader, TabBar, useTab } from '@/components/patterns'
 import { Button } from '@/components/ui/primitives'
@@ -26,8 +31,21 @@ export function AccountPage() {
   const [newRequest, setNewRequest] = useState(false)
   const [newOpp, setNewOpp] = useState(false)
   const [taskSheet, setTaskSheet] = useState<Task | 'new' | null>(null)
+  const [dialog, setDialog] = useState<'edit' | 'contacts' | 'contact' | 'reassign' | 'archive' | 'merge' | null>(null)
+  const navigate = useNavigate()
+  const mutate = useMutate()
+  const toast = useToast()
   const a = data.accounts.find((x) => x.id === id)
+  // US-ACC-018: a merged duplicate's URL redirects to the survivor.
+  const mergedInto = a?.lifecycle === 'merged' ? a.mergedIntoId : undefined
+  useEffect(() => {
+    if (mergedInto) {
+      toast(`${a!.name} was merged into this account`, 'success')
+      navigate(`/accounts/${mergedInto}`, { replace: true })
+    }
+  }, [mergedInto]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!a) return <NotFound what="Account" />
+  if (mergedInto) return null
   if (!canSeeAccount(user, a)) return <AccessDenied what="Account" owner={userName(a.producerId)} />
 
   const policies = data.policies.filter((p) => p.accountId === a.id).map((p) => ({ p, t: currentTerm(data.terms, p.id)! })).filter((x) => x.t)
@@ -39,7 +57,6 @@ export function AccountPage() {
   const openServices = services.filter((r) => r.status !== 'Done')
   const tasks = data.tasks.filter((t) => t.accountId === a.id && t.status === 'Open')
   const contacts = data.contacts.filter((c) => c.accountIds.includes(a.id))
-  const linked = a.linkedAccountIds.map((lid) => data.accounts.find((x) => x.id === lid)).filter(Boolean)
   const xdates = data.xDates.filter((x) => x.accountId === a.id)
 
   const tabs = [
@@ -49,8 +66,9 @@ export function AccountPage() {
     { id: 'sales', label: 'Sales', count: openOpps.length },
     { id: 'service', label: 'Service', count: openServices.length },
     { id: 'activity', label: 'Activity', count: tasks.length },
-    { id: 'documents', label: 'Documents' },
+    { id: 'documents', label: 'Documents', count: (data.documents ?? []).filter((d) => d.accountId === a.id).length },
   ]
+  const archived = a.lifecycle === 'archived'
   const premium = active.reduce((s, x) => s + x.t.premium, 0)
   const nextExp = active.map((x) => x.t.expirationOffset).sort((x, y) => x - y)[0]
 
@@ -67,19 +85,40 @@ export function AccountPage() {
             <span>Producer {userName(a.producerId)}</span>
             <span>Account Manager {userName(a.accountManagerId)}</span>
             <span>{office(a.officeId)?.name} · {a.city}, {a.state}</span>
-            {linked.map((l) => (
-              <Link key={l!.id} className="text-link hover:underline" to={`/accounts/${l!.id}`}>Linked: {l!.name}</Link>
-            ))}
+            <LinkedAccounts account={a} />
           </>
         }
         actions={
-          <>
-            <LogActivityButton accountId={a.id} />
-            {user.role !== 'admin' && <Button onClick={() => setTaskSheet('new')}>New task</Button>}
-            {user.role !== 'admin' && active.length > 0 && <Button variant="primary" onClick={() => setNewRequest(true)}>New request</Button>}
-          </>
+          archived ? undefined : (
+            <>
+              <LogActivityButton accountId={a.id} />
+              {user.role !== 'admin' && <Button onClick={() => setTaskSheet('new')}>New task</Button>}
+              {user.role !== 'admin' && active.length > 0 && <Button variant="primary" onClick={() => setNewRequest(true)}>New request</Button>}
+              <Menu.Root>
+                <Menu.Trigger aria-label="More actions" className="grid size-9 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed">
+                  <MoreHorizontal className="size-4" />
+                </Menu.Trigger>
+                <Menu.Portal>
+                  <Menu.Content align="end" sideOffset={4} className={menuContent}>
+                    {user.role !== 'admin' && <Menu.Item className={menuItem} onSelect={() => setDialog('edit')}>Edit details</Menu.Item>}
+                    {user.role !== 'admin' && <Menu.Item className={menuItem} onSelect={() => setDialog('contacts')}>Manage contacts</Menu.Item>}
+                    {(user.role === 'principal' || user.role === 'admin') && <Menu.Item className={menuItem} onSelect={() => setDialog('reassign')}>Reassign</Menu.Item>}
+                    {(user.role === 'principal' || user.role === 'admin') && <Menu.Item className={menuItem} onSelect={() => setDialog('merge')}>Merge</Menu.Item>}
+                    {user.role === 'admin' && <Menu.Item className={menuItem} onSelect={() => setDialog('archive')}>Archive</Menu.Item>}
+                  </Menu.Content>
+                </Menu.Portal>
+              </Menu.Root>
+            </>
+          )
         }
       />
+      {archived && (
+        <div role="status" className="flex flex-wrap items-center gap-3 border-b border-line bg-warning-tint px-8 py-2.5 text-base text-ink max-sm:px-4">
+          <Archive aria-hidden className="size-4 text-warning-text" />
+          <span className="flex-1">Archived {dateOf(a.archived!.offset)} by {userName(a.archived!.byId)} · {a.archived!.reason}. This account is read-only.</span>
+          {user.role === 'admin' && <Button size="sm" onClick={() => mutate((s) => s.restoreAccount(a.id, user.id), `${a.name} restored`)}>Restore</Button>}
+        </div>
+      )}
       <div className="px-8 pt-3 max-sm:px-4">
         <TabBar tabs={tabs} />
         <div className="pt-5">
@@ -103,19 +142,24 @@ export function AccountPage() {
                     <p className="text-base text-muted">No open tasks.</p>
                   )}
                 </Panel>
+                <DetailsPanel account={a} onEdit={user.role !== 'admin' && !archived ? () => setDialog('edit') : undefined} />
                 <Panel title="Recent activity">
                   <ActivityTimeline accountId={a.id} limit={8} />
                 </Panel>
               </div>
               <div className="flex flex-col gap-4">
-                <Panel title="Contacts">
+                <Panel title="Contacts" actions={user.role !== 'admin' && !archived && <Button size="sm" onClick={() => setDialog('contacts')}>Manage contacts</Button>}>
                   {contacts.length ? (
                     <ul className="flex flex-col gap-2 text-base">
                       {contacts.map((c) => (
                         <li key={c.id}>
-                          <span className="font-medium text-strong">{c.name}</span>
-                          {c.id === a.primaryContactId && <span className="ml-1.5 text-sm text-muted">Primary</span>}
+                          <Link to={`/contacts/${c.id}`} className="font-medium text-strong hover:text-link hover:underline">{c.name}</Link>
+                          <span className="ml-1.5 text-sm text-muted">{c.id === a.primaryContactId ? 'Primary' : (c.relationships?.[a.id] ?? '')}</span>
                           <span className="block text-sm text-label">{c.phone} · {c.email}</span>
+                          {c.accountIds.filter((x) => x !== a.id).map((x) => {
+                            const o = data.accounts.find((y) => y.id === x)
+                            return o && canSeeAccount(user, o) ? <Link key={x} to={`/accounts/${x}`} className="block text-sm text-muted underline hover:text-link">Also on {o.name}</Link> : null
+                          })}
                         </li>
                       ))}
                     </ul>
@@ -195,14 +239,16 @@ export function AccountPage() {
               )}
             </Panel>
           )}
-          {tab === 'activity' && (
-            <Panel title="Activity" actions={<LogActivityButton accountId={a.id} />}>
-              <ActivityTimeline accountId={a.id} limit={50} />
-            </Panel>
-          )}
-          {tab === 'documents' && <Panel title="Documents"><p className="text-base text-muted">Documents arrive with US-ACC-008 (P1).</p></Panel>}
+          {tab === 'activity' && <ActivityTab account={a} onTask={setTaskSheet} />}
+          {tab === 'documents' && <DocumentsTab account={a} />}
         </div>
       </div>
+      {dialog === 'edit' && <AccountFormSheet account={a} onClose={() => setDialog(null)} />}
+      {dialog === 'contacts' && <ManageContactsSheet account={a} onClose={() => setDialog(null)} />}
+      {dialog === 'contact' && <ContactSheet accountId={a.id} onClose={() => setDialog(null)} />}
+      {dialog === 'reassign' && <ReassignDialog accountIds={[a.id]} onClose={() => setDialog(null)} />}
+      {dialog === 'archive' && <ArchiveDialog account={a} onClose={() => setDialog(null)} />}
+      {dialog === 'merge' && <MergeDialog account={a} onClose={() => setDialog(null)} />}
       {taskSheet && <TaskSheet accountId={a.id} task={taskSheet === 'new' ? undefined : taskSheet} onClose={() => setTaskSheet(null)} />}
       {newRequest && <NewServiceRequestSheet onClose={() => setNewRequest(false)} accountId={a.id} />}
     </div>
