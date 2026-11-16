@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { useNavigate } from 'react-router'
-import { AlarmClock, Bell, ClipboardCheck, Clock, FileBadge, type LucideIcon, RefreshCw, UserPlus } from 'lucide-react'
+import { AlarmClock, AtSign, Bell, ClipboardCheck, Clock, FileBadge, type LucideIcon, RefreshCw, UserPlus } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf } from '@/app/hooks'
 import { deriveNotifications, type NotificationKind } from '@/domain/notifications'
 import { cx, Tip } from '@/components/ui/primitives'
 
-const ICON: Record<NotificationKind, LucideIcon> = { 'lead-assigned': UserPlus, 'task-due': Clock, 'task-overdue': AlarmClock, 'renewal-at-risk': RefreshCw, 'service-assigned': ClipboardCheck, 'certificate-review': FileBadge, 'xdate-followup': Clock }
+const ICON: Record<NotificationKind, LucideIcon> = { mention: AtSign, 'lead-assigned': UserPlus, 'task-due': Clock, 'task-overdue': AlarmClock, 'renewal-at-risk': RefreshCw, 'service-assigned': ClipboardCheck, 'certificate-review': FileBadge, 'xdate-followup': Clock }
 const keyFor = (userId: string) => `fortify.notificationsRead.${userId}`
 function readSet(userId: string): Set<string> {
   try {

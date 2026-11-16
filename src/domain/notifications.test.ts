@@ -30,3 +30,11 @@ describe('deriveNotifications (US-FND-008)', () => {
     expect(kinds).not.toContain('xdate-followup')
   })
 })
+
+describe('mention notifications (US-WRK-011)', () => {
+  it('notifies the mentioned user, not others', () => {
+    const d = { ...data, activities: [{ id: 'act-1', accountId: 'a1', type: 'note', subject: 'Ask @p', body: null, occurredOffset: 0, createdById: 'm', linked: null, mentions: ['p'] }], users: [{ id: 'm', name: 'Marisol Reyes', role: 'account-manager', officeId: 'hou', email: '' }] } as unknown as Dataset
+    expect(deriveNotifications(d, u('p', 'producer')).find((n) => n.kind === 'mention')).toMatchObject({ kind: 'mention', title: 'Marisol Reyes mentioned you' })
+    expect(deriveNotifications(d, u('m', 'account-manager')).some((n) => n.kind === 'mention')).toBe(false)
+  })
+})

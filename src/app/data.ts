@@ -384,22 +384,40 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       commit({ ...s, documents: s.documents!.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
     },
 
-    /** US-WRK-006: complete or cancel an open Task; completion is logged on its Account. */
-    completeTask(id: string, actorId: string, note?: string) {
+    /**
+     * US-WRK-006: complete an open Task. With log:false the Activity waits for logTaskCompletion (called when the
+     * Undo window closes), so undoing never has to remove an Activity.
+     */
+    completeTask(id: string, actorId: string, opts: { note?: string; outcome?: string; log?: boolean } = {}) {
       const s = state
       const t = must(s.tasks.find((x) => x.id === id), 'Task')
       if (t.status !== 'Open') throw new Error('This task is already closed.')
-      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Done', closeNote: note ?? null } : x)), activities: [...s.activities, activity(s, { accountId: t.accountId, type: 'system', subject: `Task completed: ${t.title}`, body: note ?? null, createdById: actorId, linked: t.linked })] })
+      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Done', doneOffset: 0, closeNote: opts.note ?? null, outcome: opts.outcome } : x)) })
+      if (opts.log !== false) this.logTaskCompletion(id, actorId)
+    },
+    logTaskCompletion(id: string, actorId: string) {
+      const s = state
+      const t = must(s.tasks.find((x) => x.id === id), 'Task')
+      if (t.status !== 'Done') return
+      const primary = s.contacts.find((c) => c.id === s.accounts.find((a) => a.id === t.accountId)?.primaryContactId)
+      const who = (t.contactIds?.length ? s.contacts.filter((c) => t.contactIds!.includes(c.id)).map((c) => c.name).join(', ') : primary?.name) ?? 'the client'
+      const outcome = t.outcome
+      const [type, subject] =
+        t.type === 'Call' ? (['call', `Call with ${who}${outcome ? ` · ${outcome}` : ''}`] as const)
+        : t.type === 'Email' ? (['email', `Email sent: ${t.title}`] as const)
+        : t.type === 'Meeting' ? (['meeting', `Meeting: ${t.title}${t.durationMin ? ` · ${t.durationMin} min` : ''}${t.contactIds?.length ? ` · with ${who}` : ''}`] as const)
+        : (['system', `Completed task: ${t.title}`] as const)
+      commit({ ...s, activities: [...s.activities, activity(s, { accountId: t.accountId, type, subject, body: t.closeNote ?? null, createdById: actorId, linked: t.linked })] })
     },
     reopenTask(id: string) {
       const s = state
-      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Open', closeNote: null } : x)) })
+      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Open', closeNote: null, doneOffset: null } : x)) })
     },
     cancelTask(id: string, reason: string, actorId: string) {
       const s = state
       const t = must(s.tasks.find((x) => x.id === id), 'Task')
       if (t.status !== 'Open') throw new Error('This task is already closed.')
-      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Canceled', closeNote: reason } : x)), activities: [...s.activities, activity(s, { accountId: t.accountId, type: 'system', subject: `Task canceled: ${t.title} (${reason})`, body: null, createdById: actorId, linked: t.linked })] })
+      commit({ ...s, tasks: s.tasks.map((x) => (x.id === id ? { ...x, status: 'Canceled', closeNote: reason, doneOffset: 0 } : x)), activities: [...s.activities, activity(s, { accountId: t.accountId, type: 'system', subject: `Task canceled: ${t.title} (${reason})`, body: null, createdById: actorId, linked: t.linked })] })
     },
 
     /** US-FND-019 bulk Reassign: open Leads only; returns how many changed. */
@@ -687,11 +705,13 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
 
     logActivity(input: Omit<Activity, 'id' | 'occurredOffset'>) {
       const s = state
+      // US-WRK-011: the author is never notified of their own mention.
+      if (input.mentions) input = { ...input, mentions: [...new Set(input.mentions)].filter((u) => u !== input.createdById) }
       commit({ ...s, activities: [...s.activities, activity(s, input)], accounts: s.accounts.map((a) => (a.id === input.accountId ? { ...a, lastActivityOffset: 0 } : a)) })
     },
 
     /** US-WRK-005: create (id null) or edit an open Task; system Tasks keep their title and source. */
-    saveTask(id: string | null, input: Pick<Task, 'accountId' | 'title' | 'type' | 'priority' | 'assigneeId' | 'dueOffset' | 'linked'> & { dueTime: string | null; durationMin: number | null; description: string | null }, actorId: string) {
+    saveTask(id: string | null, input: Pick<Task, 'accountId' | 'title' | 'type' | 'priority' | 'assigneeId' | 'dueOffset' | 'linked'> & { dueTime: string | null; durationMin: number | null; description: string | null; contactIds?: string[]; location?: string | null }, actorId: string) {
       const s = state
       if (!input.title.trim()) throw new Error('Add a title')
       if (input.type === 'Meeting' && !input.dueTime) throw new Error('Meetings need a time')

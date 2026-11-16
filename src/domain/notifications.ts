@@ -1,7 +1,7 @@
 import { canSeeAccount } from './access'
 import type { Dataset, User } from './types'
 
-export type NotificationKind = 'lead-assigned' | 'task-due' | 'task-overdue' | 'renewal-at-risk' | 'service-assigned' | 'certificate-review' | 'xdate-followup'
+export type NotificationKind = 'mention' | 'lead-assigned' | 'task-due' | 'task-overdue' | 'renewal-at-risk' | 'service-assigned' | 'certificate-review' | 'xdate-followup'
 export interface AppNotification {
   id: string
   kind: NotificationKind
@@ -16,7 +16,7 @@ export interface AppNotification {
  * US-FND-008: notifications are derived from the store for the viewing user, so View as always shows that
  * user's set. IDs are stable per source record, so read state survives re-renders and store writes.
  */
-export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'>, user: User): AppNotification[] {
+export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'> & { activities?: Dataset['activities']; users?: Dataset['users'] }, user: User): AppNotification[] {
   const acc = new Map(data.accounts.map((a) => [a.id, a]))
   const name = (id: string) => acc.get(id)?.name ?? ''
   const out: AppNotification[] = []
@@ -47,5 +47,8 @@ export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | '
   for (const s of data.serviceRequests)
     if (s.ownerId === user.id && s.createdById !== user.id && s.status === 'New')
       out.push({ id: `sr-${s.id}`, kind: 'service-assigned', title: `Service Request assigned to you: ${s.subject}`, body: `${s.id} · ${name(s.accountId)}`, offset: s.createdOffset, to: `/service/${s.id}` })
+  for (const a of data.activities ?? [])
+    if (a.mentions?.includes(user.id) && a.occurredOffset >= -14)
+      out.push({ id: `mention-${a.id}`, kind: 'mention', title: `${data.users?.find((u) => u.id === a.createdById)?.name ?? 'Someone'} mentioned you`, body: `${name(a.accountId)} · ${a.subject}`, offset: a.occurredOffset, to: `/accounts/${a.accountId}?tab=activity` })
   return out.sort((a, b) => b.offset - a.offset)
 }

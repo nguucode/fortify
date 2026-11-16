@@ -301,6 +301,8 @@ export interface Activity {
   occurredOffset: number
   createdById: string
   linked: { kind: 'lead' | 'opportunity' | 'renewal' | 'service' | 'policy'; id: string } | null
+  /** US-WRK-011: users @mentioned in a note. */
+  mentions?: string[]
 }
 
 export type TaskType = 'General' | 'Call' | 'Email' | 'Meeting'
@@ -322,6 +324,13 @@ export interface Task {
   durationMin?: number | null
   description?: string | null
   closeNote?: string | null
+  /** Day the Task was completed or canceled. */
+  doneOffset?: number | null
+  /** Call outcome recorded on completion. */
+  outcome?: string
+  /** US-WRK-008 Meeting fields. */
+  contactIds?: string[]
+  location?: string | null
 }
 
 export interface Dataset {

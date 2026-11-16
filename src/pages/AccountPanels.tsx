@@ -8,6 +8,7 @@ import { DataTable, Field, inputCls, KeyValue, Panel, Sheet, SheetCancel, type C
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 import { EmptyState } from '@/components/ui/states'
+import { useCompleteTask } from './TaskSheet'
 
 const SYNCED = 'Synced from AMS. Request a policy change to update it.'
 
@@ -135,8 +136,8 @@ export function DetailsPanel({ account, onEdit }: { account: Account; onEdit?: (
 export function ActivityTab({ account, onTask }: { account: Account; onTask: (t: Task | 'new') => void }) {
   const { data, user } = useApp()
   const { userName } = useLookups()
-  const mutate = useMutate()
   const [linked, setLinked] = useState('')
+  const complete = useCompleteTask()
   const tasks = data.tasks.filter((t) => t.accountId === account.id && t.status === 'Open').sort((a, b) => a.dueOffset - b.dueOffset)
   const options = useMemo(() => {
     const seen = new Map<string, string>()
@@ -158,7 +159,7 @@ export function ActivityTab({ account, onTask }: { account: Account; onTask: (t:
           <ul className="flex flex-col divide-y divide-fill">
             {tasks.slice(0, 5).map((t) => (
               <li key={t.id} className="flex items-center gap-3 py-2">
-                <input type="checkbox" aria-label={`Complete ${t.title}`} disabled={readOnly} onChange={() => mutate((s) => s.completeTask(t.id, user.id), 'Task completed')} className="size-4 accent-primary" />
+                <input type="checkbox" aria-label={`Complete ${t.title}`} disabled={readOnly} onChange={() => complete(t)} className="size-4 accent-primary" />
                 <button onClick={() => onTask(t)} className="min-w-0 flex-1 truncate text-left text-base text-strong hover:text-link hover:underline">{t.title}</button>
                 <span className={cx('tabular shrink-0 text-sm', t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-muted')}>{userName(t.assigneeId)} · {t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : dateOf(t.dueOffset)}</span>
               </li>

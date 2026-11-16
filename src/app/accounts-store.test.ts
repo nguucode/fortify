@@ -141,12 +141,37 @@ describe('documents (US-ACC-009)', () => {
   })
 })
 
-describe('completeTask (US-ACC-008 / WRK-006)', () => {
-  it('marks it Done and logs it on the Account', () => {
+describe('completeTask (US-WRK-006)', () => {
+  it('marks a Call Done and logs a call Activity with the outcome and primary contact', () => {
+    const s = createDataStore({ ...base(), tasks: [{ ...base().tasks[0], accountId: 'acc-1' }] }, today)
+    s.completeTask('tsk-1', 'p', { note: 'Asked for loss runs', outcome: 'Left voicemail' })
+    expect(s.getState().tasks[0]).toMatchObject({ status: 'Done', closeNote: 'Asked for loss runs', doneOffset: 0 })
+    expect(s.getState().activities.at(-1)).toMatchObject({ type: 'call', subject: 'Call with Ana Torres · Left voicemail', accountId: 'acc-1' })
+  })
+  it('can defer the Activity until the undo window closes, so undo never removes one', () => {
     const s = createDataStore(base(), today)
-    s.completeTask('tsk-1', 'p', 'Left voicemail')
-    expect(s.getState().tasks[0]).toMatchObject({ status: 'Done', closeNote: 'Left voicemail' })
-    expect(lastAct(s)).toBe('Task completed: Call')
+    s.completeTask('tsk-2', 'm', { log: false })
+    expect(s.getState().activities).toHaveLength(0)
+    s.reopenTask('tsk-2')
+    expect(s.getState().tasks[1].status).toBe('Open')
+    s.completeTask('tsk-2', 'm', { log: false })
+    s.logTaskCompletion('tsk-2', 'm')
+    expect(lastAct(s)).toBe('Email sent: Email')
+  })
+  it('logs a General task as a system Activity and cancels with a reason', () => {
+    const s = createDataStore({ ...base(), tasks: [{ ...base().tasks[0], type: 'General', title: 'Send loss runs to underwriter' }, base().tasks[1]] }, today)
+    s.completeTask('tsk-1', 'p', {})
+    expect(lastAct(s)).toBe('Completed task: Send loss runs to underwriter')
+    s.cancelTask('tsk-2', 'Duplicate', 'm')
+    expect(s.getState().tasks[1]).toMatchObject({ status: 'Canceled', closeNote: 'Duplicate' })
+  })
+})
+
+describe('mentions (US-WRK-011)', () => {
+  it('stores mentions on a note but never the author', () => {
+    const s = createDataStore(base(), today)
+    s.logActivity({ accountId: 'acc-1', type: 'note', subject: 'Ask @Dana Whitfield about the roof', body: null, createdById: 'm', linked: null, mentions: ['p', 'm'] })
+    expect(s.getState().activities.at(-1)!.mentions).toEqual(['p'])
   })
 })
 

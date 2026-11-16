@@ -540,7 +540,7 @@ export function generateDataset(seed = 20261115): Dataset {
     })
   }
 
-  const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users })
+  const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users, tasks })
   return { offices: OFFICES, users, carriers: CARRIERS, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents }
 }
 
@@ -548,7 +548,7 @@ export function generateDataset(seed = 20261115): Dataset {
  * ACC P1 enrichment (details, contact fields, insured items, documents). Runs on its own seeded Faker after the
  * main pass, so adding it changed none of the records generated before it.
  */
-function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'policies' | 'terms' | 'users'>) {
+function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'policies' | 'terms' | 'users' | 'tasks'>) {
   const f = new Faker({ locale: [en_US, en, base] })
   f.seed(seed + 7)
   const int = (a: number, b: number) => f.number.int({ min: a, max: b })
@@ -634,6 +634,19 @@ function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'polici
     if (f.datatype.boolean({ probability: 0.35 })) {
       const t = pick(['Application', 'Signed proposal', 'Loss run', 'Photo', 'Correspondence'] as const)
       documents.push({ id: did(), accountId: a.id, name: `${t} - ${a.name}.${t === 'Photo' ? 'jpg' : 'pdf'}`, type: t, source: 'Uploaded', linked: null, addedById: f.datatype.boolean() ? a.producerId : a.accountManagerId, addedOffset: -int(1, 400), size: int(60, 4000) * 1024 })
+    }
+  }
+  // US-WRK-007: Meetings get a time and length; some Calls get a time; the rest stay all-day.
+  for (const t of d.tasks) {
+    if (t.status === 'Done') t.doneOffset = Math.min(0, t.dueOffset)
+    const timed = t.type === 'Meeting' || (t.type === 'Call' && f.datatype.boolean({ probability: 0.5 }))
+    if (!timed) continue
+    t.dueTime = `${String(int(8, 17)).padStart(2, '0')}:${pick(['00', '30'])}`
+    t.durationMin = t.type === 'Meeting' ? pick([30, 30, 45, 60, 90]) : null
+    if (t.type === 'Meeting') {
+      const a = byId.get(t.accountId)
+      t.contactIds = a?.primaryContactId ? [a.primaryContactId] : []
+      t.location = pick(['Agency office', 'Phone', 'Client site', 'Video call'])
     }
   }
   return { insuredItems, documents }
