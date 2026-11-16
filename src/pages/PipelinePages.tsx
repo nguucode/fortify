@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Plus, Trophy } from 'lucide-react'
 import { useApp } from '@/app/store'
+import { OpportunitySheet } from './OpportunitySheet'
 import { dateOf, inDays, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditOpportunity, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { addMonths, checkStageMove } from '@/domain/rules'
@@ -24,9 +25,21 @@ export function PipelinePage() {
   const opps = data.opportunities.filter((o) => accounts.has(o.accountId) && (user.role !== 'producer' || o.ownerId === user.id))
   const open = opps.filter((o) => OPEN_STAGES.includes(o.stage))
   const total = open.reduce((s, o) => s + o.estimatedPremium, 0)
+  const [creating, setCreating] = useState(false)
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <PageTitle title="Pipeline" description={`${open.length} open Opportunities · ${usd(total)} estimated premium`} />
+      <PageTitle
+        title="Pipeline"
+        description={`${open.length} open Opportunities · ${usd(total)} estimated premium`}
+        actions={
+          user.role !== 'admin' && (
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              <Plus aria-hidden className="size-4" /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}
+            </Button>
+          )
+        }
+      />
+      {creating && <OpportunitySheet onClose={() => setCreating(false)} />}
       <div className="mt-6 grid grid-cols-5 gap-3 overflow-x-auto max-lg:min-w-[1000px]">
         {OPEN_STAGES.map((stage) => {
           const col = open.filter((o) => o.stage === stage).sort((a, b) => a.targetCloseOffset - b.targetCloseOffset)
@@ -34,7 +47,7 @@ export function PipelinePage() {
             <section key={stage} aria-label={stage} className="flex min-w-0 flex-col rounded-md bg-recessed p-2">
               <h2 className="flex items-center justify-between px-1.5 pb-2 text-sm font-semibold text-strong">
                 {stage}
-                <span className="tabular font-normal text-muted">{col.length} · {usd(col.reduce((s, o) => s + o.estimatedPremium, 0))}</span>
+                <span className="tabular font-normal text-label">{col.length} · {usd(col.reduce((s, o) => s + o.estimatedPremium, 0))}</span>
               </h2>
               <ol className="flex flex-col gap-2">
                 {col.slice(0, 40).map((o) => (
@@ -68,15 +81,16 @@ export function OpportunityPage() {
   const [respond, setRespond] = useState<Quote | null>(null)
   const [won, setWon] = useState(false)
   const [lost, setLost] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [lostReason, setLostReason] = useState('Price')
   const o = data.opportunities.find((x) => x.id === id)
   if (!o) return <NotFound what="Opportunity" />
   const account = getAccount(o.accountId)!
   if (!canSeeAccount(user, account)) return <AccessDenied what="Opportunity" owner={userName(o.ownerId)} />
   const quotes = data.quotes.filter((q) => q.opportunityId === o.id)
-  const canEdit = canEditOpportunity(user, account, o.type)
+  const canEdit = canEditOpportunity(user, account, o.type) && (user.role !== 'producer' || o.ownerId === user.id)
   const closed = o.stage === 'Won' || o.stage === 'Lost'
-  const editReason = user.role === 'admin' ? 'Admins can view Opportunities only.' : 'Account Managers can edit Remarket Opportunities only.'
+  const editReason = user.role === 'admin' ? 'Admins can view Opportunities only.' : 'Only the Producer or a Principal can edit this Opportunity.'
   const accepted = quotes.flatMap((q) => q.lines.filter((l) => l.accepted).map((l) => ({ q, l })))
 
   const move = (to: OpportunityStage) => mutate((s) => s.moveStage(o.id, to, user.id), `Stage moved to ${to}`)
@@ -101,6 +115,7 @@ export function OpportunityPage() {
           !closed && (
             <Gate allowed={canEdit} reason={editReason}>
               <span className="flex gap-2">
+                <Button onClick={() => setEditing(true)}>Edit</Button>
                 <Button onClick={() => setLost(true)}>Mark lost</Button>
                 <Gate allowed={accepted.length > 0} reason="Accept at least one Quote line first.">
                   <Button variant="primary" onClick={() => setWon(true)}>
@@ -200,6 +215,7 @@ export function OpportunityPage() {
 
       {addQuote && <AddQuoteSheet o={o} onClose={() => setAddQuote(false)} />}
       {respond && <RespondSheet quote={respond} onClose={() => setRespond(null)} />}
+      {editing && <OpportunitySheet opportunity={o} onClose={() => setEditing(false)} />}
       {won && <WonSheet o={o} accepted={accepted} onClose={() => setWon(false)} />}
       <Confirm
         open={lost}

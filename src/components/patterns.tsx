@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { ArrowDown, ArrowUp, X, type LucideIcon } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button, CountPill, cx, Tip } from './ui/primitives'
 
@@ -241,11 +241,24 @@ export function PageTitle({ title, description, actions }: { title: string; desc
 }
 
 /** A disabled control with the reason in a tooltip (US-FND-018: disabled actions explain why). */
+/**
+ * Permission gate (US-FND-018 / FND-012): the control stays focusable with aria-disabled so its reason tooltip is
+ * reachable by keyboard, and activation (click or Enter/Space) is swallowed before it reaches the control.
+ */
 export function Gate({ allowed, reason, children }: { allowed: boolean; reason: string; children: ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (allowed) return
+    ref.current?.querySelectorAll('button, a, input, select, textarea').forEach((el) => el.setAttribute('aria-disabled', 'true'))
+  }, [allowed, children])
   if (allowed) return <>{children}</>
+  const block = (e: React.SyntheticEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
   return (
     <Tip label={reason}>
-      <span tabIndex={0} className="inline-flex cursor-not-allowed [&>*]:pointer-events-none [&>*]:opacity-50">
+      <span ref={ref} onClickCapture={block} onPointerDownCapture={block} className="inline-flex cursor-not-allowed [&_*]:cursor-not-allowed [&>*]:opacity-50">
         {children}
       </span>
     </Tip>

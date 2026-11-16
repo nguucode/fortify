@@ -120,7 +120,7 @@
   .prose-fortify ul { @apply my-2 list-disc pl-5; }
   .prose-fortify ol { @apply my-2 list-decimal pl-5; }
   .prose-fortify li { @apply my-1; }
-  .prose-fortify a { @apply text-link underline-offset-2 hover:underline; }
+  .prose-fortify a { @apply text-link underline decoration-1 underline-offset-2; }
   .prose-fortify code { @apply rounded-sm bg-recessed px-1 font-mono text-sm; }
   .prose-fortify pre { @apply my-3 overflow-x-auto rounded-md bg-recessed p-3 font-mono text-sm leading-relaxed; }
   .prose-fortify pre code { @apply bg-transparent p-0; }

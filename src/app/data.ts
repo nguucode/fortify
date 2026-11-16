@@ -13,7 +13,7 @@ import type {
   Task,
 } from '@/domain/types'
 import { addMonths, canQuoteTransition, canServiceTransition, checkStageMove, nextRenewalStatuses } from '@/domain/rules'
-import { daysBetween } from '@/mock/dates'
+import { daysBetween, formatUSDate, resolveOffset } from '@/mock/dates'
 
 /**
  * The mutable mock store (US-FND-005). Every action builds the next state and commits it once,
@@ -138,6 +138,34 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
         activities: [...s.activities, ...acts],
       })
       return { accountId: account.id, opportunityId: opp.id }
+    },
+
+    /** US-PIP-003: create (id null) or edit an open Opportunity. */
+    saveOpportunity(
+      id: string | null,
+      input: Pick<Opportunity, 'accountId' | 'type' | 'lines' | 'targetCloseOffset' | 'estimatedPremium' | 'ownerId' | 'source'> & { probability: number; name: string | null; notes: string | null; lineDetails: NonNullable<Opportunity['lineDetails']> },
+      actorId: string,
+    ) {
+      const s = state
+      if (input.lines.length === 0) throw new Error('Add at least one line')
+      const account = must(s.accounts.find((a) => a.id === input.accountId), 'Account')
+      const name = input.name?.trim() || `${account.name} · ${input.lines.join(', ')}`
+      const fields = { ...input, name, estimatedPremium: Math.max(0, Math.min(9_999_999, input.estimatedPremium)) }
+      if (id === null) {
+        if (input.type === 'Remarket') throw new Error('Remarket Opportunities start from a Renewal.')
+        const opp: Opportunity = { ...fields, id: seq('opp-', s.opportunities), stage: 'New', stageEnteredOffset: 0, lostReason: null, renewalId: null, leadId: null, createdOffset: 0, closedOffset: null }
+        const subject = `${userName(actorId)} added a ${opp.type} opportunity on ${account.name}: ${opp.lines.join(', ')}`
+        commit({ ...s, opportunities: [...s.opportunities, opp], activities: [...s.activities, activity(s, { accountId: account.id, type: 'system', subject, body: null, createdById: actorId, linked: { kind: 'opportunity', id: opp.id } })] })
+        return opp.id
+      }
+      const prev = must(s.opportunities.find((o) => o.id === id), 'Opportunity')
+      if (prev.stage === 'Won' || prev.stage === 'Lost') throw new Error('This Opportunity is closed.')
+      const acts =
+        prev.ownerId !== input.ownerId
+          ? [activity(s, { accountId: prev.accountId, type: 'system', subject: `Producer changed from ${userName(prev.ownerId)} to ${userName(input.ownerId)}`, body: null, createdById: actorId, linked: { kind: 'opportunity', id } })]
+          : []
+      commit({ ...s, opportunities: s.opportunities.map((o) => (o.id === id ? { ...o, ...fields, type: prev.type === 'Remarket' ? 'Remarket' : fields.type } : o)), activities: [...s.activities, ...acts] })
+      return id
     },
 
     moveStage(opportunityId: string, to: OpportunityStage, actorId: string) {
@@ -384,6 +412,31 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
     logActivity(input: Omit<Activity, 'id' | 'occurredOffset'>) {
       const s = state
       commit({ ...s, activities: [...s.activities, activity(s, input)], accounts: s.accounts.map((a) => (a.id === input.accountId ? { ...a, lastActivityOffset: 0 } : a)) })
+    },
+
+    /** US-WRK-005: create (id null) or edit an open Task; system Tasks keep their title and source. */
+    saveTask(id: string | null, input: Pick<Task, 'accountId' | 'title' | 'type' | 'priority' | 'assigneeId' | 'dueOffset' | 'linked'> & { dueTime: string | null; durationMin: number | null; description: string | null }, actorId: string) {
+      const s = state
+      if (!input.title.trim()) throw new Error('Add a title')
+      if (input.type === 'Meeting' && !input.dueTime) throw new Error('Meetings need a time')
+      const fields = { ...input, title: input.title.trim().slice(0, 140), description: input.description?.slice(0, 2000) ?? null, durationMin: input.type === 'Meeting' ? (input.durationMin ?? 30) : null }
+      if (id === null) {
+        const t: Task = { ...fields, id: seq('tsk-', s.tasks), source: 'Manual', status: 'Open' }
+        commit({ ...s, tasks: [...s.tasks, t] })
+        return t.id
+      }
+      const prev = must(s.tasks.find((t) => t.id === id), 'Task')
+      if (prev.status !== 'Open') throw new Error('Done and canceled Tasks are read-only.')
+      const next: Task = { ...prev, ...fields, title: prev.source === 'Manual' ? fields.title : prev.title, source: prev.source }
+      const changes = [
+        prev.dueOffset !== next.dueOffset && `Task due date changed to ${formatUSDate(resolveOffset(next.dueOffset, today))}`,
+        prev.assigneeId !== next.assigneeId && `Task reassigned from ${userName(prev.assigneeId)} to ${userName(next.assigneeId)}`,
+        prev.priority !== next.priority && `Task priority changed to ${next.priority}`,
+      ].filter((x): x is string => !!x)
+      const acts: Activity[] = []
+      for (const subject of changes) acts.push(activity({ ...s, activities: [...s.activities, ...acts] }, { accountId: prev.accountId, type: 'system', subject, body: null, createdById: actorId, linked: prev.linked }))
+      commit({ ...s, tasks: s.tasks.map((t) => (t.id === id ? next : t)), activities: [...s.activities, ...acts] })
+      return id
     },
 
     createTask(input: Omit<Task, 'id' | 'status'>) {

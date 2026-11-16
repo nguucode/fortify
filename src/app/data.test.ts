@@ -121,3 +121,56 @@ describe('subscriptions', () => {
     expect(n).toBe(1)
   })
 })
+
+describe('saveOpportunity (US-PIP-003)', () => {
+  const input = { accountId: 'acc-1', type: 'Cross-sell' as const, lines: ['Umbrella' as const], targetCloseOffset: 30, estimatedPremium: 420, ownerId: 'p', source: 'Referral', probability: 10, name: null, notes: null, lineDetails: {} }
+  it('creates a New Opportunity named after the Account and lines, and logs it on the Account', () => {
+    const s = createDataStore(base(), today)
+    const id = s.saveOpportunity(null, input, 'm')
+    const o = s.getState().opportunities.find((x) => x.id === id)!
+    expect(o).toMatchObject({ stage: 'New', type: 'Cross-sell', lines: ['Umbrella'], ownerId: 'p', estimatedPremium: 420, name: 'Torres Household · Umbrella' })
+    expect(s.getState().activities.at(-1)).toMatchObject({ accountId: 'acc-1', subject: 'Marisol Reyes added a Cross-sell opportunity on Torres Household: Umbrella' })
+  })
+  it('rejects an Opportunity with no lines, or a Remarket created by hand', () => {
+    const s = createDataStore(base(), today)
+    expect(() => s.saveOpportunity(null, { ...input, lines: [] }, 'p')).toThrow('Add at least one line')
+    expect(() => s.saveOpportunity(null, { ...input, type: 'Remarket' }, 'p')).toThrow(/Renewal/)
+  })
+  it('logs a Producer change on edit', () => {
+    const s = createDataStore(base(), today)
+    const id = s.saveOpportunity(null, input, 'p')
+    s.saveOpportunity(id, { ...input, ownerId: 'm' }, 'p')
+    expect(s.getState().activities.at(-1)!.subject).toBe('Producer changed from Dana Whitfield to Marisol Reyes')
+  })
+  it('refuses to edit a closed Opportunity', () => {
+    const s = createDataStore(base(), today)
+    const id = s.saveOpportunity(null, input, 'p')
+    s.markLost(id, 'Price', 'p')
+    expect(() => s.saveOpportunity(id, input, 'p')).toThrow('closed')
+  })
+})
+
+describe('saveTask (US-WRK-005)', () => {
+  const input = { accountId: 'acc-1', title: 'Call Ana about flood quote', type: 'Call' as const, priority: 'Normal' as const, assigneeId: 'm', dueOffset: 2, dueTime: null, durationMin: null, description: null, linked: null }
+  it('creates an Open Manual Task', () => {
+    const s = createDataStore(base(), today)
+    const id = s.saveTask(null, input, 'p')
+    expect(s.getState().tasks.find((t) => t.id === id)).toMatchObject({ status: 'Open', source: 'Manual', assigneeId: 'm', title: 'Call Ana about flood quote' })
+  })
+  it('requires a time for a Meeting and a title', () => {
+    const s = createDataStore(base(), today)
+    expect(() => s.saveTask(null, { ...input, type: 'Meeting' }, 'p')).toThrow('Meetings need a time')
+    expect(() => s.saveTask(null, { ...input, title: '  ' }, 'p')).toThrow('Add a title')
+  })
+  it('logs a due date change on the Account and keeps a system Task title', () => {
+    const s = createDataStore({ ...base(), tasks: [{ id: 'tsk-1', accountId: 'acc-1', title: 'Renewal review', type: 'General', priority: 'Normal', source: 'Renewal', assigneeId: 'm', dueOffset: 1, status: 'Open', linked: null }] }, today)
+    s.saveTask('tsk-1', { ...input, title: 'Renamed', dueOffset: 4 }, 'm')
+    const t = s.getState().tasks[0]
+    expect(t).toMatchObject({ title: 'Renewal review', source: 'Renewal', dueOffset: 4 })
+    expect(s.getState().activities.at(-1)!.subject).toBe('Task due date changed to 11/20/2026')
+  })
+  it('refuses to edit a Done Task', () => {
+    const s = createDataStore({ ...base(), tasks: [{ id: 'tsk-1', accountId: 'acc-1', title: 'x', type: 'General', priority: 'Normal', source: 'Manual', assigneeId: 'm', dueOffset: 1, status: 'Done', linked: null }] }, today)
+    expect(() => s.saveTask('tsk-1', input, 'm')).toThrow('read-only')
+  })
+})

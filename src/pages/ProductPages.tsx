@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router'
-import { AlertTriangle, CheckCircle2, Copy, Search } from 'lucide-react'
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, Search, SearchX, X } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { Markdown } from '@/product/Markdown'
-import { docs, EPIC_ORDER, epics, glossary, health, routes, sessions, sitemap, stories, storiesForRoute, storyById, type Story } from '@/product/spec'
-import { Button, CountPill, cx, Tip } from '@/components/ui/primitives'
+import { docs, EPIC_ORDER, epics, glossary, health, routes, sessions, sitemap, slugify, stories, storiesForRoute, storyById, type Story } from '@/product/spec'
+import { Button, CountPill, cx, Kbd, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { useToast } from '@/components/ui/toast'
 import { EmptyState } from '@/components/ui/states'
-import { NotFound } from './SystemPages'
+import { EmptyState as Empty } from '@/components/ui/states'
+import { NotFound as NotFoundPage } from './SystemPages'
+
+function ProductNotFound({ what }: { what: string }) {
+  return <Empty icon={SearchX} title={what} body="Check the ID, or find it in the backlog." action={<Link to="/product/backlog" className="text-base font-medium text-link hover:underline">Go to Backlog</Link>} />
+}
 
 const epicName = (code: string) => epics.find((e) => e.code === code)?.name ?? code
 const PRIORITY_DOT: Record<string, string> = { P0: 'bg-danger', P1: 'bg-warning', P2: 'bg-muted' }
@@ -16,34 +21,41 @@ const PRIORITY_DOT: Record<string, string> = { P0: 'bg-danger', P1: 'bg-warning'
 /** US-PRD-001: 240px tree (IA + Backlog) beside the page. Hidden by VITE_SHOW_PRODUCT=false. */
 export function ProductLayout() {
   const { pathname } = useLocation()
-  if (import.meta.env.VITE_SHOW_PRODUCT === 'false') return <NotFound />
+  const navigate = useNavigate()
+  if (import.meta.env.VITE_SHOW_PRODUCT === 'false') return <NotFoundPage />
   const storyEpic = pathname.startsWith('/product/stories/') ? pathname.split('/').pop()!.slice(3, 6) : null
-  const item = (to: string, label: string, active?: boolean) => (
+  const ia: [string, string][] = [['/product', 'Overview'], ['/product/sitemap', 'Sitemap'], ['/product/object-model', 'Object model'], ['/product/roles', 'Roles & permissions'], ['/product/glossary', 'Glossary']]
+  const backlog: [string, string, number?][] = [['/product/backlog', 'All stories', stories.length], ['/product/backlog/map', 'Story map'], ...EPIC_ORDER.map((c) => [`/product/epics/${c.toLowerCase()}`, `${c} · ${epicName(c)}`, stories.filter((s) => s.epic === c).length] as [string, string, number])]
+  const item = ([to, label, n]: [string, string, number?], active?: boolean) => (
     <NavLink
       key={to}
       to={to}
       end
-      className={({ isActive }) => cx('block truncate rounded-md px-2.5 py-1.5 text-base', isActive || active ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:bg-recessed hover:text-strong')}
+      className={({ isActive }) => cx('flex items-center gap-2 rounded-md px-2.5 py-1.5 text-base', isActive || active ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:bg-recessed hover:text-strong')}
       aria-current={active ? 'page' : undefined}
     >
-      {label}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {n != null && <span className="tabular text-xs text-muted">{n}</span>}
     </NavLink>
   )
+  const current = [...ia, ...backlog].find(([to]) => to === pathname)?.[0] ?? (storyEpic ? `/product/epics/${storyEpic.toLowerCase()}` : '')
   return (
-    <div className="flex min-h-full max-md:flex-col">
-      <nav aria-label="Product" className="w-60 shrink-0 border-r border-line px-2 py-5 max-md:w-full max-md:border-r-0 max-md:border-b">
+    <div className="flex min-h-full">
+      <nav aria-label="Product" className="sticky top-0 h-[calc(100vh-56px)] w-60 shrink-0 overflow-y-auto border-r border-line px-2 py-5 max-lg:hidden">
         <p className="px-2.5 pb-1 text-xs text-muted">IA</p>
-        {item('/product', 'Overview')}
-        {item('/product/sitemap', 'Sitemap')}
-        {item('/product/object-model', 'Object model')}
-        {item('/product/roles', 'Roles & permissions')}
-        {item('/product/glossary', 'Glossary')}
+        {ia.map((x) => item(x))}
         <p className="mt-4 px-2.5 pb-1 text-xs text-muted">Backlog</p>
-        {item('/product/backlog', 'All stories')}
-        {item('/product/backlog/map', 'Story map')}
-        {EPIC_ORDER.map((c) => item(`/product/epics/${c.toLowerCase()}`, `${c} · ${epicName(c)}`, storyEpic === c))}
+        {backlog.map((x) => item(x, x[0] === `/product/epics/${storyEpic?.toLowerCase()}`))}
       </nav>
       <div className="min-w-0 flex-1 px-8 pt-6 pb-12 max-sm:px-4">
+        <label className="mb-4 block lg:hidden">
+          <span className="sr-only">Jump to</span>
+          <select value={current} onChange={(e) => e.target.value && navigate(e.target.value)} className="h-9 w-full rounded-md bg-surface px-2.5 text-base text-ink shadow-control">
+            <option value="">Jump to…</option>
+            <optgroup label="IA">{ia.map(([to, l]) => <option key={to} value={to}>{l}</option>)}</optgroup>
+            <optgroup label="Backlog">{backlog.map(([to, l]) => <option key={to} value={to}>{l}</option>)}</optgroup>
+          </select>
+        </label>
         <Outlet />
       </div>
     </div>
@@ -75,14 +87,14 @@ export function ProductOverview() {
   return (
     <>
       <Title title="Product" description="Information architecture and user-story backlog, rendered from spec/." />
-      <dl className="grid grid-cols-6 gap-3 max-lg:grid-cols-3">
+      <div className="grid grid-cols-6 gap-3 max-lg:grid-cols-3">
         {stats.map(([k, v, to]) => (
           <Link key={k} to={to} className="rounded-md bg-surface p-3 shadow-ring hover:shadow-pop">
-            <dt className="text-sm text-label">{k}</dt>
-            <dd className="tabular mt-1 text-metric font-semibold text-strong">{v}</dd>
+            <span className="block text-sm text-label">{k}</span>
+            <span className="tabular mt-1 block text-metric font-semibold text-strong">{v}</span>
           </Link>
         ))}
-      </dl>
+      </div>
       <section className={cx('mt-4 flex items-start gap-2 rounded-md px-4 py-3 shadow-ring', health.length ? 'bg-danger-tint' : 'bg-success-tint')}>
         {health.length ? <AlertTriangle aria-hidden className="mt-0.5 size-4 text-danger" /> : <CheckCircle2 aria-hidden className="mt-0.5 size-4 text-success" />}
         <div className="text-base text-ink">
@@ -127,9 +139,11 @@ export function ProductOverview() {
 /** US-PRD-006 */
 export function ProductSitemap() {
   const [open, setOpen] = useState<string | null>(null)
+  const [gapsOnly, setGapsOnly] = useState(false)
   const gaps = [...routes].filter((r) => storiesForRoute(r).length === 0).length
   const row = (label: string, route: string, extra: string[], depth = 0, visibleTo?: string[]) => {
     const list = storiesForRoute(route)
+    if (gapsOnly && list.length) return null
     return (
       <div key={`${label}${route}`} id={`route-${encodeURIComponent(route)}`}>
         <button onClick={() => setOpen(open === route ? null : route)} className={cx('grid w-full grid-cols-[1fr_auto] items-center gap-3 border-b border-fill py-2 text-left hover:bg-recessed', depth ? 'pl-8' : 'pl-3', 'pr-3')} aria-expanded={open === route}>
@@ -156,7 +170,21 @@ export function ProductSitemap() {
   return (
     <>
       <Title title="Sitemap" description="Rendered from spec/ia/sitemap.yaml, the same file the sidebar reads." meta={`${routes.size} routes · ${gaps} routes without stories`} />
+      <label className="mb-3 inline-flex items-center gap-2 text-base text-label">
+        <input type="checkbox" checked={gapsOnly} onChange={(e) => setGapsOnly(e.target.checked)} className="size-4 accent-primary" />
+        Show gaps only
+      </label>
+      {gapsOnly && gaps === 0 && <p className="mb-3 text-base text-muted">Every route has at least one story.</p>}
       <div className="overflow-hidden rounded-md bg-surface shadow-ring">
+        <p className="bg-recessed px-3 py-1.5 text-sm font-medium text-label">Top bar</p>
+        {!gapsOnly && sitemap.topBar.map((t) => (
+          <p key={t.id} className="flex items-center gap-2 border-b border-fill px-3 py-2 text-base text-strong">
+            {t.label}
+            {t.shortcut && <Kbd>{t.shortcut}</Kbd>}
+            {t.demo && <span className="rounded-full bg-fill px-1.5 text-xs leading-5 text-label">Demo</span>}
+            <Link to="/product/epics/fnd" className="ml-auto text-sm text-link hover:underline">Shell</Link>
+          </p>
+        ))}
         <p className="bg-recessed px-3 py-1.5 text-sm font-medium text-label">Sidebar</p>
         {sitemap.sidebar.flatMap((e) =>
           'group' in e
@@ -181,6 +209,15 @@ export function ProductObjectModel() {
   return (
     <>
       <Title title="Object model" description="Objects, relationships, lifecycles, timing rules, and the business rules that override story assumptions." />
+      <nav aria-label="On this page" className="mb-6 rounded-md bg-surface p-4 shadow-ring">
+        <p className="mb-1.5 text-sm font-medium text-label">On this page</p>
+        <ul className="columns-2 gap-6 text-base max-sm:columns-1">
+          {[...docs['ia/object-model.md'].matchAll(/^## (.+)$/gm)].map((m) => (
+            <li key={m[1]}><a href={`#${slugify(m[1])}`} className="inline-block min-h-6 py-0.5 text-link hover:underline">{m[1]}</a></li>
+          ))}
+          <li><a href="#business-rules" className="inline-block min-h-6 py-0.5 text-link hover:underline">Business rules</a></li>
+        </ul>
+      </nav>
       <Markdown source={docs['ia/object-model.md'].replace(/^# .*\n/, '')} />
       <h2 id="business-rules" className="mt-10 mb-2 text-lg font-medium text-strong">Business rules</h2>
       <Markdown source={docs['ia/rules.md'].replace(/^# .*\n/, '')} />
@@ -205,7 +242,7 @@ export function ProductRoles() {
           {Object.entries(labels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </label>
-      <style>{`.roles-doc table td:nth-child(n+2):not(:nth-child(${col})), .roles-doc table th:nth-child(n+2):not(:nth-child(${col})) { color: var(--color-muted); } .roles-doc table td:nth-child(${col}), .roles-doc table th:nth-child(${col}) { background: var(--color-selection); }`}</style>
+      <style>{`.roles-doc table:has(th:nth-child(5)) td:nth-child(n+2):not(:nth-child(${col})), .roles-doc table:has(th:nth-child(5)) th:nth-child(n+2):not(:nth-child(${col})) { color: var(--color-muted); } .roles-doc table:has(th:nth-child(5)) td:nth-child(${col}), .roles-doc table:has(th:nth-child(5)) th:nth-child(${col}) { background: var(--color-recessed); color: var(--color-strong); font-weight: 600; } .roles-doc table:has(th:nth-child(5)) thead th { position: sticky; top: 0; background: var(--color-surface); } .roles-doc table:has(th:nth-child(5)) td:first-child { position: sticky; left: 0; background: var(--color-surface); }`}</style>
       <div className="roles-doc">
         <Markdown source={md} />
       </div>
@@ -226,7 +263,14 @@ export function ProductGlossary() {
   const sections = [...new Set(list.map((g) => g.section))]
   return (
     <>
-      <Title title="Glossary" description="The words Fortify uses, and the ones it avoids." meta={`${glossary.length} terms`} />
+      <Title title="Glossary" description="The words Fortify uses, and the ones it avoids." meta={t ? `Showing ${list.length} of ${glossary.length} terms` : `${glossary.length} terms`} />
+      <nav aria-label="Glossary sections" className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {[...new Set(glossary.map((g) => g.section))].map((sec) => (
+          <a key={sec} href={`#section-${slugify(sec)}`} className="text-link hover:underline">
+            {sec} <span className="tabular text-muted">{list.filter((g) => g.section === sec).length}</span>
+          </a>
+        ))}
+      </nav>
       <label className="relative mb-6 block w-80 max-sm:w-full">
         <span className="sr-only">Search terms</span>
         <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
@@ -234,24 +278,24 @@ export function ProductGlossary() {
       </label>
       {list.length === 0 && <EmptyState icon={Search} title="No terms match" body="Try a word the team might say instead, like “ticket” or “deal”." />}
       {sections.map((s) => (
-        <section key={s} className="mb-8">
+        <section key={s} id={`section-${slugify(s)}`} className="mb-8 scroll-mt-4">
           <h2 className="mb-2 text-lg font-medium text-strong">{s}</h2>
-          <dl className="flex flex-col divide-y divide-fill rounded-md bg-surface shadow-ring">
+          <ul className="flex flex-col divide-y divide-fill rounded-md bg-surface shadow-ring">
             {list.filter((g) => g.section === s).map((g) => (
-              <div key={g.slug} id={g.slug} className={cx('grid grid-cols-[200px_1fr_auto] gap-4 px-4 py-3 max-md:grid-cols-1', hash === `#${g.slug}` && 'bg-selection')}>
-                <dt className="font-medium text-strong">{g.name}</dt>
-                <dd className="text-base text-ink">
+              <li key={g.slug} id={g.slug} className={cx('grid grid-cols-[200px_1fr_auto] gap-4 px-4 py-3 max-md:grid-cols-1', hash === `#${g.slug}` && 'bg-recessed')}>
+                <h3 className="text-base font-medium text-strong">{g.name}</h3>
+                <div className="text-base text-ink">
                   {g.definition}
                   {g.avoid.length > 0 && <span className="mt-1 block text-sm text-muted">Avoid: {g.avoid.join(', ')}</span>}
-                </dd>
+                </div>
                 <Tip label="Copy link">
                   <button aria-label={`Copy link to ${g.name}`} onClick={() => navigator.clipboard?.writeText(`${location.origin}/product/glossary#${g.slug}`).then(() => toast('Link copied', 'success'))} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong">
                     <Copy className="size-4" />
                   </button>
                 </Tip>
-              </div>
+              </li>
             ))}
-          </dl>
+          </ul>
         </section>
       ))}
     </>
@@ -300,39 +344,82 @@ function useBacklogFilter(fixedEpic?: string) {
         </select>
       )}
       {!fixedEpic && epicsSel.map((c) => (
-        <button key={c} onClick={() => toggle('epic', c, epicsSel)} className="h-8 rounded-md bg-surface px-2.5 text-sm text-ink shadow-ring hover:bg-recessed" aria-label={`Remove Epic ${c}`}>
-          {c} ×
-        </button>
+        <span key={c} className="inline-flex h-8 items-center gap-1 rounded-md bg-surface pr-1 pl-2.5 text-sm text-ink shadow-ring">
+          Epic: {c}
+          <button onClick={() => toggle('epic', c, epicsSel)} aria-label={`Remove Epic ${c}`} className="grid size-6 place-items-center rounded-sm text-muted hover:bg-recessed hover:text-strong">
+            <X className="size-3.5" />
+          </button>
+        </span>
       ))}
+      {(epicsSel.length > 0 && !fixedEpic) || pr.length > 0 || params.get('q') ? (
+        <button onClick={() => setParams(new URLSearchParams(), { replace: true })} className="h-8 px-1 text-sm text-link hover:underline">Clear filters</button>
+      ) : null}
     </div>
   )
   return { list, toolbar, meta: `Showing ${list.length} of ${fixedEpic ? stories.filter((s) => s.epic === fixedEpic).length : stories.length} stories · ${list.filter((s) => s.priority === 'P0').length} P0 · ${sessions(list)} FE sessions` }
 }
 
+const PRIORITY_ORDER = ['P0', 'P1', 'P2']
+const STATUS_ORDER = ['Draft', 'Ready', 'In design', 'In build', 'Done']
 function StoryTable({ list, hideEpic }: { list: Story[]; hideEpic?: boolean }) {
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const sort = params.get('sort') ?? ''
+  const key = sort.replace(/^-/, '')
+  const dir = sort.startsWith('-') ? -1 : 1
+  const cmp: Record<string, (a: Story, b: Story) => number> = {
+    id: (a, b) => a.id.localeCompare(b.id),
+    priority: (a, b) => PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority),
+    status: (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status),
+    size: (a, b) => a.size.localeCompare(b.size),
+  }
+  const rows = cmp[key] ? [...list].sort((a, b) => dir * cmp[key](a, b)) : list
+  const head = (k: string, label: string, w: string) => {
+    const on = key === k
+    return (
+      <th className={cx(w, 'px-3')} aria-sort={on ? (dir > 0 ? 'ascending' : 'descending') : undefined}>
+        {cmp[k] ? (
+          <button
+            onClick={() => {
+              const next = new URLSearchParams(params)
+              next.set('sort', on && dir > 0 ? `-${k}` : k)
+              setParams(next, { replace: true })
+            }}
+            className="inline-flex items-center gap-1 hover:text-link"
+          >
+            {label}
+            {on && (dir > 0 ? <ArrowUp aria-hidden className="size-3.5" /> : <ArrowDown aria-hidden className="size-3.5" />)}
+          </button>
+        ) : (
+          label
+        )}
+      </th>
+    )
+  }
+  const roles = (r: string[]) => (r.length > 1 ? `${r[0]} +${r.length - 1}` : r[0] ?? '')
   return (
     <div className="overflow-x-auto rounded-md bg-surface shadow-ring">
-      <table className="w-full min-w-[900px] border-collapse text-left">
+      <table className="w-full min-w-[900px] table-fixed border-collapse text-left">
         <thead>
           <tr className="h-10 border-b border-fill text-base font-semibold text-strong">
-            <th className="w-32 px-3">ID</th>
-            <th className="px-3">Story</th>
-            {!hideEpic && <th className="w-20 px-3">Epic</th>}
-            <th className="w-56 px-3">Roles</th>
-            <th className="w-24 px-3">Priority</th>
-            <th className="w-28 px-3">Status</th>
-            <th className="w-16 px-3">Size</th>
+            {head('id', 'ID', 'w-32')}
+            {head('title', 'Story', '')}
+            {!hideEpic && head('epic', 'Epic', 'w-20')}
+            {head('roles', 'Roles', 'w-44')}
+            {head('priority', 'Priority', 'w-24')}
+            {head('status', 'Status', 'w-28')}
+            {head('size', 'Size', 'w-16')}
           </tr>
         </thead>
         <tbody>
-          {list.map((s) => (
-            <tr key={s.id} className="h-10 border-b border-fill last:border-0 hover:bg-recessed">
-              <td className="px-3"><Link to={`/product/stories/${s.id}`} className="font-mono text-sm text-link hover:underline">{s.id}</Link></td>
-              <td className="truncate px-3">{s.title}</td>
+          {rows.map((s) => (
+            <tr key={s.id} tabIndex={0} onClick={() => navigate(`/product/stories/${s.id}`)} onKeyDown={(e) => e.key === 'Enter' && navigate(`/product/stories/${s.id}`)} className="h-10 cursor-pointer border-b border-fill last:border-0 hover:bg-recessed focus-visible:bg-recessed focus-visible:outline-none">
+              <td className="px-3 whitespace-nowrap"><Link to={`/product/stories/${s.id}`} onClick={(e) => e.stopPropagation()} className="font-mono text-sm text-link hover:underline">{s.id}</Link></td>
+              <td className="truncate px-3" title={s.title}>{s.title}</td>
               {!hideEpic && <td className="px-3 font-mono text-sm">{s.epic}</td>}
-              <td className="truncate px-3 text-label">{s.roles.join(', ')}</td>
+              <td className="truncate px-3 text-label" title={s.roles.join(', ')}>{roles(s.roles)}</td>
               <td className="px-3"><span className="inline-flex items-center gap-1.5"><span aria-hidden className={`size-2 rounded-full ${PRIORITY_DOT[s.priority]}`} />{s.priority}</span></td>
-              <td className="px-3 text-label">{s.status}</td>
+              <td className="px-3"><StatusCell status={s.status} /></td>
               <td className="px-3 text-label">{s.size}</td>
             </tr>
           ))}
@@ -369,15 +456,18 @@ export function ProductStoryMap() {
           {EPIC_ORDER.map((c) => <span key={c} className="px-1.5 text-sm font-semibold text-strong">{c}</span>)}
           {rows.map(([p, label]) => (
             <div key={p} className="contents">
-              <span className="pt-2 text-sm font-medium text-label">{label}</span>
+              <span className="sticky left-0 z-10 bg-canvas pt-2 text-sm font-medium text-label">{label}</span>
               {EPIC_ORDER.map((c) => {
                 const cell = list.filter((s) => s.epic === c && s.priority === p)
                 return (
                   <div key={c} className="min-h-16 rounded-md bg-recessed p-1.5">
-                    {cell.length > 0 && <p className="tabular px-1 pb-1 text-xs text-muted">{cell.length} · {sessions(cell)} sessions</p>}
+                    {cell.length > 0 ? <p className="tabular px-1 pb-1 text-xs text-label">{cell.length} · {sessions(cell)} sessions</p> : <p className="px-1 text-sm text-muted">—</p>}
                     {cell.map((s) => (
                       <Link key={s.id} to={`/product/stories/${s.id}`} className="mb-1 block rounded-md bg-surface px-2 py-1.5 text-sm shadow-ring hover:shadow-pop">
-                        <span className="font-mono text-xs text-label">{s.id.slice(3)}</span>
+                        <span className="flex items-center justify-between gap-1">
+                          <span className="font-mono text-xs text-label">{s.id.slice(3)}</span>
+                          <StatusCell status={s.status} />
+                        </span>
                         <span className="block truncate text-ink">{s.title}</span>
                       </Link>
                     ))}
@@ -397,12 +487,22 @@ export function ProductEpic() {
   const { code = '' } = useParams()
   const e = epics.find((x) => x.code === code.toUpperCase())
   const { list, toolbar } = useBacklogFilter(e?.code)
-  if (!e) return <NotFound what="Epic" />
+  if (!e) return <ProductNotFound what={`No Epic with code “${code.toUpperCase()}”`} />
   const all = stories.filter((s) => s.epic === e.code)
   const n = (p: string) => all.filter((s) => s.priority === p).length
   return (
     <>
-      <Title title={<><span className="font-mono">{e.code}</span> · {e.name}</>} description={e.summary} meta={`${all.length} stories · ${n('P0')} P0 · ${n('P1')} P1 · ${n('P2')} P2 · ${sessions(all)} FE sessions · route ${e.route}`} />
+      <Title title={<><span className="font-mono">{e.code}</span> · {e.name}</>} description={e.summary} meta={`${all.length} stories · ${n('P0')} P0 · ${n('P1')} P1 · ${n('P2')} P2 · ${sessions(all)} FE sessions`} />
+      <p className="-mt-4 mb-4 text-sm text-label">
+        Routes touched:{' '}
+        {[...new Set(all.flatMap((x) => x.routes))].map((r) => (
+          <Link key={r} to={`/product/sitemap#route-${encodeURIComponent(r)}`} className="mr-2 font-mono text-link hover:underline">{r}</Link>
+        ))}
+      </p>
+      {(() => {
+        const rest = e.body.trim().replace(/^# .*\n+/, '').trim()
+        return rest && rest !== e.summary.trim() ? <div className="mb-6"><Markdown source={rest} /></div> : null
+      })()}
       {toolbar}
       <StoryTable list={list} hideEpic />
     </>
@@ -415,13 +515,16 @@ export function ProductStory() {
   const toast = useToast()
   const s = storyById.get(id)
   const blocks = useMemo(() => stories.filter((x) => x.dependsOn.includes(id)), [id])
-  if (!s) return <NotFound what="story" />
+  if (!s) return <ProductNotFound what={`No story with ID “${id}”`} />
+  const idx = stories.indexOf(s)
+  const prev = stories[idx - 1]
+  const next = stories[idx + 1]
   const dep = (d: string) => {
     const t = storyById.get(d)
     return t ? (
-      <Link key={d} to={`/product/stories/${d}`} className="mr-3 inline-flex items-center gap-1.5 text-link hover:underline">
-        <StatusCell status={t.status === 'Done' ? 'Done' : 'New'} />
-        <span className="font-mono text-sm">{d}</span>
+      <Link key={d} to={`/product/stories/${d}`} className="mr-4 inline-flex min-h-7 items-center gap-2 whitespace-nowrap hover:underline">
+        <span className="font-mono text-sm text-link">{d}</span>
+        <StatusCell status={t.status} />
       </Link>
     ) : (
       <span key={d} className="mr-3 text-danger-text">{d} Missing</span>
@@ -432,19 +535,19 @@ export function ProductStory() {
       <nav aria-label="Breadcrumb" className="mb-2 text-sm text-label">
         <Link to="/product/backlog" className="hover:text-link hover:underline">Backlog</Link> / <Link to={`/product/epics/${s.epic.toLowerCase()}`} className="hover:text-link hover:underline">{s.epic}</Link> / <span className="font-mono">{s.id}</span>
       </nav>
-      <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="mb-4 flex items-start justify-between gap-4 max-sm:flex-col max-sm:gap-2">
         <h1 className="text-title font-semibold text-strong">{s.title}</h1>
         <Button onClick={() => navigator.clipboard?.writeText(s.path).then(() => toast('File path copied', 'success'))}>
           <Copy aria-hidden className="size-4" /> Copy file path
         </Button>
       </div>
-      <dl className="mb-6 grid grid-cols-[140px_1fr] gap-x-6 gap-y-2 rounded-md bg-surface p-4 text-base shadow-ring">
+      <dl className="mb-6 grid grid-cols-[140px_1fr] gap-x-6 max-sm:grid-cols-[88px_1fr] max-sm:gap-x-3 gap-y-2 rounded-md bg-surface p-4 text-base shadow-ring">
         {([
           ['ID', <span key="i" className="font-mono text-sm">{s.id}</span>],
           ['Epic', <Link key="e" to={`/product/epics/${s.epic.toLowerCase()}`} className="text-link hover:underline">{s.epic} · {epicName(s.epic)}</Link>],
           ['Roles', s.roles.join(', ')],
-          ['Priority', s.priority],
-          ['Status', s.status],
+          ['Priority', <span key="p" className="inline-flex items-center gap-1.5"><span aria-hidden className={`size-2 rounded-full ${PRIORITY_DOT[s.priority]}`} />{s.priority}</span>],
+          ['Status', <StatusCell key="s" status={s.status} />],
           ['Size', s.size],
           ['Routes', s.routes.map((r) => <Link key={r} to={`/product/sitemap#route-${encodeURIComponent(r)}`} className="mr-3 font-mono text-sm text-link hover:underline">{r}</Link>)],
           ['Depends on', s.dependsOn.length ? s.dependsOn.map(dep) : '—'],
@@ -460,9 +563,21 @@ export function ProductStory() {
       {(['Story', 'Acceptance criteria', 'UI states', 'Design notes', 'FE notes', 'Mock data'] as const).map((h) => (
         <section key={h} id={h.toLowerCase().replace(/\s+/g, '-')}>
           <h2 className="mt-6 mb-1 text-lg font-medium text-strong">{h}</h2>
-          <Markdown source={s.sections[h]} />
+          {s.sections[h] ? <Markdown source={s.sections[h]} /> : <p className="rounded-md bg-warning-tint px-3 py-2 text-base text-ink shadow-ring">Not written yet. Add a “## {h}” section to {s.path}.</p>}
         </section>
       ))}
+      <nav aria-label="Story pagination" className="mt-10 flex justify-between gap-4 border-t border-line pt-4 text-base">
+        {prev ? (
+          <Link to={`/product/stories/${prev.id}`} className="inline-flex min-w-0 items-center gap-1.5 text-link hover:underline">
+            <ChevronLeft aria-hidden className="size-4 shrink-0" /> <span className="truncate"><span className="font-mono text-sm">{prev.id}</span> {prev.title}</span>
+          </Link>
+        ) : <span />}
+        {next && (
+          <Link to={`/product/stories/${next.id}`} className="inline-flex min-w-0 items-center gap-1.5 text-right text-link hover:underline">
+            <span className="truncate"><span className="font-mono text-sm">{next.id}</span> {next.title}</span> <ChevronRight aria-hidden className="size-4 shrink-0" />
+          </Link>
+        )}
+      </nav>
     </>
   )
 }

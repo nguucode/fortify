@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { Building2, Home } from 'lucide-react'
+import { Building2, Home, Plus } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, inDays, usd, useLookups } from '@/app/hooks'
 import { canSeeAccount } from '@/domain/access'
@@ -12,6 +12,9 @@ import { AmsBadge, currentTerm } from './PoliciesPages'
 import { NewServiceRequestSheet } from './ServicePages'
 import { changePct } from './RenewalsPages'
 import { oppCode } from './PipelinePages'
+import { OpportunitySheet } from './OpportunitySheet'
+import { TaskSheet } from './TaskSheet'
+import type { Task } from '@/domain/types'
 import { AccessDenied, NotFound } from './SystemPages'
 
 /** US-ACC-003 header + 7 tabs (?tab=), US-ACC-004 Overview, US-POL-012 Policies, US-SRV-013 Service. */
@@ -21,6 +24,8 @@ export function AccountPage() {
   const { userName, office, carrierName, policy } = useLookups()
   const tab = useTab('overview')
   const [newRequest, setNewRequest] = useState(false)
+  const [newOpp, setNewOpp] = useState(false)
+  const [taskSheet, setTaskSheet] = useState<Task | 'new' | null>(null)
   const a = data.accounts.find((x) => x.id === id)
   if (!a) return <NotFound what="Account" />
   if (!canSeeAccount(user, a)) return <AccessDenied what="Account" owner={userName(a.producerId)} />
@@ -70,6 +75,7 @@ export function AccountPage() {
         actions={
           <>
             <LogActivityButton accountId={a.id} />
+            {user.role !== 'admin' && <Button onClick={() => setTaskSheet('new')}>New task</Button>}
             {user.role !== 'admin' && active.length > 0 && <Button variant="primary" onClick={() => setNewRequest(true)}>New request</Button>}
           </>
         }
@@ -82,6 +88,20 @@ export function AccountPage() {
               <div className="flex flex-col gap-4">
                 <Panel title="At a glance">
                   <KeyValue items={[['Active policies', active.length || null], ['Annual premium', premium ? usd(premium) : null], ['Next expiration', nextExp != null ? `${dateOf(nextExp)} (${inDays(nextExp)})` : null], ['Open opportunities', openOpps.length || null], ['Open requests', openServices.length || null], ['Open tasks', tasks.length || null]]} />
+                </Panel>
+                <Panel title="Open tasks" actions={user.role !== 'admin' && <Button size="sm" onClick={() => setTaskSheet('new')}>New task</Button>}>
+                  {tasks.length ? (
+                    <ul className="flex flex-col divide-y divide-fill">
+                      {[...tasks].sort((x, y) => x.dueOffset - y.dueOffset).slice(0, 6).map((t) => (
+                        <li key={t.id} className="flex items-center justify-between gap-3 py-2">
+                          <button onClick={() => setTaskSheet(t)} className="min-w-0 truncate text-left text-base text-strong hover:text-link hover:underline">{t.title}</button>
+                          <span className={`tabular shrink-0 text-sm ${t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-muted'}`}>{userName(t.assigneeId)} · {dateOf(t.dueOffset)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-base text-muted">No open tasks.</p>
+                  )}
                 </Panel>
                 <Panel title="Recent activity">
                   <ActivityTimeline accountId={a.id} limit={8} />
@@ -148,7 +168,17 @@ export function AccountPage() {
             </Panel>
           )}
           {tab === 'sales' && (
-            <Panel title="Opportunities">
+            <Panel
+              title="Opportunities"
+              actions={
+                user.role !== 'admin' && (
+                  <Button size="sm" onClick={() => setNewOpp(true)}>
+                    <Plus aria-hidden className="size-4" /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}
+                  </Button>
+                )
+              }
+            >
+              {newOpp && <OpportunitySheet accountId={a.id} onClose={() => setNewOpp(false)} />}
               {opps.length ? (
                 <Table head={['Opportunity', 'Type', 'Stage', 'Lines', 'Estimated premium']} rows={opps.map((o) => [<Link key="o" to={`/pipeline/${o.id}`} className="font-mono text-sm text-link hover:underline">{oppCode(o.id)}</Link>, o.type, <StatusCell key="s" status={o.stage} reason={o.lostReason ?? undefined} />, o.lines.join(', '), usd(o.estimatedPremium)])} />
               ) : (
@@ -173,6 +203,7 @@ export function AccountPage() {
           {tab === 'documents' && <Panel title="Documents"><p className="text-base text-muted">Documents arrive with US-ACC-008 (P1).</p></Panel>}
         </div>
       </div>
+      {taskSheet && <TaskSheet accountId={a.id} task={taskSheet === 'new' ? undefined : taskSheet} onClose={() => setTaskSheet(null)} />}
       {newRequest && <NewServiceRequestSheet onClose={() => setNewRequest(false)} accountId={a.id} />}
     </div>
   )

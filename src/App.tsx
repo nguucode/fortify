@@ -6,6 +6,7 @@ import { allNavItems } from '@/app/sitemap'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { TopBar } from '@/components/shell/TopBar'
 import { CommandPalette } from '@/components/shell/CommandPalette'
+import { RouteAnnouncer } from '@/components/shell/RouteAnnouncer'
 import { ToastProvider } from '@/components/ui/toast'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { NotBuiltPage } from '@/pages/NotBuiltPage'
@@ -24,12 +25,17 @@ function Shell() {
   const [palette, setPalette] = useState(false)
   return (
     <div className="flex h-dvh flex-col">
+      <a href="#main" className="sr-only z-[60] rounded-md bg-surface px-3 py-2 text-base font-medium text-link shadow-pop focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
+        Skip to main content
+      </a>
       <TopBar onOpenPalette={() => setPalette(true)} />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        {/* scroll-padding keeps focused controls clear of sticky record headers (2.4.11). */}
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1 scroll-pt-40 overflow-y-auto outline-none">
           <Outlet />
         </main>
+        <RouteAnnouncer />
       </div>
       <CommandPalette open={palette} onOpenChange={setPalette} />
     </div>

@@ -4,7 +4,8 @@ import { AlertTriangle, Clock } from 'lucide-react'
 import { officeName, useApp } from '@/app/store'
 import { dateOf, inDays, usd, useLookups } from '@/app/hooks'
 import { visibleAccounts } from '@/domain/access'
-import type { Opportunity, ServiceStatus } from '@/domain/types'
+import type { Opportunity, ServiceStatus, Task } from '@/domain/types'
+import { TaskSheet } from './TaskSheet'
 import { CountPill, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { changePct, isHighRisk } from './RenewalsPages'
@@ -345,15 +346,17 @@ function ServiceQueue() {
 function MyDay() {
   const { data, user } = useApp()
   const { account } = useLookups()
+  const [open, setOpen] = useState<Task | null>(null)
   const due = data.tasks.filter((t) => t.assigneeId === user.id && t.status === 'Open' && t.dueOffset <= 0).sort((a, b) => a.dueOffset - b.dueOffset)
   return (
     <Widget title="My day" count={due.length} to="/tasks">
+      {open && <TaskSheet task={open} onClose={() => setOpen(null)} />}
       {due.length ? (
         <ul className="divide-y divide-fill border-t border-fill">
           {due.slice(0, 8).map((t) => (
             <li key={t.id} className="flex items-start justify-between gap-3 px-4 py-2">
               <span className="min-w-0">
-                <Link to={`/accounts/${t.accountId}`} className="block truncate text-base text-strong hover:underline">{t.title}</Link>
+                <button onClick={() => setOpen(t)} className="block max-w-full truncate text-left text-base text-strong hover:underline">{t.title}</button>
                 <span className="block truncate text-sm text-muted">{account(t.accountId)?.name} · {t.source}</span>
               </span>
               <span className={cx('tabular shrink-0 text-sm', t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-label')}>{t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : 'Due today'}</span>

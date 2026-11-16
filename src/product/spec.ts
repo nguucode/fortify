@@ -54,7 +54,7 @@ export const epics: Epic[] = real
 export const docs = Object.fromEntries(real.filter(([p]) => p.includes('/ia/') || p.endsWith('README.md') || p.endsWith('build-order.md')).map(([p, t]) => [rel(p), t])) as Record<string, string>
 
 export const sitemap = parse(sitemapRaw) as {
-  topBar: { id: string; label: string }[]
+  topBar: { id: string; label: string; shortcut?: string; demo?: boolean }[]
   sidebar: ({ id: string; label: string; route: string; visibleTo?: string[]; savedViews?: string[]; views?: string[]; tabs?: string[]; record?: string } | { group: string; items: { id: string; label: string; route: string; visibleTo?: string[]; savedViews?: string[]; views?: string[]; tabs?: string[]; record?: string }[] })[]
   footer: { id: string; label: string; route: string; visibleTo?: string[]; pages?: string[] }[]
   system: { id: string; route: string }[]

@@ -154,8 +154,9 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         <DemoControlsButton />
       </div>
       <Menu.Root>
-        <Menu.Trigger aria-label="Account menu" className="grid size-7 place-items-center rounded-full bg-fill text-xs font-semibold text-ink hover:shadow-control">
+        <Menu.Trigger className="grid size-7 place-items-center rounded-full bg-fill text-xs font-semibold text-ink hover:shadow-control">
           {initials(user.name)}
+          <span className="sr-only">Account menu for {user.name}</span>
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Content align="end" sideOffset={6} className={menuContent}>

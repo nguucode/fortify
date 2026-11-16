@@ -26,7 +26,7 @@ export function ServicePage() {
   const mutate = useMutate()
   const [params, setParams] = useSearchParams()
   const [creating, setCreating] = useState(false)
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(params.get('q') ?? '')
   const [mineOnly, setMineOnly] = useState(user.role === 'account-manager')
   const list = params.get('view') === 'list'
   const setView = (v: 'board' | 'list') => {
@@ -156,9 +156,9 @@ export function ServicePage() {
                     {col.length > 50 && <li className="px-1.5 text-sm text-muted">Showing 50 of {col.length}. Switch to List to see all.</li>}
                   </ol>
                   {st === 'Done' && (
-                    <p className="mt-2 px-1.5 text-sm text-muted">
+                    <p className="mt-2 px-1.5 text-sm text-label">
                       Showing done in the last 14 days ·{' '}
-                      <Link to="/service?view=list" className="text-link hover:underline">View all in list</Link>
+                      <Link to="/service?view=list" className="text-link underline">View all in list</Link>
                     </p>
                   )}
                 </section>

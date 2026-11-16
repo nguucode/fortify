@@ -159,6 +159,11 @@ export interface Opportunity {
   leadId: string | null
   createdOffset: number
   closedOffset: number | null
+  /** US-PIP-003 fields; absent on seeded rows. */
+  name?: string
+  probability?: number
+  notes?: string | null
+  lineDetails?: Partial<Record<Line, { currentCarrier?: string; currentPremium?: number; xDateOffset?: number }>>
 }
 
 export type QuoteStatus = 'Requested' | 'Quoted' | 'Declined' | 'Referred' | 'Presented' | 'Accepted' | 'Not taken'
@@ -249,6 +254,11 @@ export interface Task {
   dueOffset: number
   status: 'Open' | 'Done' | 'Canceled'
   linked: Activity['linked']
+  /** US-WRK-005 fields; absent on seeded rows. */
+  dueTime?: string | null
+  durationMin?: number | null
+  description?: string | null
+  closeNote?: string | null
 }
 
 export interface Dataset {

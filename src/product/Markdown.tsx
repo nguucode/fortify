@@ -1,6 +1,6 @@
 import { marked } from 'marked'
 import { useNavigate } from 'react-router'
-import { routes, storyById } from './spec'
+import { routes, slugify, storyById } from './spec'
 
 /**
  * US-PRD-003. Renders repo spec markdown (trusted, bundled at build time; never user input).
@@ -30,7 +30,16 @@ function linkify(md: string) {
 
 marked.use({
   renderer: {
-    link({ href, text }) {
+    code({ text }) {
+      // Focusable so a horizontally scrolling block is reachable by keyboard (axe scrollable-region-focusable).
+      const esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      return `<pre tabindex="0"><code>${esc}</code></pre>`
+    },
+    heading({ tokens, depth, text }) {
+      return `<h${depth} id="${slugify(text)}" class="scroll-mt-4">${this.parser.parseInline(tokens)}</h${depth}>`
+    },
+    link({ href, tokens }) {
+      const text = this.parser.parseInline(tokens)
       const mapped = SPEC_LINKS.find(([re]) => re.test(href))?.[1]
       const target = mapped ?? href
       const internal = target.startsWith('/')
