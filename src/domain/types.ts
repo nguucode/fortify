@@ -122,10 +122,10 @@ export interface Contact {
 
 /** US-ACC-005/006: AMS-synced items insured on a Policy (read-only in Fortify). */
 export type InsuredItem =
-  | { id: string; policyId: string; accountId: string; kind: 'Vehicle'; year: number; make: string; model: string; vin4: string }
-  | { id: string; policyId: string; accountId: string; kind: 'Driver'; name: string; age: number }
+  | { id: string; policyId: string; accountId: string; kind: 'Vehicle'; year: number; make: string; model: string; vin4: string; garagingZip?: string; use?: string; compDed?: number; collDed?: number; vehicleClass?: string; radius?: string }
+  | { id: string; policyId: string; accountId: string; kind: 'Driver'; name: string; age: number; licenseState?: UsState; relationship?: string; rated?: boolean }
   | { id: string; policyId: string; accountId: string; kind: 'Property'; address: string; yearBuilt: number; hurricaneDeductiblePct?: number; hurricaneDeductible?: number; windMitOffset?: number | null; wpi8?: string | null }
-  | { id: string; policyId: string; accountId: string; kind: 'Location'; number: number; address: string; occupancy: string; buildingValue: number }
+  | { id: string; policyId: string; accountId: string; kind: 'Location'; number: number; address: string; occupancy: string; buildingValue: number; bppLimit?: number; deductible?: number }
 
 export type DocumentType = 'Declarations' | 'ID card' | 'Policy form' | 'Application' | 'Signed proposal' | 'Loss run' | 'Photo' | 'Correspondence' | 'Other'
 /** US-ACC-009 */
@@ -149,6 +149,18 @@ export interface Policy {
   carrierId: string
   line: Line
   policyNumber: string
+  /** US-POL-006 rewrite chain (one step each way). */
+  replacesPolicyId?: string
+  replacedByPolicyId?: string
+  /** US-POL-007 personal auto state coverages. */
+  auto?: { state: UsState; bi: string; pd: number; pip: { selected: boolean; amount?: number; rejectedOffset?: number }; um?: { selected: boolean; limits?: string; rejectedOffset?: number }; pdl?: number; biCarried?: boolean }
+  /** US-POL-008 dwelling. */
+  dwelling?: { roofYear: number; construction: string; coverageA: number; aopDeductible: number; floodZone: string; sinkhole?: 'Full' | 'CGCC only'; hurricanePct?: 0 | 2 | 5 | 10; hurricaneFlat?: number; windMit?: { inspectedOffset: number; features: Record<string, string> } | null; windPool?: { inArea: boolean; wpi8?: string; windHailDeductible?: string; poolPolicyId?: string } }
+  /** US-POL-009 WC classes. */
+  wcClasses?: { state: UsState; code: string; description: string; payroll: number; rate: number }[]
+  wcEmployees?: number
+  /** US-POL-010 personal lines only. */
+  interests?: { type: 'Mortgagee' | 'Lienholder' | 'Loss payee'; name: string; position: '1st' | '2nd'; loan4: string; address: string; appliesTo: string }[]
 }
 
 export interface Term {

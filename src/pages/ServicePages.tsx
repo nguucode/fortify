@@ -175,7 +175,7 @@ export function ServicePage() {
 }
 
 /** US-SRV-005 / US-SRV-006: one sheet for every entry point; Policy change gets its own fields. */
-export function NewServiceRequestSheet({ onClose, accountId: presetAccount, policyId: presetPolicy, type: presetType }: { onClose: () => void; accountId?: string; policyId?: string; type?: ServiceType }) {
+export function NewServiceRequestSheet({ onClose, accountId: presetAccount, policyId: presetPolicy, type: presetType, presetDescription }: { onClose: () => void; accountId?: string; policyId?: string; type?: ServiceType; presetDescription?: string }) {
   const { data, user } = useApp()
   const mutate = useMutate()
   const navigate = useNavigate()
@@ -186,7 +186,7 @@ export function NewServiceRequestSheet({ onClose, accountId: presetAccount, poli
   const [kind, setKind] = useState(POLICY_CHANGE_KINDS[0])
   const [effective, setEffective] = useState('')
   const [subject, setSubject] = useState('')
-  const [description, setDescription] = useState('')
+  const [description, setDescription] = useState(presetDescription ? `Change requested for: ${presetDescription}. ` : '')
   const [priority, setPriority] = useState<'Normal' | 'High'>('Normal')
   const [busy, setBusy] = useState(false)
   const policies = data.policies.filter((p) => p.accountId === accountId)

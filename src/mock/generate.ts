@@ -541,6 +541,7 @@ export function generateDataset(seed = 20261115): Dataset {
   }
 
   const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users, tasks, leads })
+  enrichPolicies(seed, { accounts, policies, terms, insuredItems })
   // US-PIP-013: a commission schedule per carrier and line (deterministic, no RNG so nothing else shifts).
   const BASE_RATE: Partial<Record<Line, number>> = { Auto: 0.1, Home: 0.15, Umbrella: 0.15, Renters: 0.15, Condo: 0.15, Flood: 0.15, Boat: 0.12, BOP: 0.15, GL: 0.12, WC: 0.08, 'Commercial auto': 0.1, 'Commercial umbrella': 0.12 }
   const carriers = CARRIERS.map((c, i) => ({ ...c, commission: Object.fromEntries(c.lines.map((l) => [l, Math.round(((BASE_RATE[l] ?? 0.12) + ((i % 3) - 1) * 0.01) * 1000) / 1000])) }))
@@ -664,4 +665,63 @@ function enrich(seed: number, d: Pick<Dataset, 'accounts' | 'contacts' | 'polici
     }
   }
   return { insuredItems, documents }
+}
+
+/** POL P1 enrichment on its own seed: coverages, dwelling, WC classes, interests, item details, and rewrite chains. */
+function enrichPolicies(seed: number, d: { accounts: Account[]; policies: Policy[]; terms: Term[]; insuredItems: InsuredItem[] }) {
+  const f = new Faker({ locale: [en_US, en, base] })
+  f.seed(seed + 11)
+  const int = (a: number, b: number) => f.number.int({ min: a, max: b })
+  const pick = <T,>(xs: readonly T[]) => f.helpers.arrayElement(xs)
+  const acc = new Map(d.accounts.map((a) => [a.id, a]))
+  const LENDERS = ['Lone Star Mortgage', 'Gulf Coast Bank', 'First Harbor Credit Union', 'Sunbelt Auto Finance', 'Bayou Federal Savings']
+  for (const p of d.policies) {
+    const a = acc.get(p.accountId)
+    if (!a) continue
+    if (p.line === 'Auto') {
+      const tx = a.state === 'TX'
+      p.auto = tx
+        ? { state: 'TX', bi: pick(['30/60', '50/100', '100/300', '250/500']), pd: pick([25, 50, 100]), pip: f.datatype.boolean({ probability: 0.7 }) ? { selected: true, amount: pick([2500, 5000, 10000]) } : { selected: false, rejectedOffset: -int(100, 900) }, um: f.datatype.boolean({ probability: 0.6 }) ? { selected: true, limits: '30/60' } : { selected: false, rejectedOffset: -int(100, 900) } }
+        : { state: 'FL', bi: pick(['10/20', '25/50', '100/300']), pd: 10, pip: { selected: true, amount: 10000 }, pdl: 10000, biCarried: f.datatype.boolean({ probability: 0.8 }) }
+      if (f.datatype.boolean({ probability: 0.6 })) p.interests = [{ type: 'Lienholder', name: pick(LENDERS.slice(3)), position: '1st', loan4: String(int(1000, 9999)), address: `${int(100, 999)} Commerce St, ${a.city}, ${a.state}`, appliesTo: 'Vehicle 1' }]
+    }
+    if (p.line === 'Home' || p.line === 'Condo') {
+      const coverageA = int(18, 70) * 10_000
+      const fl = a.state === 'FL'
+      p.dwelling = {
+        roofYear: int(2005, 2025),
+        construction: pick(['Frame', 'Masonry', 'Masonry veneer']),
+        coverageA,
+        aopDeductible: pick([1000, 2500, 5000]),
+        floodZone: a.coastal ? pick(['AE', 'VE', 'X']) : pick(['X', 'X', 'AE']),
+        sinkhole: fl ? pick(['Full', 'CGCC only'] as const) : undefined,
+        hurricanePct: fl ? pick([2, 2, 5, 10] as const) : undefined,
+        windMit: fl && f.datatype.boolean({ probability: 0.65 }) ? { inspectedOffset: -int(60, 1800), features: { 'Roof covering': 'FBC equivalent', 'Roof deck attachment': pick(['A', 'B', 'C']), 'Roof-to-wall': pick(['Toe nails', 'Clips', 'Single wraps']), 'Secondary water resistance': pick(['Yes', 'No']), 'Opening protection': pick(['None', 'Basic', 'Hurricane']) } } : null,
+        windPool: a.state === 'TX' ? (a.coastal ? { inArea: true, wpi8: `WPI-8 No. ${int(100000, 999999)}`, windHailDeductible: pick(['1%', '2%', '5%']) } : { inArea: false }) : undefined,
+      }
+      p.interests = f.datatype.boolean({ probability: 0.7 }) ? [{ type: 'Mortgagee', name: pick(LENDERS.slice(0, 3)), position: '1st', loan4: String(int(1000, 9999)), address: `PO Box ${int(1000, 9999)}, Houston, TX`, appliesTo: 'Dwelling' }] : []
+    }
+    if (p.line === 'WC') {
+      const classes = [['8810', 'Clerical office employees'], ['5551', 'Roofing, all kinds'], ['9079', 'Restaurant NOC'], ['0042', 'Landscape gardening'], ['8380', 'Automobile service or repair']] as const
+      const n = int(1, 3)
+      p.wcClasses = f.helpers.arrayElements([...classes], n).map(([code, description]) => ({ state: a.state, code, description, payroll: int(5, 90) * 10_000, rate: Math.round(f.number.float({ min: 0.2, max: 9 }) * 100) / 100 }))
+      p.wcEmployees = a.details?.employees ?? int(3, 40)
+    }
+  }
+  for (const i of d.insuredItems) {
+    const a = acc.get(i.accountId)!
+    if (i.kind === 'Vehicle') Object.assign(i, { garagingZip: a.zip, use: pick(['Commute', 'Pleasure', 'Business']), compDed: pick([250, 500, 1000]), collDed: pick([500, 1000]), ...(a.kind === 'Business' ? { vehicleClass: pick(['Light truck', 'Medium truck', 'Van']), radius: pick(['Local (≤50 mi)', 'Intermediate (51-200 mi)']) } : {}) })
+    if (i.kind === 'Driver') Object.assign(i, { licenseState: a.state, relationship: pick(['Named insured', 'Spouse', 'Child', 'Other']), rated: f.datatype.boolean({ probability: 0.92 }) })
+    if (i.kind === 'Location') Object.assign(i, { bppLimit: int(5, 60) * 10_000, deductible: pick([1000, 2500, 5000]) })
+  }
+  // US-POL-006: a few Home policies were rewritten from another carrier; append the replaced policy and its term.
+  const homes = d.policies.filter((p) => p.line === 'Home' && d.terms.some((t) => t.policyId === p.id && t.status === 'Active')).slice(0, 8)
+  for (const p of homes) {
+    const first = d.terms.filter((t) => t.policyId === p.id).sort((a, b) => a.effectiveOffset - b.effectiveOffset)[0]
+    const oldId = `pol-${String(d.policies.length + 1).padStart(4, '0')}`
+    const carrier = pick(['car-ghi', 'car-mer', 'car-lsm'])
+    d.policies.push({ id: oldId, accountId: p.accountId, carrierId: carrier, line: 'Home', policyNumber: `${carrier === 'car-ghi' ? 'GHI' : carrier === 'car-mer' ? 'MER' : 'LSM'}-HO-${int(1000000, 9999999)}`, replacedByPolicyId: p.id })
+    d.terms.push({ id: `trm-${String(d.terms.length + 1).padStart(4, '0')}`, policyId: oldId, effectiveOffset: first.effectiveOffset - 365, expirationOffset: first.effectiveOffset, premium: Math.round(first.premium * 0.9 / 10) * 10, status: 'Rewritten', pendingCancellation: false })
+    p.replacesPolicyId = oldId
+  }
 }
