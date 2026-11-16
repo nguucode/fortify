@@ -16,7 +16,7 @@ export interface AppNotification {
  * US-FND-008: notifications are derived from the store for the viewing user, so View as always shows that
  * user's set. IDs are stable per source record, so read state survives re-renders and store writes.
  */
-export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'> & { activities?: Dataset['activities']; users?: Dataset['users'] }, user: User): AppNotification[] {
+export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'> & { activities?: Dataset['activities']; users?: Dataset['users']; certificates?: Dataset['certificates']; holders?: Dataset['holders'] }, user: User): AppNotification[] {
   const acc = new Map(data.accounts.map((a) => [a.id, a]))
   const name = (id: string) => acc.get(id)?.name ?? ''
   const out: AppNotification[] = []
@@ -47,6 +47,11 @@ export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | '
   for (const s of data.serviceRequests)
     if (s.ownerId === user.id && s.createdById !== user.id && s.status === 'New')
       out.push({ id: `sr-${s.id}`, kind: 'service-assigned', title: `Service Request assigned to you: ${s.subject}`, body: `${s.id} · ${name(s.accountId)}`, offset: s.createdOffset, to: `/service/${s.id}` })
+  // US-CRT-007: certificates waiting for a Principal (never the one who submitted).
+  if (user.role === 'principal')
+    for (const c of data.certificates ?? [])
+      if (c.status === 'Needs review' && c.submittedById !== user.id && c.createdById !== user.id)
+        out.push({ id: `cert-${c.id}`, kind: 'certificate-review', title: `Certificate needs review: ${c.id}`, body: `${data.holders?.find((h) => h.id === c.holderId)?.name ?? ''} · ${name(c.accountId)}`, offset: c.submittedAt ? Math.max(-30, Math.round((new Date(c.submittedAt).getTime() - Date.now()) / 86_400_000)) : 0, to: `/certificates/${c.id}?mode=review` })
   // US-SRV-014: an overdue request notifies its assignee.
   for (const s of data.serviceRequests)
     if (s.ownerId === user.id && s.status !== 'Done' && s.status !== 'Waiting on client' && (s.dueAt ? new Date(s.dueAt) < new Date() : s.dueOffset < 0))

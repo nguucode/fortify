@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { Archive, Building2, Home, MoreHorizontal } from 'lucide-react'
 import { useApp } from '@/app/store'
@@ -8,6 +8,7 @@ import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { useToast } from '@/components/ui/toast'
 import { AccountFormSheet, ArchiveDialog, ContactSheet, LinkedAccounts, ManageContactsSheet, MergeDialog, ReassignDialog } from './AccountSheets'
 import { ActivityTab, DetailsPanel, DocumentsTab, RenewalsTab, SalesTab } from './AccountPanels'
+import { AccountCertificates } from './CertificatesPages'
 import { canSeeAccount } from '@/domain/access'
 import { KeyValue, Panel, RecordHeader, TabBar, useTab } from '@/components/patterns'
 import { Button } from '@/components/ui/primitives'
@@ -26,6 +27,8 @@ export function AccountPage() {
   const { data, user } = useApp()
   const { userName, office, carrierName } = useLookups()
   const tab = useTab('overview')
+  const [sp] = useSearchParams()
+  const sub = (sp.get('sub') ?? 'requests') as 'requests' | 'certificates' | 'holders'
   const [newRequest, setNewRequest] = useState(false)
   const [newOpp, setNewOpp] = useState(false)
   const [taskSheet, setTaskSheet] = useState<Task | 'new' | null>(null)
@@ -209,13 +212,19 @@ export function AccountPage() {
           {tab === 'renewals' && <RenewalsTab account={a} />}
           {tab === 'sales' && <SalesTab account={a} onNewOpp={() => setNewOpp(true)} />}
           {tab === 'service' && (
-            <Panel title="Service requests">
-              {services.length ? (
-                <Table head={['Request', 'Type', 'Status', 'Created', 'Owner']} rows={[...services].sort((x, y) => y.createdOffset - x.createdOffset).map((r) => [<Link key="r" to={`/service/${r.id}`} className="text-link hover:underline"><span className="font-mono text-sm">{r.id}</span> {r.subject}</Link>, r.type, <StatusCell key="s" status={r.status} />, dateOf(r.createdOffset), userName(r.ownerId)])} />
-              ) : (
-                <p className="text-base text-muted">No service requests yet.</p>
+            <div className="flex flex-col gap-4">
+              {a.kind === 'Business' && <TabBar param="sub" tabs={[{ id: 'requests', label: 'Requests', count: openServices.length }, { id: 'certificates', label: 'Certificates', count: (data.certificates ?? []).filter((c) => c.accountId === a.id && (c.status === 'Requested' || c.status === 'Needs review')).length || null }, { id: 'holders', label: 'Holders', count: (data.holders ?? []).filter((h) => h.accountId === a.id && h.status !== 'Inactive').length || null }]} />}
+              {(a.kind !== 'Business' || sub === 'requests') && (
+                <Panel title="Service requests" actions={user.role !== 'admin' && active.length > 0 && <Button size="sm" onClick={() => setNewRequest(true)}>New request</Button>}>
+                  {services.length ? (
+                    <Table head={['Request', 'Type', 'Status', 'Created', 'Owner']} rows={[...services].sort((x, y) => y.createdOffset - x.createdOffset).map((r) => [<Link key="r" to={`/service/${r.id}`} className="text-link hover:underline"><span className="font-mono text-sm">{r.id}</span> {r.subject}</Link>, r.type, <StatusCell key="s" status={r.status} />, dateOf(r.createdOffset), userName(r.ownerId)])} />
+                  ) : (
+                    <p className="text-base text-muted">No service requests yet.</p>
+                  )}
+                </Panel>
               )}
-            </Panel>
+              {a.kind === 'Business' && (sub === 'certificates' || sub === 'holders') && <AccountCertificates account={a} sub={sub} />}
+            </div>
           )}
           {tab === 'activity' && <ActivityTab account={a} onTask={setTaskSheet} />}
           {tab === 'documents' && <DocumentsTab account={a} />}

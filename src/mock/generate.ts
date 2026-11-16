@@ -756,6 +756,8 @@ function enrichService(seed: number, d: { accounts: Account[]; policies: Policy[
         const created = -int(1, 200)
         const policyIds = f.helpers.arrayElements(pols, int(1, Math.min(3, pols.length))).map((p) => p.id)
         const marks = Object.fromEntries(policyIds.map((pid) => [pid, { ai: ai && d.policies.find((p) => p.id === pid)!.line !== 'WC', wvd: f.datatype.boolean({ probability: 0.2 }), pnc: ai && f.datatype.boolean({ probability: 0.3 }) }]))
+        // A certificate waits for review only because of a mark; make sure one exists.
+        if (status === 'Needs review' && !Object.values(marks).some((m) => m.ai || m.wvd || m.pnc)) marks[policyIds[0]].wvd = true
         const flags = { additionalInsured: Object.values(marks).some((m) => m.ai), waiver: Object.values(marks).some((m) => m.wvd), primaryNonContrib: Object.values(marks).some((m) => m.pnc) }
         const id = `CERT-${String(certificates.length + 100).padStart(4, '0')}`
         const issued = status === 'Issued'
@@ -776,13 +778,13 @@ function enrichService(seed: number, d: { accounts: Account[]; policies: Policy[
     claims.push({
       id, accountId: r.accountId, policyId: r.policyId, serviceRequestId: r.id, lossType, lossOffset: r.createdOffset - int(0, 5), description: r.subject, status, details: { cause: lossType === 'Property' ? pick(['Wind', 'Hail', 'Water', 'Fire']) : undefined, injuries: 'No' }, createdOffset: r.createdOffset,
       submittedVia: step >= 1 ? pick(['Carrier portal', 'Email to carrier claims', 'Phone'] as const) : null,
-      submittedOffset: step >= 1 ? r.createdOffset + 1 : null,
+      submittedOffset: step >= 1 ? Math.min(0, r.createdOffset + 1) : null,
       carrierClaimNumber: step >= 2 ? `${prefix}-26-${int(1000000, 9999999)}` : null,
-      adjuster: step >= 3 ? { name: f.person.fullName(), type: pick(['Carrier staff', 'Independent'] as const), phone: `(555) 030-${String(int(0, 9999)).padStart(4, '0')}`, email: `adjuster${int(10, 99)}@example.com`, assignedOffset: r.createdOffset + 3 } : null,
+      adjuster: step >= 3 ? { name: f.person.fullName(), type: pick(['Carrier staff', 'Independent'] as const), phone: `(555) 030-${String(int(0, 9999)).padStart(4, '0')}`, email: `adjuster${int(10, 99)}@example.com`, assignedOffset: Math.min(0, r.createdOffset + 3) } : null,
       outcome: step === 4 ? pick(['Paid', 'Paid', 'Denied', 'Withdrawn'] as const) : null,
       paidAmount: step === 4 ? int(800, 24000) : null,
       closedOffset: step === 4 ? Math.min(0, r.createdOffset + int(5, 40)) : null,
-      statusDates: Object.fromEntries(STEPS.slice(0, step + 1).map((s, i) => [s, r.createdOffset + i * 2])),
+      statusDates: Object.fromEntries(STEPS.slice(0, step + 1).map((s, i) => [s, Math.min(0, r.createdOffset + i * 2)])),
     })
     r.details = { ...r.details, claimId: id }
   }
