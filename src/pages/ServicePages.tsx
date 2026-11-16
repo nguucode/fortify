@@ -11,7 +11,8 @@ import { dateOf, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditService, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { canServiceTransition } from '@/domain/rules'
 import type { ServiceRequest, ServiceStatus } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, type Column } from '@/components/patterns'
+import { BulkPickDialog, Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, type Column } from '@/components/patterns'
+import { bulkSummary } from '@/app/bulk'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { Button, CountPill, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
@@ -28,6 +29,8 @@ export function ServicePage() {
   const mutate = useMutate()
   const [params, setParams] = useSearchParams()
   const [creating, setCreating] = useState(false)
+  const [bulk, setBulk] = useState<{ kind: 'assign' | 'status'; ids: string[] } | null>(null)
+  const bulkToast = useToast()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [mineOnly, setMineOnly] = useState(user.role === 'account-manager')
   const mobile = useIsMobile()
@@ -154,7 +157,7 @@ export function ServicePage() {
             ))}
             {Object.values(fl).some(Boolean) && <button onClick={() => { const n = new URLSearchParams(); n.set('view', 'list'); setParams(n, { replace: true }) }} className="text-sm text-link hover:underline">Clear filters</button>}
           </div>
-          <DataTable rows={listRows.slice((page - 1) * 50, page * 50)} columns={columns} listId="service" exportName="service-requests" onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1300} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
+          <DataTable bulkMax={{ n: 200, message: "Select up to 200 at a time" }} bulkActions={user.role === 'account-manager' || user.role === 'principal' ? [{ label: 'Reassign', run: (ids) => setBulk({ kind: 'assign', ids }) }, { label: 'Change status', run: (ids) => setBulk({ kind: 'status', ids }) }] : undefined} rows={listRows.slice((page - 1) * 50, page * 50)} columns={columns} listId="service" exportName="service-requests" onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1300} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
           {listRows.length > 50 && (
             <div className="tabular mt-3 flex items-center justify-between text-sm text-label">
               <span>{(page - 1) * 50 + 1}–{Math.min(page * 50, listRows.length)} of {listRows.length}</span>
@@ -235,6 +238,8 @@ export function ServicePage() {
           </div>
         </div>
       )}
+      {bulk?.kind === 'assign' && <BulkPickDialog title={`Reassign ${bulk.ids.length} requests`} label="Account Manager" options={data.users.filter((u) => u.role === 'account-manager' && u.status !== 'Deactivated' && (user.role === 'principal' || u.officeId === user.officeId)).map((u) => [u.id, u.name])} confirmLabel="Reassign" onClose={() => setBulk(null)} onConfirm={async (to) => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.reassignService(id, to, user.id))); bulkToast(bulkSummary(r, 'reassigned'), r.skipped.length ? 'info' : 'success') }} />}
+      {bulk?.kind === 'status' && <BulkPickDialog title={`Change status of ${bulk.ids.length} requests`} label="Status" options={[['In progress', 'In progress'], ['Waiting on carrier', 'Waiting on carrier'], ['Waiting on client', 'Waiting on client'], ['Done', 'Done: close requests one at a time to record the result', true]]} note={{ label: 'Waiting for', required: (v) => v.startsWith('Waiting') }} onClose={() => setBulk(null)} onConfirm={async (to, note) => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.setServiceStatus(id, to as never, user.id, { note: note || undefined }))); bulkToast(bulkSummary(r), r.skipped.length ? 'info' : 'success') }} />}
       {creating && <NewServiceRequestSheet onClose={() => setCreating(false)} />}
     </div>
   )

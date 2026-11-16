@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AlertTriangle, FileText, MoreHorizontal, RefreshCw, Search } from 'lucide-react'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
@@ -7,7 +7,7 @@ import { useApp, useDemoControls } from '@/app/store'
 import { dateOf, usd, useLookups } from '@/app/hooks'
 import { canSeeAccount, canSeeCommission, visibleAccounts } from '@/domain/access'
 import type { InsuredItem, Policy, Term, UsState } from '@/domain/types'
-import { DataTable, Gate, KeyValue, PageTitle, Panel, RecordHeader, TabBar, ViewTabs, useTab, useView, type Column } from '@/components/patterns'
+import { DataTable, Gate, KeyValue, PageTitle, Panel, Sheet, SheetCancel, RecordHeader, TabBar, ViewTabs, useTab, useView, type Column } from '@/components/patterns'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
@@ -235,7 +235,11 @@ function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][]
 /** US-POL-005 + US-POL-006: newest first with change vs prior and where each Term came from. */
 function TermsTable({ policy, terms }: { policy: Policy; terms: Term[] }) {
   const { data } = useApp()
+  const [params, setParams] = useSearchParams()
   const ordered = [...terms].sort((a, b) => a.effectiveOffset - b.effectiveOffset)
+  const openTerm = (id: string | null) => { const n = new URLSearchParams(params); if (id) n.set('term', id); else n.delete('term'); setParams(n, { replace: true }) }
+  const termId = params.get('term')
+  const ti = ordered.findIndex((t) => t.id === termId)
   const replacedBy = policy.replacedByPolicyId ? data.policies.find((x) => x.id === policy.replacedByPolicyId) : undefined
   const source = (t: Term, i: number) => {
     if (t.status === 'Rewritten' && replacedBy) return <Link to={`/policies/${replacedBy.id}`} className="text-link hover:underline">Rewritten to {replacedBy.policyNumber}</Link>
@@ -257,7 +261,7 @@ function TermsTable({ policy, terms }: { policy: Policy; terms: Term[] }) {
           const prev = ordered[i - 1]
           const pct = prev ? (t.premium - prev.premium) / prev.premium : null
           return [
-            `Term ${i + 1}`,
+            <button key="t" data-term={t.id} onClick={() => openTerm(t.id)} className="font-medium text-link hover:underline">Term {i + 1}</button>,
             dateOf(t.effectiveOffset),
             dateOf(t.expirationOffset),
             usd(t.premium),
@@ -267,6 +271,7 @@ function TermsTable({ policy, terms }: { policy: Policy; terms: Term[] }) {
           ]
         })].reverse()}
       />
+      {ti >= 0 && <TermDrawer policy={policy} terms={ordered} index={ti} onClose={() => { openTerm(null); setTimeout(() => (document.querySelector(`[data-term="${termId}"]`) as HTMLElement | null)?.focus(), 0) }} />}
     </Panel>
   )
 }
@@ -410,5 +415,38 @@ function CommissionCard({ policy, term, producerId }: { policy: Policy; term?: T
       />
       <p className="mt-2 text-sm text-muted">From the carrier commission schedule synced from the AMS.</p>
     </Panel>
+  )
+}
+
+/** US-POL-014: a past (or any) Term in a drawer; ?tab=terms&term=:id survives reload. */
+function TermDrawer({ policy, terms, index, onClose }: { policy: Policy; terms: Term[]; index: number; onClose: () => void }) {
+  const { data } = useApp()
+  const t = terms[index]
+  const current = terms.find((x) => x.status === 'Active' || x.status === 'Bound')
+  const [compare, setCompare] = useState(false)
+  const items = (data.insuredItems ?? []).filter((x) => x.policyId === policy.id)
+  const label = (x: InsuredItem) => (x.kind === 'Vehicle' ? `${x.year} ${x.make} ${x.model}` : x.kind === 'Driver' ? x.name : x.kind === 'Property' ? x.address : `Location ${x.number} · ${x.address}`)
+  const cov: [string, string][] = policy.dwelling ? [['Coverage A', usd(policy.dwelling.coverageA)], ['AOP deductible', usd(policy.dwelling.aopDeductible)], ['Roof year', String(policy.dwelling.roofYear)]] : policy.auto ? [['Bodily injury', policy.auto.bi], ['Property damage', usd(policy.auto.pd)]] : policy.wcClasses ? policy.wcClasses.map((c) => [`${c.code} ${c.description}`, `Payroll ${usd(c.payroll)}`] as [string, string]) : [['Line', policy.line]]
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()} title={`Term ${index + 1} · ${dateOf(t.effectiveOffset)}–${dateOf(t.expirationOffset)}`} description={`${policy.policyNumber} · ${policy.line}`} footer={<SheetCancel>Close</SheetCancel>}>
+      <KeyValue items={[['Status', <StatusCell key="s" status={t.status} />], ['Premium', usd(t.premium)], ['Source', t.source === 'fortify-won' ? 'Won in Fortify' : 'AMS']]} />
+      <h3 className="mt-5 mb-1 text-base font-semibold text-strong">Coverage</h3>
+      <KeyValue items={cov} />
+      <p className="mt-1 text-sm text-muted">Coverage shown is the policy’s current schedule from the AMS.</p>
+      <h3 className="mt-5 mb-1 text-base font-semibold text-strong">Insured items · {items.length}</h3>
+      {items.length ? <ul className="text-base">{items.slice(0, 12).map((x) => <li key={x.id}>{label(x)}</li>)}{items.length > 12 && <li className="text-muted">+{items.length - 12} more</li>}</ul> : <p className="text-base text-muted">No insured items synced.</p>}
+      {current && current.id !== t.id && (
+        <div className="mt-5">
+          {!compare ? <button className="text-base text-link underline" onClick={() => setCompare(true)}>Compare with current term</button> : (
+            <table className="tabular w-full border-collapse text-left text-base">
+              <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong"><th>Item</th><th>Term {index + 1}</th><th>Current</th></tr></thead>
+              <tbody>
+                {([['Effective', dateOf(t.effectiveOffset), dateOf(current.effectiveOffset)], ['Expiration', dateOf(t.expirationOffset), dateOf(current.expirationOffset)], ['Premium', usd(t.premium), `${usd(current.premium)} (${current.premium >= t.premium ? '+' : '−'}${Math.abs(((current.premium - t.premium) / t.premium) * 100).toFixed(1)}%)`]] as string[][]).map(([k, a, b]) => <tr key={k} className="h-9 border-b border-fill last:border-0"><td className="text-label">{k}</td><td>{a}</td><td>{b}</td></tr>)}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </Sheet>
   )
 }

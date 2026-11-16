@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { bulkSummary } from '@/app/bulk'
+import { useToast } from '@/components/ui/toast'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { AlertTriangle, CalendarClock } from 'lucide-react'
 import { useApp } from '@/app/store'
@@ -12,7 +14,7 @@ import { EmptyState } from '@/components/ui/states'
 
 const PL: Line[] = ['Auto', 'Home', 'Umbrella', 'Renters', 'Condo', 'Flood', 'Boat']
 const CL: Line[] = ['BOP', 'GL', 'WC', 'Commercial auto']
-const VIEWS = ['Next 90 days', 'All']
+const VIEWS = ['Next 90 days', 'Passed', 'All']
 export const quoteWindow = (a: Pick<Account, 'kind'>) => (a.kind === 'Business' ? 90 : 45)
 const isoOf = (off: number) => {
   const d = new Date()
@@ -28,9 +30,11 @@ export function XDatesPage() {
   const [params, setParams] = useSearchParams()
   const view = useView(VIEWS)
   const [adding, setAdding] = useState(false)
+  const listMutate = useMutate()
+  const listToast = useToast()
   const scoped = new Map(visibleAccounts(user, data.accounts).filter((a) => a.lifecycle === 'active').map((a) => [a.id, a]))
   const all = data.xDates.filter((x) => scoped.has(x.accountId))
-  const inView: Record<string, (x: XDate) => boolean> = { 'Next 90 days': (x) => x.xDateOffset >= 0 && x.xDateOffset <= 90 && x.interestLevel !== 'Closed', All: () => true }
+  const inView: Record<string, (x: XDate) => boolean> = { 'Next 90 days': (x) => x.xDateOffset >= 0 && x.xDateOffset <= 90 && x.interestLevel !== 'Closed', Passed: (x) => x.xDateOffset < 0, All: () => true }
   const rows = all.filter(inView[view]).sort((a, b) => a.xDateOffset - b.xDateOffset)
   const opp = (x: XDate) => (x.opportunityId ? data.opportunities.find((o) => o.id === x.opportunityId) : undefined)
   const due = (x: XDate) => { const a = scoped.get(x.accountId)!; return x.xDateOffset >= 0 && x.xDateOffset <= quoteWindow(a) && x.interestLevel !== 'Closed' && (!opp(x) || opp(x)!.stage === 'Lost') }
@@ -64,7 +68,7 @@ export function XDatesPage() {
       {dueCount > 0 && <p className="mt-4 flex items-center gap-2 rounded-md bg-warning-tint px-4 py-2.5 text-base text-ink shadow-ring"><AlertTriangle aria-hidden className="size-4 text-warning-text" /> {dueCount} X-date{dueCount === 1 ? ' is' : 's are'} inside the quote window with no Opportunity.</p>}
       <ViewTabs views={VIEWS} counts={counts} />
       <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {rows.length} X-dates</p>
-      <DataTable rows={rows} columns={cols} minWidth={1200} listId="xdates" exportName="x-dates" onRowClick={(x) => setOpen(x.id)} empty={<EmptyState icon={CalendarClock} title="No X-dates in this view" body="Add one when a client mentions coverage they buy elsewhere." />} />
+      <DataTable bulkMax={{ n: 50, message: "Select up to 50 at a time" }} bulkActions={view === 'Passed' && user.role !== 'admin' ? [{ label: 'Roll forward', run: async (ids) => { const r = await listMutate((s) => s.bulk(ids, (id) => { s.rollForwardXDate(id, user.id) })); listToast(r.skipped.length ? bulkSummary(r, 'rolled forward') : `${r.updated} X-dates rolled forward`, 'success') } }] : undefined} rows={rows} columns={cols} minWidth={1200} listId="xdates" exportName="x-dates" onRowClick={(x) => setOpen(x.id)} empty={<EmptyState icon={CalendarClock} title="No X-dates in this view" body="Add one when a client mentions coverage they buy elsewhere." />} />
       {open && <XDateDrawer xdate={open} onClose={() => setOpen(null)} />}
       {adding && <XDateDrawer onClose={() => setAdding(false)} />}
     </div>
@@ -76,6 +80,7 @@ export function XDateDrawer({ xdate, accountId: lockedAccount, onClose }: { xdat
   const { data, user } = useApp()
   const { account: getAccount, carrierName } = useLookups()
   const mutate = useMutate()
+  const toast = useToast()
   const [editing, setEditing] = useState(!xdate)
   const [quoting, setQuoting] = useState(false)
   const [q, setQ] = useState('')
@@ -111,7 +116,7 @@ export function XDateDrawer({ xdate, accountId: lockedAccount, onClose }: { xdat
   const quoteReason = user.role === 'admin' ? 'Admins have read-only access to Opportunities' : 'Account Managers can create Cross-sell Opportunities only'
   if (!editing && xdate)
     return (
-      <Sheet open onOpenChange={(v) => !v && onClose()} title={`${xdate.line} · ${xdate.currentCarrier}`} description={account?.name} footer={<><SheetCancel>Close</SheetCancel>{user.role !== 'admin' && <Button onClick={() => setEditing(true)}>Edit</Button>}{opp && opp.stage !== 'Lost' ? <Link to={`/pipeline/${opp.id}`} className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-base font-medium text-white">Open Opportunity</Link> : <Gate allowed={canQuote} reason={quoteReason}><Button variant="primary" onClick={() => setQuoting(true)}>Start quote</Button></Gate>}</>}>
+      <Sheet open onOpenChange={(v) => !v && onClose()} title={`${xdate.line} · ${xdate.currentCarrier}`} description={account?.name} footer={<><SheetCancel>Close</SheetCancel>{user.role !== 'admin' && <Button onClick={() => setEditing(true)}>Edit</Button>}{user.role !== 'admin' && xdate.xDateOffset < 0 && (!opp || ['Won', 'Lost'].includes(opp.stage)) && (xdate.interestLevel === 'Closed' ? <Tip label="Change the interest level from Closed first."><span tabIndex={0}><Button disabled>Roll forward</Button></span></Tip> : <Button onClick={() => mutate((s) => s.rollForwardXDate(xdate.id, user.id)).then((d) => toast(`Rolled forward to ${d}`, 'success'))}>Roll forward</Button>)}{opp && opp.stage !== 'Lost' ? <Link to={`/pipeline/${opp.id}`} className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-base font-medium text-white">Open Opportunity</Link> : <Gate allowed={canQuote} reason={quoteReason}><Button variant="primary" onClick={() => setQuoting(true)}>Start quote</Button></Gate>}</>}>
         <KeyValue
           items={[
             ['Account', <Link key="a" to={`/accounts/${xdate.accountId}?tab=sales`} className="text-link hover:underline">{account?.name}</Link>],

@@ -216,7 +216,7 @@ function readPrefs(listId?: string): { hidden: string[]; compact: boolean } {
  * US-FND-019: with `listId` it gets Display options (column visibility, Compact rows; saved per list) and Export;
  * with `bulkActions` rows get checkboxes, a selection bar, and "Select all N".
  */
-export function DataTable<T extends { id: string }>({ rows, columns: allColumns, onRowClick, empty, minWidth, listId, exportName, bulkActions }: { rows: T[]; columns: Column<T>[]; onRowClick?: (r: T) => void; empty?: ReactNode; minWidth?: number; listId?: string; exportName?: string; bulkActions?: BulkAction[] }) {
+export function DataTable<T extends { id: string }>({ rows, columns: allColumns, onRowClick, empty, minWidth, listId, exportName, bulkActions, bulkMax }: { rows: T[]; columns: Column<T>[]; onRowClick?: (r: T) => void; empty?: ReactNode; minWidth?: number; listId?: string; exportName?: string; bulkActions?: BulkAction[]; bulkMax?: { n: number; message: string } }) {
   const [params, setParams] = useSearchParams()
   const [prefs, setPrefs] = useState(() => readPrefs(listId))
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -299,8 +299,9 @@ export function DataTable<T extends { id: string }>({ rows, columns: allColumns,
                 <button onClick={() => setSelected(new Set(rows.map((r) => r.id)))} className="text-sm text-link hover:underline">Select all {rows.length.toLocaleString('en-US')}</button>
               )}
               {bulkActions.map((a) => (
-                <Button key={a.label} size="sm" onClick={async () => { await a.run(sel); setSelected(new Set()) }}>{a.label}</Button>
+                <Button key={a.label} size="sm" disabled={!!bulkMax && sel.length > bulkMax.n} onClick={async () => { await a.run(sel); setSelected(new Set()) }}>{a.label}</Button>
               ))}
+              {bulkMax && sel.length > bulkMax.n && <span className="text-sm text-warning-text">{bulkMax.message}</span>}
               <button onClick={() => setSelected(new Set())} className="text-sm text-link hover:underline">Clear selection</button>
             </div>
           ) : null}
@@ -514,5 +515,24 @@ export function AttentionCallout({ items, storageKey, storage = 'local', title =
         </ul>
       )}
     </section>
+  )
+}
+
+/** P2 bulk stories: pick one value (and an optional note) to apply to the selected rows. */
+export function BulkPickDialog({ title, label, options, note, onConfirm, onClose, confirmLabel = 'Apply', empty }: { title: string; label: string; options: [string, string, boolean?][]; note?: { label: string; required: (v: string) => boolean }; onConfirm: (value: string, note: string) => Promise<void> | void; onClose: () => void; confirmLabel?: string; empty?: string }) {
+  const [value, setValue] = useState(options.find((o) => !o[2])?.[0] ?? '')
+  const [text, setText] = useState('')
+  const needNote = !!note && note.required(value)
+  return (
+    <Confirm open onOpenChange={(o) => !o && onClose()} title={title} body="" confirmLabel={confirmLabel} onConfirm={async () => { if (!value || (needNote && !text.trim())) return; await onConfirm(value, text.trim()); onClose() }}>
+      {options.length === 0 ? (
+        <p className="text-base text-label">{empty}</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <Field label={label}><select className={inputCls} value={value} onChange={(e) => setValue(e.target.value)}>{options.map(([v, l, disabled]) => <option key={v} value={v} disabled={disabled}>{l}</option>)}</select></Field>
+          {note && <Field label={needNote ? note.label : `${note.label} (optional)`}><textarea className={cx(inputCls, 'h-20 py-2')} value={text} onChange={(e) => setText(e.target.value)} /></Field>}
+        </div>
+      )}
+    </Confirm>
   )
 }

@@ -20,7 +20,6 @@ function withMentions(text: string, mentions: string[] | undefined, name: (id: s
 /** US-WRK-001: newest first; system events are muted. Reused on every record page. */
 export function ActivityTimeline({ accountId, linked, limit = 25 }: { accountId?: string; linked?: Activity['linked']; limit?: number }) {
   const { data } = useApp()
-  const { userName } = useLookups()
   const items = data.activities
     .filter((a) => (accountId ? a.accountId === accountId : true) && (!linked || (a.linked?.kind === linked.kind && a.linked.id === linked.id)))
     .sort((a, b) => b.occurredOffset - a.occurredOffset || b.id.localeCompare(a.id))
@@ -28,24 +27,7 @@ export function ActivityTimeline({ accountId, linked, limit = 25 }: { accountId?
   if (!items.length) return <p className="text-base text-muted">No activity yet. Calls, emails, notes, and changes appear here.</p>
   return (
     <ol className="flex flex-col">
-      {items.map((a) => {
-        const Icon = ICON[a.type]
-        return (
-          <li key={a.id} className="flex gap-3 border-b border-fill py-2.5 last:border-0">
-            <Icon aria-hidden className={`mt-0.5 size-4 shrink-0 ${a.type === 'system' ? 'text-muted' : 'text-label'}`} strokeWidth={1.75} />
-            <div className="min-w-0 flex-1">
-              <p className={`text-base ${a.type === 'system' ? 'text-label' : 'text-ink'}`}>{withMentions(a.subject, a.mentions, userName)}</p>
-              {a.body && <p className="mt-0.5 text-sm text-muted">{withMentions(a.body, a.mentions, userName)}</p>}
-              <p className="mt-0.5 text-sm text-muted">
-                {userName(a.createdById)} ·{' '}
-                <Tip label={dateOf(a.occurredOffset)}>
-                  <span>{ago(a.occurredOffset)}</span>
-                </Tip>
-              </p>
-            </div>
-          </li>
-        )
-      })}
+      {items.map((a) => <Entry key={a.id} a={a} />)}
     </ol>
   )
 }
@@ -166,5 +148,43 @@ export function LogActivityButton({ accountId, linked }: { accountId: string; li
         </div>
       </Sheet>
     </>
+  )
+}
+
+/** One timeline entry; notes are editable by their author for 24 hours (US-WRK-003). Nothing is deletable. */
+function Entry({ a }: { a: Activity }) {
+  const { user } = useApp()
+  const { userName } = useLookups()
+  const mutate = useMutate()
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(a.body ?? '')
+  const Icon = ICON[a.type]
+  const isNote = a.type === 'note'
+  const fresh = !!a.loggedAt && Date.now() - new Date(a.loggedAt).getTime() < 24 * 3_600_000
+  const why = a.createdById !== user.id ? 'Only the author can edit a note.' : !fresh ? 'Notes can be edited for 24 hours after they’re logged.' : null
+  const stamp = (iso: string) => new Date(iso).toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  return (
+    <li id={a.id} className="flex scroll-mt-40 gap-3 border-b border-fill py-2.5 last:border-0">
+      <Icon aria-hidden className={`mt-0.5 size-4 shrink-0 ${a.type === 'system' ? 'text-muted' : 'text-label'}`} strokeWidth={1.75} />
+      <div className="min-w-0 flex-1">
+        <p className={`text-base ${a.type === 'system' ? 'text-label' : 'text-ink'}`}>{withMentions(a.subject, a.mentions, userName)}</p>
+        {editing ? (
+          <div className="mt-1 flex flex-col gap-2">
+            <textarea aria-label="Edit note" className={`${inputCls} h-20 py-2`} value={text} onChange={(e) => setText(e.target.value)} />
+            <span className="flex gap-2"><Button size="sm" variant="primary" onClick={() => mutate((s) => s.editNote(a.id, text, user.id), 'Note updated').then(() => setEditing(false)).catch(() => {})}>Save</Button><Button size="sm" onClick={() => { setText(a.body ?? ''); setEditing(false) }}>Cancel</Button></span>
+          </div>
+        ) : (
+          a.body && <p className="mt-0.5 text-sm text-muted">{withMentions(a.body, a.mentions, userName)}</p>
+        )}
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted">
+          {userName(a.createdById)} ·{' '}
+          <Tip label={dateOf(a.occurredOffset)}>
+            <span>{ago(a.occurredOffset)}</span>
+          </Tip>
+          {a.editedAt && <Tip label={`Edited ${stamp(a.editedAt)}`}><span tabIndex={0}>· Edited</span></Tip>}
+          {isNote && !editing && a.createdById === user.id && (why ? <Tip label={why}><span tabIndex={0} className="ml-1 cursor-not-allowed text-muted">Edit note</span></Tip> : <button className="ml-1 text-link hover:underline" onClick={() => setEditing(true)}>Edit note</button>)}
+        </p>
+      </div>
+    </li>
   )
 }

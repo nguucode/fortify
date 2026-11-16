@@ -475,6 +475,9 @@ export interface Activity {
   mentions?: string[]
   /** US-INB-009: mentioned users who have read the mention. */
   mentionReadBy?: string[]
+  /** US-WRK-003: when it was logged (ISO) and last edited. */
+  loggedAt?: string
+  editedAt?: string | null
   /** US-INB: the Inbox conversation this Activity came from. */
   conversationId?: string
 }

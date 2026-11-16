@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { bulkSummary } from '@/app/bulk'
+import { useToast } from '@/components/ui/toast'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, Clock, Minus, Plus, RefreshCw, X } from 'lucide-react'
 import { compareRenewal, riskReasons } from '@/domain/renewals'
@@ -8,7 +10,7 @@ import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditRenewal, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { nextRenewalStatuses, renewalWindowDays } from '@/domain/rules'
 import type { Renewal, RenewalDecision, RenewalStatus, Term } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, TabBar, ViewTabs, useTab, useView, AttentionCallout, type AttentionItem, type Column } from '@/components/patterns'
+import { BulkPickDialog, Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, TabBar, ViewTabs, useTab, useView, AttentionCallout, type AttentionItem, type Column } from '@/components/patterns'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
@@ -62,6 +64,10 @@ type Row = Renewal & { term: Term; accountName: string; line: string }
 export function RenewalsPage() {
   const { data, user } = useApp()
   const { account, policy, userName } = useLookups()
+  const [bulk, setBulk] = useState<{ kind: 'task' | 'assign'; ids: string[] } | null>(null)
+  const bulkMutate = useMutate()
+  const bulkToast = useToast()
+  const startReview = async (ids: string[]) => { const r = await bulkMutate((s) => s.bulk(ids, (id) => { if (s.getState().renewals.find((x) => x.id === id)?.status !== 'Upcoming') throw new Error('already in review'); s.setRenewalStatus(id, 'In review', user.id) })); bulkToast(`Started review on ${r.updated} renewal${r.updated === 1 ? '' : 's'}.${r.skipped.length ? ` ${r.skipped.length} skipped (already in review).` : ''}`, 'success') }
   const navigate = useNavigate()
   const view = useView(VIEWS)
   const risk = useRisk()
@@ -115,7 +121,9 @@ export function RenewalsPage() {
         </label>
       </div>
       <p className="tabular mt-2 mb-2 text-sm text-muted">Showing {list.length} renewals</p>
-      <DataTable rows={list} columns={cols} minWidth={1100} listId="renewals" exportName="renewals" onRowClick={(r) => navigate(`/renewals/${r.id}`)} empty={<EmptyState icon={RefreshCw} title="No renewals in this view" body="Terms enter the worklist when their window opens." />} />
+      <DataTable bulkMax={{ n: 50, message: "Bulk actions are limited to 50 renewals." }} bulkActions={user.role === 'admin' ? undefined : [{ label: 'Start review', run: startReview }, { label: 'Add task', run: (ids) => setBulk({ kind: 'task', ids }) }, ...(user.role === 'principal' ? [{ label: 'Reassign', run: (ids: string[]) => setBulk({ kind: 'assign', ids }) }] : [])]} rows={list} columns={cols} minWidth={1100} listId="renewals" exportName="renewals" onRowClick={(r) => navigate(`/renewals/${r.id}`)} empty={<EmptyState icon={RefreshCw} title="No renewals in this view" body="Terms enter the worklist when their window opens." />} />
+      {bulk?.kind === 'task' && <BulkPickDialog title={`Add a task to ${bulk.ids.length} renewals`} label="Task" options={[['Call to review renewal options|30', 'Call to review renewal options · 30 days before expiration'], ['Request updated exposures|45', 'Request updated exposures · 45 days before'], ['Send renewal proposal|14', 'Send renewal proposal · 14 days before']]} confirmLabel="Add tasks" onClose={() => setBulk(null)} onConfirm={async (v) => { const [title, days] = v.split('|'); const r = await bulkMutate((s) => s.bulk(bulk.ids, (id) => { const x = s.getState().renewals.find((y) => y.id === id)!; const t = s.getState().terms.find((y) => y.id === x.termId)!; s.saveTask(null, { accountId: x.accountId, title, type: 'Call', priority: 'Normal', assigneeId: x.ownerId, dueOffset: Math.max(0, t.expirationOffset - Number(days)), linked: { kind: 'renewal', id }, dueTime: null, durationMin: null, description: null }, user.id) })); bulkToast(bulkSummary(r, 'tasks added'), 'success') }} />}
+      {bulk?.kind === 'assign' && <BulkPickDialog title={`Reassign ${bulk.ids.length} renewals`} label="Account Manager" options={data.users.filter((u) => u.role === 'account-manager' && u.status !== 'Deactivated').map((u) => [u.id, `${u.name} · ${data.offices.find((o) => o.id === u.officeId)?.name}`])} confirmLabel="Reassign" onClose={() => setBulk(null)} onConfirm={async (to) => { const r = await bulkMutate((s) => s.bulk(bulk.ids, (id) => s.reassignRenewal(id, to, user.id))); const office = r.skipped.filter((x) => x.reason === 'Office mismatch').length; bulkToast(`Reassigned ${r.updated} renewals.${office ? ` ${office} skipped for Office mismatch.` : ''}`, 'success') }} />}
     </div>
   )
 }

@@ -853,6 +853,60 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       commit({ ...s, syncRuns: [run, ...(s.syncRuns ?? [])] })
     },
 
+    // ---------- P2 batch 2: bulk actions, roll forward, note edits ----------
+    /** Runs one action per id and reports what was skipped and why ("10 updated, 2 skipped"). */
+    bulk(ids: string[], fn: (id: string) => void) {
+      const skipped: { id: string; reason: string }[] = []
+      let updated = 0
+      for (const id of ids) {
+        try { fn(id); updated++ } catch (e) { skipped.push({ id, reason: (e as Error).message }) }
+      }
+      return { updated, skipped }
+    },
+    /** US-SRV-016 */
+    reassignService(id: string, toId: string, actorId: string) {
+      const s = state
+      const sr = must(s.serviceRequests.find((x) => x.id === id), 'Service Request')
+      if (sr.status === 'Done') throw new Error('Done')
+      if (sr.ownerId === toId) throw new Error('Already assigned')
+      commit({ ...s, serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, ownerId: toId } : x)), activities: [...s.activities, activity(s, { accountId: sr.accountId, type: 'system', subject: `${id} reassigned from ${userName(sr.ownerId)} to ${userName(toId)} by ${userName(actorId)}`, body: null, createdById: actorId, linked: { kind: 'service', id } })] })
+    },
+    /** US-REN-013: only within the new owner's Office. */
+    reassignRenewal(id: string, toId: string, actorId: string) {
+      const s = state
+      const r = must(s.renewals.find((x) => x.id === id), 'Renewal')
+      const to = must(s.users.find((u) => u.id === toId), 'User')
+      if (s.accounts.find((a) => a.id === r.accountId)?.officeId !== to.officeId) throw new Error('Office mismatch')
+      if (r.ownerId === toId) throw new Error('Already assigned')
+      commit({ ...s, renewals: s.renewals.map((x) => (x.id === id ? { ...x, ownerId: toId } : x)), activities: [...s.activities, activity(s, { accountId: r.accountId, type: 'system', subject: `Renewal reassigned to ${to.name} by ${userName(actorId)}`, body: null, createdById: actorId, linked: { kind: 'renewal', id } })] })
+    },
+    /** US-XDT-006: forward by the term length until the date is in the future; the follow-up rule re-runs. */
+    rollForwardXDate(id: string, actorId: string) {
+      const s = state
+      const x = must(s.xDates.find((v) => v.id === id), 'X-date')
+      if (x.interestLevel === 'Closed') throw new Error('Change the interest level from Closed first.')
+      if (x.xDateOffset >= 0) throw new Error('Not passed yet')
+      if (x.opportunityId && s.opportunities.some((o) => o.id === x.opportunityId && !['Won', 'Lost'].includes(o.stage))) throw new Error('Has an open Opportunity')
+      const months = x.termMonths ?? 12
+      let d = resolveOffset(x.xDateOffset, today)
+      const from = formatUSDate(d)
+      while (offsetOf(d) < 0) d = addMonths(d, months)
+      this.saveXDate(id, { xDateOffset: offsetOf(d), opportunityId: null }, actorId)
+      const s2 = state
+      commit({ ...s2, activities: [...s2.activities, activity(s2, { accountId: x.accountId, type: 'system', subject: `Rolled forward from ${from} by ${userName(actorId)}`, body: null, createdById: actorId, linked: { kind: 'xdate', id } })] })
+      return formatUSDate(d)
+    },
+    /** US-WRK-003: the author may edit a note for 24 hours; nothing is ever deleted. */
+    editNote(activityId: string, body: string, actorId: string, now: Date = new Date()) {
+      const s = state
+      const a = must(s.activities.find((x) => x.id === activityId), 'Activity')
+      if (a.type !== 'note') throw new Error('Only notes can be edited.')
+      if (a.createdById !== actorId) throw new Error('Only the author can edit a note.')
+      if (!a.loggedAt || now.getTime() - new Date(a.loggedAt).getTime() > 24 * 3_600_000) throw new Error('Notes can be edited for 24 hours after they’re logged.')
+      if (!body.trim()) throw new Error('A note can’t be empty.')
+      commit({ ...s, activities: s.activities.map((x) => (x.id === activityId ? { ...x, body: body.trim(), editedAt: now.toISOString() } : x)) })
+    },
+
     // ---------- Inbox (INB P1) ----------
     /** US-INB-002: read state is per user. */
     markConversationRead(id: string, userId: string) {
@@ -1336,7 +1390,7 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       const s = state
       // US-WRK-011: the author is never notified of their own mention.
       if (input.mentions) input = { ...input, mentions: [...new Set(input.mentions)].filter((u) => u !== input.createdById) }
-      commit({ ...s, activities: [...s.activities, activity(s, input)], accounts: s.accounts.map((a) => (a.id === input.accountId ? { ...a, lastActivityOffset: 0 } : a)) })
+      commit({ ...s, activities: [...s.activities, activity(s, { ...input, loggedAt: new Date().toISOString() })], accounts: s.accounts.map((a) => (a.id === input.accountId ? { ...a, lastActivityOffset: 0 } : a)) })
     },
 
     /** US-WRK-005: create (id null) or edit an open Task; system Tasks keep their title and source. */

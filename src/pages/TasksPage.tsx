@@ -1,11 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { CheckCircle2, ListChecks } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, useLookups, useMutate } from '@/app/hooks'
-import { visibleAccounts } from '@/domain/access'
+import { canSeeAccount, visibleAccounts } from '@/domain/access'
+import { bulkSummary } from '@/app/bulk'
+import { formatUSDate, resolveOffset } from '@/mock/dates'
+import { useToast } from '@/components/ui/toast'
 import type { Task } from '@/domain/types'
-import { DataTable, PageTitle, ViewTabs, useView, type Column } from '@/components/patterns'
+import { BulkPickDialog, Confirm, DataTable, PageTitle, ViewTabs, useView, type Column } from '@/components/patterns'
 import { Button, cx } from '@/components/ui/primitives'
 import { EmptyState } from '@/components/ui/states'
 import { fmtTime, TaskSheet, useCompleteTask } from './TaskSheet'
@@ -17,8 +20,9 @@ const linkedLabel = (t: Task) => (t.linked ? `${t.linked.kind[0].toUpperCase()}$
 export function TasksPage() {
   const { data, user } = useApp()
   const { account, userName } = useLookups()
-  const mutate = useMutate()
   const complete = useCompleteTask()
+  const toast = useToast()
+  const [bulk, setBulk] = useState<{ kind: 'complete' | 'due' | 'assign' | 'cancel'; ids: string[] } | null>(null)
   const [params, setParams] = useSearchParams()
   const view = useView(VIEWS)
   const set = (k: string, v: string | null) => {
@@ -149,7 +153,7 @@ export function TasksPage() {
         minWidth={1100}
         listId="tasks"
         exportName="tasks"
-        bulkActions={status === 'Open' && user.role !== 'admin' ? [{ label: 'Mark done', run: (ids) => mutate((s) => ids.forEach((id) => s.completeTask(id, user.id)), `${ids.length} tasks completed`) }] : undefined}
+        bulkActions={status === 'Open' && user.role !== 'admin' ? (['complete', 'due', 'assign', 'cancel'] as const).map((k) => ({ label: { complete: 'Complete', due: 'Change due date', assign: 'Reassign', cancel: 'Cancel' }[k], run: (ids: string[]) => setBulk({ kind: k, ids }) })) : undefined}
         empty={
           <EmptyState
             icon={ListChecks}
@@ -158,7 +162,29 @@ export function TasksPage() {
           />
         }
       />
+      {bulk && <BulkTasks bulk={bulk} onClose={() => setBulk(null)} onDone={(msg) => toast(msg, 'success')} />}
       {(open || openId === 'new') && <TaskSheet task={open} accountId={accountFilter ?? undefined} onClose={() => set('task', null)} />}
     </div>
   )
+}
+
+/** US-WRK-010 */
+function BulkTasks({ bulk, onClose, onDone }: { bulk: { kind: 'complete' | 'due' | 'assign' | 'cancel'; ids: string[] }; onClose: () => void; onDone: (msg: string) => void }) {
+  const { data, user } = useApp()
+  const mutate = useMutate()
+  const n = bulk.ids.length
+  const tasks = data.tasks.filter((t) => bulk.ids.includes(t.id))
+  if (bulk.kind === 'complete')
+    return <Confirm open onOpenChange={(o) => !o && onClose()} title={`Complete ${n} task${n === 1 ? '' : 's'}?`} body="Each completes without outcome notes and logs its Activity." confirmLabel="Complete" onConfirm={async () => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.completeTask(id, user.id))); onDone(bulkSummary(r, 'completed')); onClose() }} />
+  if (bulk.kind === 'due') {
+    const d = new Date()
+    const mon = (8 - d.getDay()) % 7 || 7
+    return <BulkPickDialog title={`Change due date for ${n} tasks`} label="New due date" options={[['1', 'Tomorrow'], [String(mon), 'Next Monday'], ['7', '+7 days']]} onClose={onClose} onConfirm={async (v) => { const due = Number(v); const r = await mutate((s) => s.bulk(bulk.ids, (id) => { const t = s.getState().tasks.find((x) => x.id === id)!; s.saveTask(id, { accountId: t.accountId, title: t.title, type: t.type, priority: t.priority, assigneeId: t.assigneeId, dueOffset: due, linked: t.linked, dueTime: t.dueTime ?? null, durationMin: t.durationMin ?? null, description: t.description ?? null }, user.id) })); onDone(r.skipped.length ? bulkSummary(r, 'moved') : `Moved ${r.updated} tasks to ${formatUSDate(resolveOffset(due))}`) }} />
+  }
+  if (bulk.kind === 'assign') {
+    const accounts = [...new Set(tasks.map((t) => t.accountId))].map((id) => data.accounts.find((a) => a.id === id)!).filter(Boolean)
+    const who = data.users.filter((u) => u.status !== 'Deactivated' && u.status !== 'Invited' && u.role !== 'admin' && accounts.every((a) => canSeeAccount(u, a)))
+    return <BulkPickDialog title={`Reassign ${n} tasks`} label="Assignee" options={who.map((u) => [u.id, u.name])} empty={`No one can see all ${accounts.length} accounts. Narrow your selection.`} confirmLabel="Reassign" onClose={onClose} onConfirm={async (to) => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => { const t = s.getState().tasks.find((x) => x.id === id)!; s.saveTask(id, { accountId: t.accountId, title: t.title, type: t.type, priority: t.priority, assigneeId: to, dueOffset: t.dueOffset, linked: t.linked, dueTime: t.dueTime ?? null, durationMin: t.durationMin ?? null, description: t.description ?? null }, user.id) })); onDone(bulkSummary(r, 'reassigned')) }} />
+  }
+  return <BulkPickDialog title={`Cancel ${n} tasks`} label="Reason" options={[['No longer needed', 'No longer needed'], ['Duplicate', 'Duplicate'], ['Handled elsewhere', 'Handled elsewhere']]} confirmLabel="Cancel tasks" onClose={onClose} onConfirm={async (reason) => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.cancelTask(id, reason, user.id))); onDone(bulkSummary(r, 'canceled')) }} />
 }
