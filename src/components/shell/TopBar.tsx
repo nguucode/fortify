@@ -1,6 +1,8 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
+import { NotificationsButton } from './Notifications'
+import { MobileNav } from './Sidebar'
 import * as Popover from '@radix-ui/react-popover'
-import { Bell, Building2, Check, ChevronDown, Search, SlidersHorizontal, UserRound } from 'lucide-react'
+import { Building2, Check, ChevronDown, Search, SlidersHorizontal, UserRound } from 'lucide-react'
 import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
 import { cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
@@ -105,6 +107,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const toast = useToast()
   return (
     <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line bg-canvas px-4 max-sm:gap-1.5 max-sm:px-3">
+      <MobileNav />
       <span className="flex items-center gap-2 pr-1 text-lg font-semibold tracking-[-0.02em] text-strong max-sm:[&>span:last-child]:hidden">
         <span aria-hidden className="grid size-6 place-items-center rounded-md bg-primary text-xs font-semibold text-white">F</span>
         Fortify
@@ -124,11 +127,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         </span>
       </button>
       <div className="flex-1" />
-      <Tip label="Notifications">
-        <button aria-label="Notifications" className="inline-flex size-8 items-center justify-center rounded-md text-label hover:bg-recessed hover:text-strong">
-          <Bell aria-hidden className="size-4" strokeWidth={1.75} />
-        </button>
-      </Tip>
+      <NotificationsButton />
       <div className="flex items-center gap-1 border-l border-line pl-3 max-sm:pl-1.5">
         <span className="pr-1 text-xs text-muted max-lg:hidden">Demo</span>
         <Menu.Root>

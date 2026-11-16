@@ -22,7 +22,8 @@
     "marked": "^18.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-router": "^7.18.5"
+    "react-router": "^7.18.5",
+    "recharts": "^2.15.4"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.6.0",

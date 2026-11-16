@@ -140,6 +140,20 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       return { accountId: account.id, opportunityId: opp.id }
     },
 
+    /** US-FND-019 bulk Reassign: open Leads only; returns how many changed. */
+    assignLeads(ids: string[], assigneeId: string, _actorId: string) {
+      const s = state
+      const set = new Set(ids)
+      let n = 0
+      const leads = s.leads.map((l) => {
+        if (!set.has(l.id) || l.status === 'Qualified' || l.status === 'Disqualified' || l.assigneeId === assigneeId) return l
+        n++
+        return { ...l, assigneeId }
+      })
+      commit({ ...s, leads })
+      return n
+    },
+
     /** US-PIP-003: create (id null) or edit an open Opportunity. */
     saveOpportunity(
       id: string | null,

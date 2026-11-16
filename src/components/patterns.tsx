@@ -1,5 +1,8 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { ArrowDown, ArrowUp, X, type LucideIcon } from 'lucide-react'
+import * as Popover from '@radix-ui/react-popover'
+import { downloadCsv } from '@/app/csv'
+import { useIsMobile } from '@/app/media'
+import { ArrowDown, ArrowUp, Download, SlidersHorizontal, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button, CountPill, cx, Tip } from './ui/primitives'
@@ -27,7 +30,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
     <Dialog.Root open={open} onOpenChange={request}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
-        <Dialog.Content onChangeCapture={() => setDirty(true)} className="fixed inset-y-0 right-0 z-50 flex w-[480px] max-w-full flex-col bg-surface shadow-pop">
+        <Dialog.Content onChangeCapture={() => setDirty(true)} className="fixed inset-y-0 right-0 z-50 flex w-[480px] max-w-full flex-col bg-surface shadow-pop max-lg:w-full">
           <header className="flex items-start justify-between gap-4 border-b border-fill px-5 py-4">
             <div>
               <Dialog.Title className="text-lg font-medium text-strong">{title}</Dialog.Title>
@@ -144,7 +147,7 @@ export function RecordHeader({ back, icon: Icon, title, meta, status, actions }:
           )}
         </div>
         {/* Mobile is read-only (PRODUCT.md): record actions hide below 640px. */}
-        {actions && <div className="flex flex-wrap items-center gap-2 max-sm:hidden">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-2 max-md:hidden">{actions}</div>}
       </div>
     </header>
   )
@@ -180,11 +183,54 @@ export function TabBar({ tabs, param = 'tab' }: { tabs: { id: string; label: str
 }
 export const useTab = (fallback: string, param = 'tab') => useSearchParams()[0].get(param) ?? fallback
 
-export type Column<T> = { key: string; label: string; width?: number; align?: 'right'; sort?: (a: T, b: T) => number; render: (row: T) => ReactNode }
+export type Column<T> = {
+  key: string
+  label: string
+  width?: number
+  align?: 'right'
+  sort?: (a: T, b: T) => number
+  render: (row: T) => ReactNode
+  /** Value for CSV export; defaults to the rendered value when it is plain text. */
+  csv?: (row: T) => string | number | null
+  /** Columns the viewer may not see (commission) are left out of the table and the export. */
+  hidden?: boolean
+  /** The one key value shown in stacked mobile rows. */
+  mobile?: boolean
+}
+export interface BulkAction {
+  label: string
+  run: (ids: string[]) => void | Promise<void>
+}
 
-/** Plain sortable table on the shared grammar (40px rows, ring container). Sorting state lives in ?sort=. */
-export function DataTable<T extends { id: string }>({ rows, columns, onRowClick, empty, minWidth }: { rows: T[]; columns: Column<T>[]; onRowClick?: (r: T) => void; empty?: ReactNode; minWidth?: number }) {
+function readPrefs(listId?: string): { hidden: string[]; compact: boolean } {
+  if (!listId) return { hidden: [], compact: false }
+  try {
+    return { hidden: [], compact: false, ...JSON.parse(localStorage.getItem(`fortify.table.${listId}`) ?? '{}') }
+  } catch {
+    return { hidden: [], compact: false }
+  }
+}
+
+/**
+ * Sortable table on the shared grammar (40px rows, ring container, sticky first column). Sorting lives in ?sort=.
+ * US-FND-019: with `listId` it gets Display options (column visibility, Compact rows; saved per list) and Export;
+ * with `bulkActions` rows get checkboxes, a selection bar, and "Select all N".
+ */
+export function DataTable<T extends { id: string }>({ rows, columns: allColumns, onRowClick, empty, minWidth, listId, exportName, bulkActions }: { rows: T[]; columns: Column<T>[]; onRowClick?: (r: T) => void; empty?: ReactNode; minWidth?: number; listId?: string; exportName?: string; bulkActions?: BulkAction[] }) {
   const [params, setParams] = useSearchParams()
+  const [prefs, setPrefs] = useState(() => readPrefs(listId))
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const mobile = useIsMobile()
+  const savePrefs = (p: typeof prefs) => {
+    setPrefs(p)
+    try {
+      if (listId) localStorage.setItem(`fortify.table.${listId}`, JSON.stringify(p))
+    } catch {
+      /* storage blocked: lasts until reload */
+    }
+  }
+  const available = allColumns.filter((c) => !c.hidden)
+  const columns = available.filter((c, i) => i === 0 || !prefs.hidden.includes(c.key))
   const sortParam = params.get('sort')
   const key = sortParam?.replace(/^-/, '')
   const dir = sortParam?.startsWith('-') ? -1 : 1
@@ -197,43 +243,152 @@ export function DataTable<T extends { id: string }>({ rows, columns, onRowClick,
     else next.delete('sort')
     setParams(next, { replace: true })
   }
-  return (
-    <div className="overflow-x-auto rounded-md bg-surface shadow-ring">
-      <table className="w-full table-fixed border-collapse text-left" style={{ minWidth }}>
-        <colgroup>
-          {columns.map((c) => (
-            <col key={c.key} style={c.width ? { width: c.width } : undefined} />
-          ))}
-        </colgroup>
-        <thead>
-          <tr className="h-10 border-b border-fill">
-            {columns.map((c, i) => (
-              <th key={c.key} scope="col" aria-sort={key === c.key ? (dir === 1 ? 'ascending' : 'descending') : undefined} className={cx('px-3 text-base font-semibold whitespace-nowrap text-strong', c.align === 'right' && 'text-right', i === 0 && 'sticky left-0 z-10 bg-surface')}>
-                {c.sort ? (
-                  <button onClick={() => onSort(c.key)} className={cx('inline-flex items-center gap-1 rounded-sm hover:text-link', c.align === 'right' && 'flex-row-reverse')}>
-                    {c.label}
-                    {key === c.key && (dir === 1 ? <ArrowUp aria-hidden className="size-3.5" /> : <ArrowDown aria-hidden className="size-3.5" />)}
-                  </button>
-                ) : (
-                  c.label
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+  // Selection only keeps rows still in the current result.
+  const ids = new Set(rows.map((r) => r.id))
+  const sel = [...selected].filter((id) => ids.has(id))
+  const pageIds = sorted.map((r) => r.id)
+  const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const exportCsv = () => {
+    const value = (c: Column<T>, r: T) => {
+      if (c.csv) return c.csv(r)
+      const v = c.render(r)
+      return typeof v === 'string' || typeof v === 'number' ? v : ''
+    }
+    downloadCsv(exportName ?? listId ?? 'export', columns.map((c) => c.label), sorted.map((r) => columns.map((c) => value(c, r))))
+  }
+  const rowH = prefs.compact ? 'h-8' : 'h-10'
+  if (mobile) {
+    // US-FND-011: below 768px rows stack: primary column, status, and one key value; 56px, still open on tap.
+    const [primary, ...rest] = columns
+    const status = rest.find((c) => c.key === 'status' || c.label === 'Status' || c.label === 'Stage')
+    const value = rest.find((c) => c.mobile) ?? rest.find((c) => c.align === 'right') ?? rest.find((c) => c !== status)
+    return (
+      <div>
+        <ul className="divide-y divide-fill overflow-hidden rounded-md bg-surface shadow-ring">
           {sorted.map((r) => (
-            <tr key={r.id} onClick={(e) => onRowClick && !(e.target as HTMLElement).closest('a,button') && onRowClick(r)} className={cx('h-10 border-b border-fill bg-surface text-base transition-colors duration-100', onRowClick && 'cursor-pointer hover:bg-recessed')}>
+            <li key={r.id}>
+              <div
+                role={onRowClick ? 'link' : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                onClick={(e) => onRowClick && !(e.target as HTMLElement).closest('a,button') && onRowClick(r)}
+                onKeyDown={(e) => onRowClick && e.key === 'Enter' && onRowClick(r)}
+                className={cx('flex min-h-14 items-center gap-3 px-3 py-2 text-base', onRowClick && 'cursor-pointer active:bg-recessed')}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate [&_a]:inline-block [&_a]:min-h-6 [&_a]:max-w-full [&_a]:py-0.5">{primary.render(r)}</div>
+                  {status && <div className="mt-0.5 text-sm">{status.render(r)}</div>}
+                </div>
+                {value && <div className="tabular max-w-[45%] shrink-0 truncate text-right text-sm text-label">{value.render(r)}</div>}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {sorted.length === 0 && empty}
+      </div>
+    )
+  }
+  return (
+    <div>
+      {(listId || bulkActions) && (
+        <div className="mb-2 flex min-h-9 flex-wrap items-center gap-2">
+          {sel.length > 0 && bulkActions ? (
+            <div role="region" aria-label="Selection" className="flex flex-wrap items-center gap-2 rounded-md bg-recessed px-3 py-1">
+              <span className="tabular text-sm font-medium text-strong">{sel.length.toLocaleString('en-US')} selected</span>
+              {!rows.every((r) => selected.has(r.id)) && (
+                <button onClick={() => setSelected(new Set(rows.map((r) => r.id)))} className="text-sm text-link hover:underline">Select all {rows.length.toLocaleString('en-US')}</button>
+              )}
+              {bulkActions.map((a) => (
+                <Button key={a.label} size="sm" onClick={async () => { await a.run(sel); setSelected(new Set()) }}>{a.label}</Button>
+              ))}
+              <button onClick={() => setSelected(new Set())} className="text-sm text-link hover:underline">Clear selection</button>
+            </div>
+          ) : null}
+          {listId && (
+            <div className="ml-auto flex gap-2">
+              <Popover.Root>
+                <Popover.Trigger className="inline-flex h-8 items-center gap-1.5 rounded-md bg-surface px-2.5 text-sm font-medium text-ink shadow-ring hover:bg-recessed">
+                  <SlidersHorizontal aria-hidden className="size-4 text-label" strokeWidth={1.75} /> Display
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Content align="end" sideOffset={4} className="z-50 w-60 rounded-md bg-surface p-3 shadow-pop">
+                    <p className="mb-1 text-xs font-semibold text-label">Rows</p>
+                    <div role="radiogroup" aria-label="Row density" className="mb-3 inline-flex rounded-md bg-recessed p-0.5">
+                      {[['Comfortable', false], ['Compact', true]].map(([l, v]) => (
+                        <button key={String(l)} role="radio" aria-checked={prefs.compact === v} onClick={() => savePrefs({ ...prefs, compact: v as boolean })} className={cx('h-7 rounded-[5px] px-2.5 text-sm', prefs.compact === v ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label')}>
+                          {l as string}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mb-1 text-xs font-semibold text-label">Columns</p>
+                    <ul>
+                      {available.map((c, i) => (
+                        <li key={c.key}>
+                          <label className="flex min-h-7 items-center gap-2 text-base text-ink">
+                            <input type="checkbox" disabled={i === 0} checked={i === 0 || !prefs.hidden.includes(c.key)} onChange={(e) => savePrefs({ ...prefs, hidden: e.target.checked ? prefs.hidden.filter((h) => h !== c.key) : [...prefs.hidden, c.key] })} className="size-4 accent-primary" />
+                            {c.label}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+              <button onClick={exportCsv} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-surface px-2.5 text-sm font-medium text-ink shadow-ring hover:bg-recessed">
+                <Download aria-hidden className="size-4 text-label" strokeWidth={1.75} /> Export
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-md bg-surface shadow-ring">
+        <table className="w-full table-fixed border-collapse text-left" style={{ minWidth }}>
+          <colgroup>
+            {bulkActions && <col style={{ width: 40 }} />}
+            {columns.map((c) => (
+              <col key={c.key} style={c.width ? { width: c.width } : undefined} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr className="h-10 border-b border-fill">
+              {bulkActions && (
+                <th className="sticky left-0 z-20 bg-surface pl-3">
+                  <input type="checkbox" aria-label="Select all on this page" checked={allOnPage} onChange={() => setSelected(allOnPage ? new Set() : new Set(pageIds))} className="size-4 accent-primary" />
+                </th>
+              )}
               {columns.map((c, i) => (
-                <td key={c.key} className={cx('truncate px-3', c.align === 'right' && 'tabular text-right', i === 0 && 'sticky left-0 z-10 bg-inherit')}>
-                  {c.render(r)}
-                </td>
+                <th key={c.key} scope="col" aria-sort={key === c.key ? (dir === 1 ? 'ascending' : 'descending') : undefined} className={cx('px-3 text-base font-semibold whitespace-nowrap text-strong', c.align === 'right' && 'text-right', i === 0 && !bulkActions && 'sticky left-0 z-10 bg-surface')}>
+                  {c.sort ? (
+                    <button onClick={() => onSort(c.key)} className={cx('inline-flex items-center gap-1 rounded-sm hover:text-link', c.align === 'right' && 'flex-row-reverse')}>
+                      {c.label}
+                      {key === c.key && (dir === 1 ? <ArrowUp aria-hidden className="size-3.5" /> : <ArrowDown aria-hidden className="size-3.5" />)}
+                    </button>
+                  ) : (
+                    c.label
+                  )}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {sorted.length === 0 && empty}
+          </thead>
+          <tbody>
+            {sorted.map((r) => (
+              <tr key={r.id} onClick={(e) => onRowClick && !(e.target as HTMLElement).closest('a,button,input,label') && onRowClick(r)} className={cx(rowH, 'border-b border-fill text-base transition-colors duration-100', selected.has(r.id) ? 'bg-recessed' : 'bg-surface', onRowClick && 'cursor-pointer hover:bg-recessed')}>
+                {bulkActions && (
+                  <td className="sticky left-0 z-10 bg-inherit pl-3">
+                    <input type="checkbox" aria-label={`Select row ${r.id}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} className="size-4 accent-primary" />
+                  </td>
+                )}
+                {columns.map((c, i) => (
+                  <td key={c.key} className={cx('truncate px-3', c.align === 'right' && 'tabular text-right', i === 0 && !bulkActions && 'sticky left-0 z-10 bg-inherit')}>
+                    {c.render(r)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {sorted.length === 0 && empty}
+      </div>
     </div>
   )
 }
@@ -278,7 +433,7 @@ export function PageTitle({ title, description, actions }: { title: string; desc
         <h1 className="text-title font-semibold text-strong">{title}</h1>
         <p className="mt-1 text-base text-muted">{description}</p>
       </div>
-      {actions && <div className="flex gap-2 max-sm:hidden">{actions}</div>}
+      {actions && <div className="flex gap-2 max-md:hidden">{actions}</div>}
     </header>
   )
 }
@@ -327,7 +482,7 @@ export function Panel({ title, children, actions, className }: { title?: string;
       {(title || actions) && (
         <div className="mb-3 flex items-center justify-between gap-2">
           {title && <h2 className="text-lg font-medium text-strong">{title}</h2>}
-          {actions && <div className="max-sm:hidden">{actions}</div>}
+          {actions && <div className="max-md:hidden">{actions}</div>}
         </div>
       )}
       {children}

@@ -236,6 +236,10 @@ export function ProductRoles() {
   return (
     <>
       <Title title="Roles & permissions" description="Scope, the permission matrix, and the rules behind it." />
+      <p className="mb-3 flex flex-wrap gap-x-4 text-sm text-label">
+        Stories for:
+        {Object.entries(labels).map(([k, v]) => <Link key={k} to={`/product/backlog?role=${k}`} className="text-link hover:underline">{v}</Link>)}
+      </p>
       <label className="mb-4 flex items-center gap-2 text-base text-label">
         Highlight role
         <select value={role} onChange={(e) => setParams({ role: e.target.value }, { replace: true })} className="h-9 rounded-md bg-surface px-2 text-base text-ink shadow-control">
@@ -302,12 +306,18 @@ export function ProductGlossary() {
   )
 }
 
+const ROLE_SLUG: Record<string, string> = { producer: 'Producer', 'account-manager': 'Account Manager', principal: 'Principal', admin: 'Admin' }
+const STATUSES = ['Draft', 'Ready', 'In design', 'In build', 'Done']
+
 function useBacklogFilter(fixedEpic?: string) {
+  const { user } = useApp()
   const [params, setParams] = useSearchParams()
+  const rolesSel = params.get('role')?.split(',').filter(Boolean) ?? []
+  const statusSel = params.get('status')?.split(',').filter(Boolean) ?? []
   const q = (params.get('q') ?? '').toLowerCase()
   const epicsSel = fixedEpic ? [fixedEpic] : (params.get('epic')?.split(',').filter(Boolean) ?? [])
   const pr = params.get('priority')?.split(',').filter(Boolean) ?? []
-  const list = stories.filter((s) => (!epicsSel.length || epicsSel.includes(s.epic)) && (!pr.length || pr.includes(s.priority)) && (!q || s.id.toLowerCase().includes(q) || s.title.toLowerCase().includes(q) || s.body.toLowerCase().includes(q)))
+  const list = stories.filter((s) => (!epicsSel.length || epicsSel.includes(s.epic)) && (!pr.length || pr.includes(s.priority)) && (!rolesSel.length || rolesSel.some((r) => s.roles.includes(ROLE_SLUG[r] as never))) && (!statusSel.length || statusSel.includes(s.status)) && (!q || s.id.toLowerCase().includes(q) || s.title.toLowerCase().includes(q) || s.body.toLowerCase().includes(q)))
   const toggle = (key: string, v: string, current: string[]) => {
     const next = new URLSearchParams(params)
     const vals = current.includes(v) ? current.filter((x) => x !== v) : [...current, v]
@@ -337,6 +347,25 @@ function useBacklogFilter(fixedEpic?: string) {
           {p}
         </button>
       ))}
+      <select value="" onChange={(e) => e.target.value && toggle('role', e.target.value, rolesSel)} className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control" aria-label="Add Role filter">
+        <option value="">Role…</option>
+        {Object.entries(ROLE_SLUG).map(([k, v]) => <option key={k} value={k}>{rolesSel.includes(k) ? '✓ ' : ''}{v}</option>)}
+      </select>
+      <select value="" onChange={(e) => e.target.value && toggle('status', e.target.value, statusSel)} className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control" aria-label="Add Status filter">
+        <option value="">Status…</option>
+        {STATUSES.map((v) => <option key={v} value={v}>{statusSel.includes(v) ? '✓ ' : ''}{v}</option>)}
+      </select>
+      <button onClick={() => { const next = new URLSearchParams(params); next.set('role', user.role); setParams(next, { replace: true }) }} aria-pressed={rolesSel.length === 1 && rolesSel[0] === user.role} className="h-8 rounded-md bg-surface px-2.5 text-sm font-medium text-label shadow-ring hover:bg-recessed aria-pressed:bg-recessed aria-pressed:text-strong">
+        Mine
+      </button>
+      {[...rolesSel.map((r) => ['role', r, ROLE_SLUG[r] ?? r, rolesSel] as const), ...statusSel.map((v) => ['status', v, v, statusSel] as const)].map(([k, v, label, cur]) => (
+        <span key={k + v} className="inline-flex h-8 items-center gap-1 rounded-md bg-surface pr-1 pl-2.5 text-sm text-ink shadow-ring">
+          {k === 'role' ? 'Role' : 'Status'}: {label}
+          <button onClick={() => toggle(k, v, [...cur])} aria-label={`Remove ${label}`} className="grid size-6 place-items-center rounded-sm text-muted hover:bg-recessed hover:text-strong">
+            <X className="size-3.5" />
+          </button>
+        </span>
+      ))}
       {!fixedEpic && (
         <select value="" onChange={(e) => e.target.value && toggle('epic', e.target.value, epicsSel)} className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control" aria-label="Add Epic filter">
           <option value="">Epic…</option>
@@ -351,7 +380,7 @@ function useBacklogFilter(fixedEpic?: string) {
           </button>
         </span>
       ))}
-      {(epicsSel.length > 0 && !fixedEpic) || pr.length > 0 || params.get('q') ? (
+      {(epicsSel.length > 0 && !fixedEpic) || pr.length > 0 || rolesSel.length > 0 || statusSel.length > 0 || params.get('q') ? (
         <button onClick={() => setParams(new URLSearchParams(), { replace: true })} className="h-8 px-1 text-sm text-link hover:underline">Clear filters</button>
       ) : null}
     </div>

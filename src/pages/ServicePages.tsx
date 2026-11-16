@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { ClipboardCheck, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { useApp } from '@/app/store'
+import { useIsMobile } from '@/app/media'
 import { dateOf, useLookups, useMutate } from '@/app/hooks'
 import { canEditService, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { canServiceTransition } from '@/domain/rules'
@@ -28,7 +29,8 @@ export function ServicePage() {
   const [creating, setCreating] = useState(false)
   const [q, setQ] = useState(params.get('q') ?? '')
   const [mineOnly, setMineOnly] = useState(user.role === 'account-manager')
-  const list = params.get('view') === 'list'
+  const mobile = useIsMobile()
+  const list = params.get('view') === 'list' || mobile
   const setView = (v: 'board' | 'list') => {
     const next = new URLSearchParams(params)
     if (v === 'list') next.set('view', 'list')
@@ -83,7 +85,7 @@ export function ServicePage() {
         <button aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)} className={cx('h-9 rounded-md px-3 text-sm shadow-ring', mineOnly ? 'bg-recessed font-semibold text-strong' : 'bg-surface text-label hover:bg-recessed')}>
           Assigned to me
         </button>
-        <div role="group" aria-label="Layout" className="ml-auto inline-flex rounded-md bg-recessed p-0.5 max-sm:ml-0">
+        <div role="group" aria-label="Layout" className="ml-auto inline-flex rounded-md bg-recessed p-0.5 max-md:hidden">
           {(['board', 'list'] as const).map((v) => (
             <button key={v} aria-pressed={list === (v === 'list')} onClick={() => setView(v)} className={cx('h-8 rounded-[5px] px-3 text-sm capitalize', list === (v === 'list') ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
               {v}
@@ -96,7 +98,7 @@ export function ServicePage() {
       </p>
       {list ? (
         <div className="mt-3">
-          <DataTable rows={items} columns={columns} onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1000} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
+          <DataTable rows={items} columns={columns} listId="service" exportName="service-requests" onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1000} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
         </div>
       ) : (
         <div className="mt-3 overflow-x-auto pb-2">

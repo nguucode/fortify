@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Plus, Trophy } from 'lucide-react'
 import { useApp } from '@/app/store'
+import { useIsMobile } from '@/app/media'
 import { OpportunitySheet } from './OpportunitySheet'
 import { dateOf, inDays, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditOpportunity, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { addMonths, checkStageMove } from '@/domain/rules'
 import type { Line, Opportunity, OpportunityStage, Quote } from '@/domain/types'
-import { Confirm, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel } from '@/components/patterns'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel, type Column } from '@/components/patterns'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
@@ -26,6 +27,21 @@ export function PipelinePage() {
   const open = opps.filter((o) => OPEN_STAGES.includes(o.stage))
   const total = open.reduce((s, o) => s + o.estimatedPremium, 0)
   const [creating, setCreating] = useState(false)
+  const mobile = useIsMobile()
+  const listCols: Column<Opportunity>[] = [
+    { key: 'account', label: 'Account', render: (o) => <span className="font-medium text-strong">{account(o.accountId)?.name}</span> },
+    { key: 'stage', label: 'Stage', width: 150, render: (o) => <StatusCell status={o.stage} /> },
+    { key: 'premium', label: 'Est. premium', width: 130, align: 'right', render: (o) => usd(o.estimatedPremium) },
+  ]
+  if (mobile)
+    return (
+      <div className="px-4 pt-6 pb-10">
+        <PageTitle title="Pipeline" description={`${open.length} open Opportunities · ${usd(total)} estimated premium`} />
+        <div className="mt-4">
+          <DataTable rows={[...open].sort((a, b) => OPEN_STAGES.indexOf(a.stage) - OPEN_STAGES.indexOf(b.stage))} columns={listCols} onRowClick={(o) => navigate(`/pipeline/${o.id}`)} />
+        </div>
+      </div>
+    )
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle

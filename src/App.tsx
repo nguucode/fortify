@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
+import { useIsMobile } from '@/app/media'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import * as RTooltip from '@radix-ui/react-tooltip'
 import { AppProvider } from '@/app/store'
@@ -7,6 +9,7 @@ import { Sidebar } from '@/components/shell/Sidebar'
 import { TopBar } from '@/components/shell/TopBar'
 import { CommandPalette } from '@/components/shell/CommandPalette'
 import { RouteAnnouncer } from '@/components/shell/RouteAnnouncer'
+import { Shortcuts } from '@/components/shell/Shortcuts'
 import { ToastProvider } from '@/components/ui/toast'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { NotBuiltPage } from '@/pages/NotBuiltPage'
@@ -21,6 +24,38 @@ import { ProductBacklog, ProductEpic, ProductGlossary, ProductLayout, ProductObj
 
 const BUILT = new Set(['/accounts', '/today', '/leads', '/pipeline', '/policies', '/renewals', '/service', '/product'])
 
+/** US-FND-011: below 768px editing is hidden; say so once per session. */
+function ReadOnlyBanner() {
+  const mobile = useIsMobile()
+  const [gone, setGone] = useState(() => {
+    try {
+      return sessionStorage.getItem('fortify.readOnlyBanner') === '0'
+    } catch {
+      return false
+    }
+  })
+  if (!mobile || gone) return null
+  return (
+    <div className="flex items-center gap-2 border-b border-line bg-recessed px-4 py-2 text-sm text-ink">
+      <span className="flex-1">Editing is available on tablet and desktop.</span>
+      <button
+        aria-label="Dismiss"
+        onClick={() => {
+          setGone(true)
+          try {
+            sessionStorage.setItem('fortify.readOnlyBanner', '0')
+          } catch {
+            /* storage blocked */
+          }
+        }}
+        className="grid size-7 place-items-center rounded-md text-label hover:bg-fill"
+      >
+        <X aria-hidden className="size-4" />
+      </button>
+    </div>
+  )
+}
+
 function Shell() {
   const [palette, setPalette] = useState(false)
   return (
@@ -33,9 +68,11 @@ function Shell() {
         <Sidebar />
         {/* scroll-padding keeps focused controls clear of sticky record headers (2.4.11). */}
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 scroll-pt-40 overflow-y-auto outline-none">
+          <ReadOnlyBanner />
           <Outlet />
         </main>
         <RouteAnnouncer />
+        <Shortcuts />
       </div>
       <CommandPalette open={palette} onOpenChange={setPalette} />
     </div>

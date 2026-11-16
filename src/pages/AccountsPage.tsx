@@ -1,3 +1,4 @@
+import { downloadCsv } from '@/app/csv'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import * as Popover from '@radix-ui/react-popover'
@@ -15,8 +16,6 @@ import { RibbonAxis, TermRibbon } from '@/components/TermRibbon'
 
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const compactUsd = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : usd(n))
-// Prefix formula-leading cells so spreadsheets treat them as text (CSV injection).
-const csvSafe = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v)
 const slug = (v: string) => v.toLowerCase().replace(/\s+/g, '-')
 const VIEW_COPY: Record<AccountView, [string, string]> = {
   All: ['Your Book is empty', 'Ask your Principal to assign Accounts, or create one.'],
@@ -133,11 +132,7 @@ export function AccountsPage() {
   const exportCsv = () => {
     const all = queryAccounts(state.rows, { view, search: q, filters, sort, page: 1, pageSize: 100000, includeArchived }).rows
     const head = ['Account', 'Kind', 'Status', 'Producer', 'Account Manager', 'Office', 'Active policies', 'Annual premium', 'Next expiration']
-    const lines = all.map((r) => [r.name, r.kind, r.status, r.producerName, r.accountManagerName, r.officeName, r.activePolicyCount, r.annualPremium, r.nextExpiration ? formatUSDate(r.nextExpiration) : ''].map((v) => `"${csvSafe(String(v)).replace(/"/g, '""')}"`).join(','))
-    const url = URL.createObjectURL(new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv' }))
-    const a = Object.assign(document.createElement('a'), { href: url, download: `accounts-${slug(view)}.csv` })
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv('accounts', head, all.map((r) => [r.name, r.kind, r.status, r.producerName, r.accountManagerName, r.officeName, r.activePolicyCount, r.annualPremium, r.nextExpiration ? formatUSDate(r.nextExpiration) : '']))
     toast(`Exported ${all.length.toLocaleString('en-US')} accounts`, 'success')
   }
 
@@ -231,7 +226,7 @@ export function AccountsPage() {
           <Download aria-hidden className="size-4" strokeWidth={1.75} /> Export
         </Button>
         <div className="flex-1" />
-        <Button variant="primary" className={cx('max-sm:hidden', showEmpty && !isFiltered && 'invisible')} onClick={() => toast('Creating Accounts arrives with US-ACC-002.')}>
+        <Button variant="primary" className={cx('max-md:hidden', showEmpty && !isFiltered && 'invisible')} onClick={() => toast('Creating Accounts arrives with US-ACC-002.')}>
           <Plus aria-hidden className="size-4" /> New account
         </Button>
       </div>

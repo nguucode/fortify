@@ -174,3 +174,12 @@ describe('saveTask (US-WRK-005)', () => {
     expect(() => s.saveTask('tsk-1', input, 'm')).toThrow('read-only')
   })
 })
+
+describe('assignLeads (US-FND-019 bulk Reassign)', () => {
+  it('assigns open Leads to a Producer and skips closed ones', () => {
+    const s = createDataStore({ ...base(), leads: [{ ...base().leads[0], assigneeId: null }, { ...base().leads[0], id: 'lea-2', status: 'Qualified', assigneeId: null }] }, today)
+    const n = s.assignLeads(['lea-1', 'lea-2'], 'p', 'm')
+    expect(n).toBe(1)
+    expect(s.getState().leads.map((l) => [l.id, l.assigneeId])).toEqual([['lea-1', 'p'], ['lea-2', null]])
+  })
+})

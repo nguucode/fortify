@@ -7,7 +7,7 @@ import { ago, dateOf, inDays, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, canWorkLead, scopeOf } from '@/domain/access'
 import { findMatches, type Match } from '@/domain/rules'
 import type { Lead, User } from '@/domain/types'
-import { DataTable, Gate, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
 import { Button, cx } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
@@ -29,6 +29,9 @@ export function LeadsPage() {
   const { userName, office } = useLookups()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+  const mutate = useMutate()
+  const [reassign, setReassign] = useState<string[] | null>(null)
+  const [assignee, setAssignee] = useState(() => data.users.find((u) => u.role === 'producer')?.id ?? '')
   const view = useView(VIEWS)
   const q = (params.get('q') ?? '').toLowerCase()
   const scoped = leadsInScope(user, data.leads)
@@ -57,7 +60,7 @@ export function LeadsPage() {
     { key: 'lines', label: 'Lines of interest', width: 140, render: (l) => l.linesOfInterest.join(', ') },
     { key: 'assignee', label: 'Assigned to', width: 150, render: (l) => (l.assigneeId ? userName(l.assigneeId) : <span className="text-muted">Unassigned</span>) },
     { key: 'office', label: 'Office', width: 110, render: (l) => office(l.officeId)?.name },
-    { key: 'received', label: 'Received', width: 120, sort: (a, b) => a.createdOffset - b.createdOffset, render: (l) => {
+    { key: 'received', label: 'Received', width: 120, mobile: true, sort: (a, b) => a.createdOffset - b.createdOffset, render: (l) => {
       const stale = l.status === 'New' && l.attempts.length === 0 && l.createdOffset < 0
       return (
         <span className={cx('inline-flex items-center gap-1', stale && 'font-medium text-warning-text')} title={stale ? `No contact attempt in ${-l.createdOffset} day(s)` : undefined}>
@@ -78,7 +81,7 @@ export function LeadsPage() {
           <ul className="mt-1 text-sm text-label">
             {unassigned.slice(0, 3).map((l) => (
               <li key={l.id}>
-                <Link className="text-link hover:underline" to={`/leads/${l.id}`}>{l.name}</Link> · {l.source} · {ago(l.createdOffset)}
+                <Link className="text-link underline" to={`/leads/${l.id}`}>{l.name}</Link> · {l.source} · {ago(l.createdOffset)}
               </li>
             ))}
           </ul>
@@ -107,9 +110,26 @@ export function LeadsPage() {
         rows={rows}
         columns={cols}
         minWidth={1100}
+        listId="leads"
+        exportName="leads"
+        bulkActions={user.role === 'principal' ? [{ label: 'Reassign', run: (ids) => setReassign(ids) }] : undefined}
         onRowClick={(l) => navigate(`/leads/${l.id}`)}
         empty={<EmptyState icon={UserPlus} title={q ? 'No leads match this search' : `No ${view.toLowerCase()} leads`} body={view === 'Open' ? 'New web, phone, and referral inquiries land here.' : 'Leads move here as they are worked.'} />}
       />
+      <Confirm
+        open={!!reassign}
+        onOpenChange={(o) => !o && setReassign(null)}
+        title={`Reassign ${reassign?.length ?? 0} leads`}
+        body="Closed leads keep their Producer."
+        confirmLabel="Reassign"
+        onConfirm={() => mutate((s) => s.assignLeads(reassign ?? [], assignee, user.id), 'Leads reassigned').then(() => setReassign(null))}
+      >
+        <Field label="Producer">
+          <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={inputCls}>
+            {data.users.filter((u) => u.role === 'producer').map((u) => <option key={u.id} value={u.id}>{u.name} · {office(u.officeId)?.name}</option>)}
+          </select>
+        </Field>
+      </Confirm>
     </div>
   )
 }

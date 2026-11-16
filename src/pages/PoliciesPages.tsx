@@ -82,7 +82,7 @@ export function PoliciesPage() {
         <AmsBadge />
       </div>
       <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {Math.min(list.length, 100)} of {list.length} policies</p>
-      <DataTable rows={list.slice(0, 100)} columns={cols} minWidth={1100} onRowClick={(r) => navigate(`/policies/${r.id}`)} empty={<EmptyState icon={FileText} title="No policies in this view" body="Policies appear here once the AMS syncs them." />} />
+      <DataTable rows={list.slice(0, 100)} columns={cols} minWidth={1100} listId="policies" exportName="policies" onRowClick={(r) => navigate(`/policies/${r.id}`)} empty={<EmptyState icon={FileText} title="No policies in this view" body="Policies appear here once the AMS syncs them." />} />
     </div>
   )
 }

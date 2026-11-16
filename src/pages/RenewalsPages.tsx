@@ -66,7 +66,7 @@ export function RenewalsPage() {
       <PageTitle title="Renewals" description="Terms inside their renewal window: 45 days personal, 120 FL residential property, 60 / 90 commercial." />
       <ViewTabs views={VIEWS} counts={counts} />
       <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {list.length} renewals</p>
-      <DataTable rows={list} columns={cols} minWidth={1100} onRowClick={(r) => navigate(`/renewals/${r.id}`)} empty={<EmptyState icon={RefreshCw} title="No renewals in this view" body="Terms enter the worklist when their window opens." />} />
+      <DataTable rows={list} columns={cols} minWidth={1100} listId="renewals" exportName="renewals" onRowClick={(r) => navigate(`/renewals/${r.id}`)} empty={<EmptyState icon={RefreshCw} title="No renewals in this view" body="Terms enter the worklist when their window opens." />} />
     </div>
   )
 }
