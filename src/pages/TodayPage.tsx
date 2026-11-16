@@ -4,8 +4,8 @@ import { AlertTriangle, Clock } from 'lucide-react'
 import { officeName, useApp } from '@/app/store'
 import { dateOf, inDays, usd, useLookups } from '@/app/hooks'
 import { visibleAccounts } from '@/domain/access'
-import type { Opportunity, ServiceStatus, Task } from '@/domain/types'
-import { TaskSheet } from './TaskSheet'
+import type { Opportunity, ServiceStatus } from '@/domain/types'
+import { AgencyPipeline, AmsSync, CertificateApprovals, CertificatesWaiting, GoalPacing, MyDay, RetentionWidget, UpcomingXDates, UsersAndLicenses } from './TodayWidgets'
 import { CountPill, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { changePct, isHighRisk } from './RenewalsPages'
@@ -342,41 +342,19 @@ function ServiceQueue() {
   )
 }
 
-/** US-HOM-006, read-only until Task completion (US-WRK) lands. */
-function MyDay() {
-  const { data, user } = useApp()
-  const { account } = useLookups()
-  const [open, setOpen] = useState<Task | null>(null)
-  const due = data.tasks.filter((t) => t.assigneeId === user.id && t.status === 'Open' && t.dueOffset <= 0).sort((a, b) => a.dueOffset - b.dueOffset)
-  return (
-    <Widget title="My day" count={due.length} to="/tasks">
-      {open && <TaskSheet task={open} onClose={() => setOpen(null)} />}
-      {due.length ? (
-        <ul className="divide-y divide-fill border-t border-fill">
-          {due.slice(0, 8).map((t) => (
-            <li key={t.id} className="flex items-start justify-between gap-3 px-4 py-2">
-              <span className="min-w-0">
-                <button onClick={() => setOpen(t)} className="block max-w-full truncate text-left text-base text-strong hover:underline">{t.title}</button>
-                <span className="block truncate text-sm text-muted">{account(t.accountId)?.name} · {t.source}</span>
-              </span>
-              <span className={cx('tabular shrink-0 text-sm', t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-label')}>{t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : 'Due today'}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-4 pb-4 text-base text-muted">Nothing due today.</p>
-      )}
-    </Widget>
-  )
-}
-
 /** US-HOM-001: one frame, role-based widgets; widgets of other roles are never rendered. */
 export function TodayPage() {
   const { user, officeFilter } = useApp()
   const office = user.role === 'principal' || user.role === 'admin' ? (officeFilter ? officeName(officeFilter) : 'All offices') : officeName(user.officeId)
   const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   const main =
-    user.role === 'producer' ? [<NewLeads key="l" />, <Pipeline key="p" />] : user.role === 'account-manager' ? [<RenewalsDue key="r" />, <ServiceQueue key="s" />] : user.role === 'principal' ? [<Pipeline key="p" agency />, <RenewalsDue key="r" agency />] : []
+    user.role === 'producer'
+      ? [<NewLeads key="l" />, <Pipeline key="p" />, <UpcomingXDates key="x" />]
+      : user.role === 'account-manager'
+        ? [<RenewalsDue key="r" />, <ServiceQueue key="s" />, <CertificatesWaiting key="c" />]
+        : user.role === 'principal'
+          ? [<AgencyPipeline key="p" />, <RetentionWidget key="r" />, <CertificateApprovals key="c" />]
+          : [<UsersAndLicenses key="u" />, <AmsSync key="a" />]
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <h1 className="text-title font-semibold text-strong">Today</h1>
@@ -384,6 +362,7 @@ export function TodayPage() {
       <div className="mt-6 grid grid-cols-12 items-start gap-4 max-lg:grid-cols-1">
         <div className="col-span-8 flex min-w-0 flex-col gap-4 max-lg:col-span-1">{main}</div>
         <div className="col-span-4 flex min-w-0 flex-col gap-4 max-lg:col-span-1">
+          {user.role === 'producer' && <GoalPacing />}
           <MyDay />
         </div>
       </div>

@@ -993,8 +993,12 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       const s = state
       const decided = s.renewals.filter((r) => r.status === 'Decided')
       const termStatus = { 'Renew as is': 'Renewed', Rewrite: 'Rewritten', 'Non-renewed': 'Non-renewed' } as const
+      const won = s.terms.filter((t) => t.source === 'fortify-won').length
+      const last = s.syncRuns?.[0]
+      const run = { id: `sync-${(s.syncRuns?.length ?? 0) + 1}`, at: new Date().toISOString(), status: 'Succeeded' as const, durationSec: 104, counts: { ...(last?.counts ?? {}), 'Renewal outcomes': decided.length, 'Won Terms matched': won }, skipped: 0 }
       commit({
         ...s,
+        syncRuns: [run, ...(s.syncRuns ?? [])],
         renewals: s.renewals.map((r) => (r.status === 'Decided' ? { ...r, status: 'Done' } : r)),
         terms: s.terms.map((t) => {
           const r = decided.find((x) => x.termId === t.id)

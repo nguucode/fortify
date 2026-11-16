@@ -11,6 +11,7 @@ import type {
   Quote,
   Renewal,
   ServiceRequest,
+  SyncRun,
   Task,
   Account,
   Carrier,
@@ -546,10 +547,11 @@ export function generateDataset(seed = 20261115): Dataset {
   const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users, tasks, leads })
   enrichPolicies(seed, { accounts, policies, terms, insuredItems })
   const { holders, certificates, claims } = enrichService(seed, { accounts, policies, terms, serviceRequests, users })
+  const syncRuns = enrichPeople(seed, users)
   // US-PIP-013: a commission schedule per carrier and line (deterministic, no RNG so nothing else shifts).
   const BASE_RATE: Partial<Record<Line, number>> = { Auto: 0.1, Home: 0.15, Umbrella: 0.15, Renters: 0.15, Condo: 0.15, Flood: 0.15, Boat: 0.12, BOP: 0.15, GL: 0.12, WC: 0.08, 'Commercial auto': 0.1, 'Commercial umbrella': 0.12 }
   const carriers = CARRIERS.map((c, i) => ({ ...c, commission: Object.fromEntries(c.lines.map((l) => [l, Math.round(((BASE_RATE[l] ?? 0.12) + ((i % 3) - 1) * 0.01) * 1000) / 1000])) }))
-  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents, holders, certificates, claims }
+  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents, holders, certificates, claims, syncRuns }
 }
 
 /**
@@ -789,4 +791,29 @@ function enrichService(seed: number, d: { accounts: Account[]; policies: Policy[
     r.details = { ...r.details, claimId: id }
   }
   return { holders, certificates, claims }
+}
+
+/** HOM/SET enrichment on its own seed: goals, license records, and AMS sync history. */
+function enrichPeople(seed: number, users: User[]): SyncRun[] {
+  const f = new Faker({ locale: [en_US, en, base] })
+  f.seed(seed + 23)
+  const int = (a: number, b: number) => f.number.int({ min: a, max: b })
+  for (const u of users) {
+    u.active = true
+    if (u.role === 'producer') {
+      const monthly = int(3, 6) * 10_000
+      u.goals = { monthlyPremium: monthly, annualPremium: monthly * 12, monthlyPolicies: int(12, 24), annualPolicies: int(150, 260) }
+    }
+    const states = u.licenses ?? (u.officeId === 'off-tpa' ? ['FL'] : ['TX'])
+    u.licenseRecords = states.map((st) => ({ state: st as UsState, lineOfAuthority: u.role === 'account-manager' ? (st === 'FL' ? '4-40 Customer Representative' : 'General Lines – P&C (CSR)') : st === 'FL' ? '2-20 General Lines' : 'General Lines – P&C', number: `${st}-${int(1000000, 9999999)}`, expirationOffset: int(-10, 720) }))
+  }
+  const runs: SyncRun[] = []
+  for (let i = 0; i < 6; i++) {
+    const d = new Date()
+    d.setHours(i % 2 ? 12 : 6, 2, 0, 0)
+    d.setDate(d.getDate() - Math.floor(i / 2))
+    const status = i === 2 ? 'Partial' : i === 4 ? 'Failed' : 'Succeeded'
+    runs.push({ id: `sync-${i + 1}`, at: d.toISOString(), status, durationSec: int(90, 200), counts: status === 'Failed' ? {} : { Policies: 1502, Terms: 3511, 'Insured items': 4880, 'Additional interests': 612, 'Commission records': 1498, 'Renewal outcomes': int(0, 14), 'Won Terms matched': int(0, 4) }, skipped: status === 'Partial' ? 14 : 0, reason: status === 'Partial' ? 'Policy has no matching Account in Fortify' : undefined, error: status === 'Failed' ? 'AMS API timed out after 120s' : undefined })
+  }
+  return runs
 }

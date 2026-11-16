@@ -19,6 +19,23 @@ export interface User {
   email: string
   /** States with an active P&C license (Producers). */
   licenses?: UsState[]
+  /** HOM-005: goals set by a Principal (read-only in v1). */
+  goals?: { monthlyPremium: number; annualPremium: number; monthlyPolicies: number; annualPolicies: number }
+  /** HOM-013 / SET: license records with expiration. */
+  licenseRecords?: { state: UsState; lineOfAuthority: string; number: string; expirationOffset: number }[]
+  active?: boolean
+}
+
+/** HOM-014 / SET: an AMS sync run. */
+export interface SyncRun {
+  id: string
+  at: string
+  status: 'Succeeded' | 'Partial' | 'Failed'
+  durationSec: number
+  counts: Record<string, number>
+  skipped?: number
+  reason?: string
+  error?: string
 }
 
 export type LineKind = 'personal' | 'commercial'
@@ -454,6 +471,7 @@ export interface Task {
 }
 
 export interface Dataset {
+  syncRuns?: SyncRun[]
   certificates?: Certificate[]
   holders?: Holder[]
   claims?: Claim[]
