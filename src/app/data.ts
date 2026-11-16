@@ -755,13 +755,16 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       return opp.id
     },
 
-    decideRenewal(renewalId: string, decision: NonNullable<Dataset['renewals'][number]['decision']>, actorId: string) {
+    /** US-REN-007/009: from Presented, or from Remarketing once the Remarket Opportunity is closed. */
+    decideRenewal(renewalId: string, decision: NonNullable<Dataset['renewals'][number]['decision']>, actorId: string, carrierId: string | null = null) {
       const s = state
       const r = must(s.renewals.find((x) => x.id === renewalId), 'Renewal')
-      if (r.status !== 'Presented') throw new Error('Record a decision after the renewal is presented.')
+      const rem = r.remarketOpportunityId ? s.opportunities.find((o) => o.id === r.remarketOpportunityId) : undefined
+      const remClosed = r.status === 'Remarketing' && (rem?.stage === 'Won' || rem?.stage === 'Lost')
+      if (r.status !== 'Presented' && !remClosed) throw new Error('Record a decision after the renewal is presented.')
       commit({
         ...s,
-        renewals: s.renewals.map((x) => (x.id === r.id ? { ...x, status: 'Decided', decision } : x)),
+        renewals: s.renewals.map((x) => (x.id === r.id ? { ...x, status: 'Decided', decision, decisionCarrierId: carrierId ?? x.decisionCarrierId } : x)),
         activities: [...s.activities, activity(s, { accountId: r.accountId, type: 'system', subject: `${userName(actorId)} recorded the decision: ${decision}`, body: null, createdById: actorId, linked: { kind: 'renewal', id: r.id } })],
       })
     },

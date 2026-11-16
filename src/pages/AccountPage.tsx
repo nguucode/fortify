@@ -7,7 +7,7 @@ import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { useToast } from '@/components/ui/toast'
 import { AccountFormSheet, ArchiveDialog, ContactSheet, LinkedAccounts, ManageContactsSheet, MergeDialog, ReassignDialog } from './AccountSheets'
-import { ActivityTab, DetailsPanel, DocumentsTab, SalesTab } from './AccountPanels'
+import { ActivityTab, DetailsPanel, DocumentsTab, RenewalsTab, SalesTab } from './AccountPanels'
 import { canSeeAccount } from '@/domain/access'
 import { KeyValue, Panel, RecordHeader, TabBar, useTab } from '@/components/patterns'
 import { Button } from '@/components/ui/primitives'
@@ -15,7 +15,6 @@ import { StatusCell } from '@/components/ui/status'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { AmsBadge, currentTerm } from './PoliciesPages'
 import { NewServiceRequestSheet } from './ServicePages'
-import { changePct } from './RenewalsPages'
 import { OpportunitySheet } from './OpportunitySheet'
 import { TaskSheet } from './TaskSheet'
 import type { Task } from '@/domain/types'
@@ -25,7 +24,7 @@ import { AccessDenied, NotFound } from './SystemPages'
 export function AccountPage() {
   const { id = '' } = useParams()
   const { data, user } = useApp()
-  const { userName, office, carrierName, policy } = useLookups()
+  const { userName, office, carrierName } = useLookups()
   const tab = useTab('overview')
   const [newRequest, setNewRequest] = useState(false)
   const [newOpp, setNewOpp] = useState(false)
@@ -197,19 +196,7 @@ export function AccountPage() {
               )}
             </Panel>
           )}
-          {tab === 'renewals' && (
-            <Panel title="Renewals">
-              {renewals.length ? (
-                <Table head={['Line', 'Status', 'Expires', 'Change', 'Owner']} rows={renewals.map((r) => {
-                  const t = data.terms.find((x) => x.id === r.termId)
-                  const pct = changePct(r, t)
-                  return [<Link key="l" to={`/renewals/${r.id}`} className="text-link hover:underline">{policy(r.policyId)?.line}</Link>, <StatusCell key="s" status={r.status} />, t ? dateOf(t.expirationOffset) : '—', pct == null ? 'Pending' : `${pct > 0 ? '+' : '−'}${Math.abs(Math.round(pct * 100))}%`, userName(r.ownerId)]
-                })} />
-              ) : (
-                <p className="text-base text-muted">No renewals open. They appear when a Term enters its window.</p>
-              )}
-            </Panel>
-          )}
+          {tab === 'renewals' && <RenewalsTab account={a} />}
           {tab === 'sales' && <SalesTab account={a} onNewOpp={() => setNewOpp(true)} />}
           {tab === 'service' && (
             <Panel title="Service requests">

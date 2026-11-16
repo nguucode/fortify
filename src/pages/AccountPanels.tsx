@@ -6,6 +6,8 @@ import { dateOf, usd, useLookups, useMutate } from '@/app/hooks'
 import type { Account, AccountDocument, Activity, DocumentType, InsuredItem, Opportunity, Task, XDate } from '@/domain/types'
 import { StatusCell } from '@/components/ui/status'
 import { XDateDialog } from './XDateDialog'
+import { useRisk } from './RenewalsPages'
+import { renewalWindowDays } from '@/domain/rules'
 import { DataTable, Field, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { Button, cx, Tip } from '@/components/ui/primitives'
@@ -383,5 +385,75 @@ export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: ()
       </Panel>
       {xd && <XDateDialog account={account} xdate={xd === 'new' ? undefined : xd} onClose={() => setXd(null)} />}
     </div>
+  )
+}
+
+/** US-REN-010: open Renewals first, past ones grouped, and when the next window opens. */
+export function RenewalsTab({ account }: { account: Account }) {
+  const { data } = useApp()
+  const { userName } = useLookups()
+  const risk = useRisk()
+  const rens = data.renewals.filter((r) => r.accountId === account.id)
+  const termOf = (id: string) => data.terms.find((t) => t.id === id)!
+  const open = rens.filter((r) => r.status !== 'Done').sort((a, b) => termOf(a.termId).expirationOffset - termOf(b.termId).expirationOffset)
+  const past = rens.filter((r) => r.status === 'Done').sort((a, b) => termOf(b.termId).expirationOffset - termOf(a.termId).expirationOffset)
+  const pol = (id: string) => data.policies.find((p) => p.id === id)!
+  const pct = (r: (typeof rens)[number]) => { const t = termOf(r.termId); return r.renewalPremium != null ? (r.renewalPremium - t.premium) / t.premium : null }
+  const fmtPct = (p: number | null) => (p == null ? <span className="text-muted">Awaiting terms</span> : <span className={cx(p >= 0.1 ? 'text-danger-text' : p <= -0.05 ? 'text-success-text' : '')}>{p > 0 ? '+' : p < 0 ? '−' : ''}{Math.abs(p * 100).toFixed(1)}%</span>)
+  // Terms not yet in a Renewal: the soonest one tells when the next window opens.
+  const withRenewal = new Set(rens.map((r) => r.termId))
+  const upcoming = data.terms
+    .filter((t) => (t.status === 'Active' || t.status === 'Bound') && !withRenewal.has(t.id) && data.policies.some((p) => p.id === t.policyId && p.accountId === account.id))
+    .map((t) => { const p = pol(t.policyId); const w = renewalWindowDays(account.kind === 'Business' ? 'small-commercial' : p.line === 'Home' && account.state === 'FL' ? 'fl-residential-property' : 'personal'); return { t, p, w, opens: t.expirationOffset - w } })
+    .sort((a, b) => a.opens - b.opens)[0]
+  const th = 'h-9 px-2 text-left text-sm font-semibold text-strong'
+  const td = 'h-10 px-2 text-base'
+  return (
+    <Panel title="Renewals">
+      {open.length ? (
+        <div className="overflow-x-auto">
+          <table className="tabular w-full min-w-[760px] border-collapse">
+            <thead><tr className="border-b border-fill"><th className={th}>Policy</th><th className={th}>Expiration</th><th className={cx(th, 'text-right')}>Days left</th><th className={th}>Status</th><th className={cx(th, 'text-right')}>Change</th><th className={th}>Risk</th><th className={th}>Account Manager</th></tr></thead>
+            <tbody>
+              {open.map((r) => {
+                const t = termOf(r.termId)
+                const reasons = risk(r, t)
+                return (
+                  <tr key={r.id} className="border-b border-fill last:border-0">
+                    <td className={td}><Link to={`/renewals/${r.id}`} className="text-link hover:underline">{pol(r.policyId).line} · <span className="font-mono text-sm">{pol(r.policyId).policyNumber}</span></Link></td>
+                    <td className={td}>{dateOf(t.expirationOffset)}</td>
+                    <td className={cx(td, 'text-right')}>{t.expirationOffset}</td>
+                    <td className={td}><StatusCell status={r.status} /></td>
+                    <td className={cx(td, 'text-right')}>{fmtPct(pct(r))}</td>
+                    <td className={td}>{reasons.length ? <Tip label={reasons.join(' · ')}><span tabIndex={0}><StatusCell status="High" /></span></Tip> : <StatusCell status="Low" />}</td>
+                    <td className={td}>{userName(r.ownerId)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-base text-muted">No renewals open. They appear when a Term enters its window.</p>
+      )}
+      {past.length > 0 && (
+        <section className="mt-4 border-t border-fill pt-3">
+          <h3 className="mb-1 text-sm font-semibold text-label">Past renewals</h3>
+          <ul className="divide-y divide-fill">
+            {past.map((r) => (
+              <li key={r.id}>
+                <Link to={`/renewals/${r.id}`} className="tabular grid h-10 grid-cols-[1fr_120px_140px_90px] items-center gap-3 text-base hover:text-link">
+                  <span className="truncate">{pol(r.policyId).line} · {pol(r.policyId).policyNumber}</span>
+                  <span>{dateOf(termOf(r.termId).expirationOffset)}</span>
+                  <span>{r.decision ?? '—'}</span>
+                  <span className="text-right">{fmtPct(pct(r))}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {upcoming && <p className="mt-3 text-sm text-muted">Next renewal opens {dateOf(Math.max(0, upcoming.opens))} for {upcoming.p.line} ({upcoming.w}-day window).</p>}
+    </Panel>
   )
 }

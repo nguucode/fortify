@@ -49,7 +49,7 @@ const SOURCE_LINK: Partial<Record<Task['source'], (t: Task) => [string, string] 
 }
 
 /** US-WRK-005: create or edit a Task. Done/Canceled Tasks open read-only; system Tasks keep title and source. */
-export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, linked, defaultAssignee }: { onClose: () => void; accountId?: string; task?: Task; prefill?: { dueOffset: number; dueTime: string; durationMin: number }; linked?: Task['linked']; defaultAssignee?: string }) {
+export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, linked, defaultAssignee, presets }: { onClose: () => void; accountId?: string; task?: Task; prefill?: { dueOffset: number; dueTime: string; durationMin: number }; linked?: Task['linked']; defaultAssignee?: string; presets?: [string, number][] }) {
   const { data, user } = useApp()
   const { account, userName } = useLookups()
   const mutate = useMutate()
@@ -193,6 +193,11 @@ export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, li
           </Field>
           <Field label="Due date" error={err('due')} hint={due && dueOffset < 0 ? 'This due date is in the past. The task will show as overdue.' : undefined}>
             <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className={inputCls} />
+            {presets && (
+              <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                {presets.map(([label, off]) => <button key={label} type="button" onClick={() => setDue(iso(off))} className="min-h-6 text-sm text-link hover:underline">{label} ({dateOf(off)})</button>)}
+              </span>
+            )}
           </Field>
           <Field label={type === 'Meeting' ? 'Time' : 'Time (optional)'} error={err('time')}>
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputCls} />
