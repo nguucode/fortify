@@ -6,7 +6,7 @@ import { offsetOfDate, useLookups, useMutate } from '@/app/hooks'
 import { resolveOffset } from '@/mock/dates'
 import { visibleAccounts } from '@/domain/access'
 import type { Line, Opportunity, OpportunityType } from '@/domain/types'
-import { Field, inputCls, Sheet } from '@/components/patterns'
+import { Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 
 const PL: Line[] = ['Auto', 'Home', 'Umbrella', 'Renters', 'Condo', 'Flood', 'Boat']
@@ -102,7 +102,7 @@ export function OpportunitySheet({ onClose, accountId: lockedAccount, opportunit
       busy={busy}
       footer={
         <>
-          <Button onClick={onClose} disabled={busy}>Cancel</Button>
+          <SheetCancel disabled={busy} />
           <Button variant="primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Create opportunity'}</Button>
         </>
       }

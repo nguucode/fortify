@@ -4,7 +4,7 @@ import { dateOf, offsetOfDate, useLookups, useMutate } from '@/app/hooks'
 import { resolveOffset } from '@/mock/dates'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import type { Task, TaskType } from '@/domain/types'
-import { Field, inputCls, Sheet } from '@/components/patterns'
+import { Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 
 const TYPES: TaskType[] = ['General', 'Call', 'Email', 'Meeting']
@@ -76,10 +76,10 @@ export function TaskSheet({ onClose, accountId: lockedAccount, task }: { onClose
       busy={busy}
       footer={
         readOnly ? (
-          <Button onClick={onClose}>Close</Button>
+          <SheetCancel>Close</SheetCancel>
         ) : (
           <>
-            <Button onClick={onClose} disabled={busy}>Cancel</Button>
+            <SheetCancel disabled={busy} />
             <Button variant="primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : task ? 'Save changes' : 'Create task'}</Button>
           </>
         )

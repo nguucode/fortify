@@ -7,7 +7,7 @@ import { dateOf, inDays, offsetOfDate, usd, useLookups, useMutate } from '@/app/
 import { canEditOpportunity, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { addMonths, checkStageMove } from '@/domain/rules'
 import type { Line, Opportunity, OpportunityStage, Quote } from '@/domain/types'
-import { Confirm, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet } from '@/components/patterns'
+import { Confirm, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel } from '@/components/patterns'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
@@ -333,7 +333,7 @@ function AddQuoteSheet({ o, onClose }: { o: Opportunity; onClose: () => void }) 
       busy={busy}
       footer={
         <>
-          <Button onClick={onClose}>Cancel</Button>
+          <SheetCancel />
           <Button variant="primary" disabled={busy || !carrierId || used.has(carrierId)} onClick={save}>{busy ? 'Saving…' : 'Request quote'}</Button>
         </>
       }
@@ -380,7 +380,7 @@ function RespondSheet({ quote, onClose }: { quote: Quote; onClose: () => void })
     }
   }
   return (
-    <Sheet open onOpenChange={(v) => !v && onClose()} title="Record carrier response" description={carrierName(quote.carrierId)} busy={busy} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={busy || !valid} onClick={save}>{busy ? 'Saving…' : 'Save response'}</Button></>}>
+    <Sheet open onOpenChange={(v) => !v && onClose()} title="Record carrier response" description={carrierName(quote.carrierId)} busy={busy} footer={<><SheetCancel /><Button variant="primary" disabled={busy || !valid} onClick={save}>{busy ? 'Saving…' : 'Save response'}</Button></>}>
       <div className="flex flex-col gap-4">
         <Field label="Response">
           <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
@@ -434,7 +434,7 @@ function WonSheet({ o, accepted, onClose }: { o: Opportunity; accepted: { q: Quo
     }
   }
   return (
-    <Sheet open onOpenChange={(v) => !v && onClose()} title="Mark won" description="One Bound Term per accepted line. They show “Awaiting AMS” until the next sync." busy={busy} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={busy || !valid} onClick={save}>{busy ? 'Binding…' : 'Mark won'}</Button></>}>
+    <Sheet open onOpenChange={(v) => !v && onClose()} title="Mark won" description="One Bound Term per accepted line. They show “Awaiting AMS” until the next sync." busy={busy} footer={<><SheetCancel /><Button variant="primary" disabled={busy || !valid} onClick={save}>{busy ? 'Binding…' : 'Mark won'}</Button></>}>
       <div className="flex flex-col gap-5">
         {form.map((f, i) => {
           const set = (patch: Partial<typeof f>) => setForm(form.map((x, j) => (j === i ? { ...x, ...patch } : x)))

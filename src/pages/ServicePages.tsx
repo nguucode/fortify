@@ -7,7 +7,7 @@ import { dateOf, useLookups, useMutate } from '@/app/hooks'
 import { canEditService, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { canServiceTransition } from '@/domain/rules'
 import type { ServiceRequest, ServiceStatus, ServiceType } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, type Column } from '@/components/patterns'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel, type Column } from '@/components/patterns'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { Button, CountPill, cx } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
@@ -218,7 +218,7 @@ export function NewServiceRequestSheet({ onClose, accountId: presetAccount, poli
       busy={busy}
       footer={
         <>
-          <Button onClick={onClose}>Cancel</Button>
+          <SheetCancel />
           <Button variant="primary" disabled={busy} onClick={() => (valid ? save() : setTouched(true))}>{busy ? 'Creating…' : 'Create request'}</Button>
         </>
       }

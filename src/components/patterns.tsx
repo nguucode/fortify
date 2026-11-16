@@ -4,13 +4,30 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button, CountPill, cx, Tip } from './ui/primitives'
 
-/** Side sheet for create/edit forms (US-FND-014). 480px, focus-trapped, Esc closes unless busy. */
+/**
+ * Side sheet for create/edit forms (US-FND-014). 480px, focus-trapped, Esc closes unless busy.
+ * Once any field changes, Esc / outside click / X / SheetCancel ask "Discard changes?" first; a reload warns too.
+ * shortcut: in-app link navigation is not guarded (BrowserRouter has no useBlocker); the overlay already blocks the shell.
+ */
 export function Sheet({ open, onOpenChange, title, description, children, footer, busy }: { open: boolean; onOpenChange: (o: boolean) => void; title: string; description?: string; children: ReactNode; footer: ReactNode; busy?: boolean }) {
+  const [dirty, setDirty] = useState(false)
+  const [asking, setAsking] = useState(false)
+  useEffect(() => {
+    if (!open || !dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [open, dirty])
+  const request = (o: boolean) => {
+    if (busy) return
+    if (!o && dirty) setAsking(true)
+    else onOpenChange(o)
+  }
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
+    <Dialog.Root open={open} onOpenChange={request}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
-        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[480px] max-w-full flex-col bg-surface shadow-pop" aria-describedby={description ? undefined : undefined}>
+        <Dialog.Content onChangeCapture={() => setDirty(true)} className="fixed inset-y-0 right-0 z-50 flex w-[480px] max-w-full flex-col bg-surface shadow-pop">
           <header className="flex items-start justify-between gap-4 border-b border-fill px-5 py-4">
             <div>
               <Dialog.Title className="text-lg font-medium text-strong">{title}</Dialog.Title>
@@ -24,7 +41,33 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
           <footer className="flex justify-end gap-2 border-t border-fill px-5 py-3">{footer}</footer>
         </Dialog.Content>
       </Dialog.Portal>
+      <Dialog.Root open={asking} onOpenChange={setAsking}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[60] bg-strong/20" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-[70] w-[400px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-surface p-5 shadow-pop">
+            <Dialog.Title className="text-lg font-medium text-strong">Discard changes?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-base text-ink">What you entered in “{title}” will be lost.</Dialog.Description>
+            <div className="mt-5 flex justify-end gap-2">
+              <Dialog.Close asChild>
+                <Button autoFocus>Keep editing</Button>
+              </Dialog.Close>
+              <Button variant="primary" className="bg-danger hover:bg-danger-text" onClick={() => { setAsking(false); setDirty(false); onOpenChange(false) }}>
+                Discard
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </Dialog.Root>
+  )
+}
+
+/** Footer Cancel for a Sheet: closes through the sheet, so the unsaved-changes guard applies. */
+export function SheetCancel({ disabled, children = 'Cancel' }: { disabled?: boolean; children?: ReactNode }) {
+  return (
+    <Dialog.Close asChild>
+      <Button disabled={disabled}>{children}</Button>
+    </Dialog.Close>
   )
 }
 
