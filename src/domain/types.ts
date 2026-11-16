@@ -386,6 +386,10 @@ export interface ServiceRequest {
   /** US-SRV-007 policy change result. */
   outcome?: { kind: 'Endorsement issued' | 'Carrier declined' | 'Withdrawn by Account'; effectiveOffset?: number; premium?: { kind: 'Additional premium' | 'Return premium' | 'No change'; amount?: number }; reason?: string }
   attachments?: { name: string; size: number }[]
+  /** SRV-016: set when reassigned in bulk, so the new owner gets one summary notification. */
+  assignBatch?: { id: string; byId: string; offset: number } | null
+  /** Day the request was closed (RPT-007). */
+  doneOffset?: number | null
 }
 
 /** CRT: a certificate holder on a Business Account. */

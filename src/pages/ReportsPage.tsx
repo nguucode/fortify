@@ -409,11 +409,11 @@ function RetentionReport({ data, user, f, accounts, inScope, lineOk, onTable }: 
   )
 }
 
-/** US-RPT-007. shortcut: no completion timestamp on Service Requests, so Done date = due date (clamped to today); store a doneOffset when SRV records one. */
+/** US-RPT-007. Seeded requests have no close date, so they fall back to the due date (clamped to today). */
 function ServiceReport({ data, user, f, accounts, inScope, lineOk, onTable }: Ctx) {
   const pols = new Map(data.policies.map((p) => [p.id, p]))
   const srs = data.serviceRequests.filter((s) => { const a = accounts.get(s.accountId); const p = s.policyId ? pols.get(s.policyId) : undefined; return inScope(a) && (!p || lineOk(p.line)) && (user.role !== 'account-manager' || a?.officeId === user.officeId) })
-  const doneAt = (s: (typeof srs)[number]) => Math.min(0, Math.max(s.createdOffset, s.dueOffset))
+  const doneAt = (s: (typeof srs)[number]) => s.doneOffset ?? Math.min(0, Math.max(s.createdOffset, s.dueOffset))
   const opened = (r: Filters['range']) => srs.filter((s) => inR(s.createdOffset, r))
   const doneIn = (r: Filters['range']) => srs.filter((s) => s.status === 'Done' && inR(doneAt(s), r))
   const med = (xs: typeof srs) => median(xs.map((s) => doneAt(s) - s.createdOffset))

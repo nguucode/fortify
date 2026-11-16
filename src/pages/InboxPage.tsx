@@ -156,7 +156,7 @@ export function InboxPage() {
             <p className="tabular px-3 pt-2 pb-1 text-sm text-muted">Showing {shown.length} of {rows.length} conversation{rows.length === 1 ? '' : 's'}</p>
             <ul className="min-h-0 flex-1 overflow-y-auto" aria-label="Conversation list">
               {shown.map((c) => (
-                <ConversationRow key={c.id} c={c} name={name(c)} account={acc.get(c.accountId ?? '')?.name} snippet={c.subject && c.channel === 'email' ? c.subject : snippetOf(msgs.filter((m) => m.conversationId === c.id && m.kind !== 'system').at(-1)) || c.subject || ''} selected={c.id === selectedId} unread={c.unreadBy.includes(user.id)} checked={checked.includes(c.id)} onCheck={(v) => setChecked((x) => (v ? [...x, c.id] : x.filter((i) => i !== c.id)))} onOpen={() => setP({ c: c.id }, false)} />
+                <ConversationRow key={c.id} c={c} name={name(c)} account={acc.get(c.accountId ?? '')?.name} snippet={c.subject && c.channel === 'email' ? c.subject : snippetOf(msgs.filter((m) => m.conversationId === c.id && m.kind !== 'system').at(-1)) || c.subject || ''} selected={c.id === selectedId} unread={c.unreadBy.includes(user.id)} arrivedAt={(() => { const m = msgs.filter((x) => x.conversationId === c.id && x.kind === 'in').at(-1); return m?.arrived ? m.at : null })()} checked={checked.includes(c.id)} onCheck={(v) => setChecked((x) => (v ? [...x, c.id] : x.filter((i) => i !== c.id)))} onOpen={() => setP({ c: c.id }, false)} />
               ))}
               {rows.length === 0 && (
                 <li className="px-4 py-10 text-base text-label">
@@ -218,10 +218,18 @@ function PickMenu<T extends string>({ label, items, value, onPick }: { label: st
   )
 }
 
-function ConversationRow({ c, name, account, snippet, selected, unread, checked, onCheck, onOpen }: { c: Conversation; name: string; account?: string; snippet: string; selected: boolean; unread: boolean; checked: boolean; onCheck: (v: boolean) => void; onOpen: () => void }) {
+function ConversationRow({ c, name, account, snippet, selected, unread, checked, onCheck, onOpen, arrivedAt }: { c: Conversation; name: string; account?: string; snippet: string; selected: boolean; unread: boolean; checked: boolean; onCheck: (v: boolean) => void; onOpen: () => void; arrivedAt?: string | null }) {
   const Icon = ICON[c.channel]
+  // US-INB-011: a new arrival flashes recessed for 2 seconds.
+  const [flash, setFlash] = useState(false)
+  useEffect(() => {
+    if (!arrivedAt || Date.now() - new Date(arrivedAt).getTime() > 2000) return
+    setFlash(true)
+    const t = setTimeout(() => setFlash(false), 2000)
+    return () => clearTimeout(t)
+  }, [arrivedAt])
   return (
-    <li className={cx('group relative flex h-16 items-center gap-2 border-b border-fill pr-3 pl-2', selected ? 'bg-recessed shadow-[inset_2px_0_0_var(--color-primary)] [&_.text-muted]:text-label' : 'hover:bg-recessed hover:[&_.text-muted]:text-label')}>
+    <li className={cx('group relative flex h-16 items-center gap-2 border-b border-fill pr-3 pl-2 transition-colors duration-500 motion-reduce:transition-none', flash && !selected && 'bg-recessed [&_.text-muted]:text-label', selected ? 'bg-recessed shadow-[inset_2px_0_0_var(--color-primary)] [&_.text-muted]:text-label' : 'hover:bg-recessed hover:[&_.text-muted]:text-label')}>
       <input type="checkbox" aria-label={`Select conversation with ${name}`} checked={checked} onChange={(e) => onCheck(e.target.checked)} className="size-4 shrink-0 accent-[var(--color-strong)]" />
       <button onClick={onOpen} aria-current={selected ? 'true' : undefined} className="flex min-w-0 flex-1 items-center gap-2 text-left">
         <span aria-hidden className={cx('size-2 shrink-0 rounded-full', unread ? 'bg-primary' : 'bg-transparent')} />

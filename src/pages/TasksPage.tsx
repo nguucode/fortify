@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { CheckCircle2, ListChecks } from 'lucide-react'
 import { useApp } from '@/app/store'
-import { dateOf, useLookups, useMutate } from '@/app/hooks'
+import { dateOf, offsetOfDate, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import { bulkSummary } from '@/app/bulk'
 import { formatUSDate, resolveOffset } from '@/mock/dates'
 import { useToast } from '@/components/ui/toast'
 import type { Task } from '@/domain/types'
-import { BulkPickDialog, Confirm, DataTable, PageTitle, ViewTabs, useView, type Column } from '@/components/patterns'
+import { BulkPickDialog, Confirm, DataTable, Field, inputCls, PageTitle, ViewTabs, useView, type Column } from '@/components/patterns'
 import { Button, cx } from '@/components/ui/primitives'
 import { EmptyState } from '@/components/ui/states'
 import { fmtTime, TaskSheet, useCompleteTask } from './TaskSheet'
@@ -176,15 +176,34 @@ function BulkTasks({ bulk, onClose, onDone }: { bulk: { kind: 'complete' | 'due'
   const tasks = data.tasks.filter((t) => bulk.ids.includes(t.id))
   if (bulk.kind === 'complete')
     return <Confirm open onOpenChange={(o) => !o && onClose()} title={`Complete ${n} task${n === 1 ? '' : 's'}?`} body="Each completes without outcome notes and logs its Activity." confirmLabel="Complete" onConfirm={async () => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.completeTask(id, user.id))); onDone(bulkSummary(r, 'completed')); onClose() }} />
-  if (bulk.kind === 'due') {
-    const d = new Date()
-    const mon = (8 - d.getDay()) % 7 || 7
-    return <BulkPickDialog title={`Change due date for ${n} tasks`} label="New due date" options={[['1', 'Tomorrow'], [String(mon), 'Next Monday'], ['7', '+7 days']]} onClose={onClose} onConfirm={async (v) => { const due = Number(v); const r = await mutate((s) => s.bulk(bulk.ids, (id) => { const t = s.getState().tasks.find((x) => x.id === id)!; s.saveTask(id, { accountId: t.accountId, title: t.title, type: t.type, priority: t.priority, assigneeId: t.assigneeId, dueOffset: due, linked: t.linked, dueTime: t.dueTime ?? null, durationMin: t.durationMin ?? null, description: t.description ?? null }, user.id) })); onDone(r.skipped.length ? bulkSummary(r, 'moved') : `Moved ${r.updated} tasks to ${formatUSDate(resolveOffset(due))}`) }} />
-  }
+  if (bulk.kind === 'due') return <BulkDue ids={bulk.ids} onClose={onClose} onDone={onDone} />
   if (bulk.kind === 'assign') {
     const accounts = [...new Set(tasks.map((t) => t.accountId))].map((id) => data.accounts.find((a) => a.id === id)!).filter(Boolean)
     const who = data.users.filter((u) => u.status !== 'Deactivated' && u.status !== 'Invited' && u.role !== 'admin' && accounts.every((a) => canSeeAccount(u, a)))
     return <BulkPickDialog title={`Reassign ${n} tasks`} label="Assignee" options={who.map((u) => [u.id, u.name])} empty={`No one can see all ${accounts.length} accounts. Narrow your selection.`} confirmLabel="Reassign" onClose={onClose} onConfirm={async (to) => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => { const t = s.getState().tasks.find((x) => x.id === id)!; s.saveTask(id, { accountId: t.accountId, title: t.title, type: t.type, priority: t.priority, assigneeId: to, dueOffset: t.dueOffset, linked: t.linked, dueTime: t.dueTime ?? null, durationMin: t.durationMin ?? null, description: t.description ?? null }, user.id) })); onDone(bulkSummary(r, 'reassigned')) }} />
   }
   return <BulkPickDialog title={`Cancel ${n} tasks`} label="Reason" options={[['No longer needed', 'No longer needed'], ['Duplicate', 'Duplicate'], ['Handled elsewhere', 'Handled elsewhere']]} confirmLabel="Cancel tasks" onClose={onClose} onConfirm={async (reason) => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.cancelTask(id, reason, user.id))); onDone(bulkSummary(r, 'canceled')) }} />
+}
+
+function BulkDue({ ids, onClose, onDone }: { ids: string[]; onClose: () => void; onDone: (msg: string) => void }) {
+  const { user } = useApp()
+  const mutate = useMutate()
+  const d = new Date()
+  const mon = (8 - d.getDay()) % 7 || 7
+  const [choice, setChoice] = useState('1')
+  const [date, setDate] = useState('')
+  const due = choice === 'custom' ? (date ? offsetOfDate(new Date(`${date}T12:00:00`)) : null) : Number(choice)
+  return (
+    <Confirm open onOpenChange={(o) => !o && onClose()} title={`Change due date for ${ids.length} tasks`} body="" confirmLabel="Move tasks" onConfirm={async () => {
+      if (due == null) return
+      const r = await mutate((s) => s.bulk(ids, (id) => { const t = s.getState().tasks.find((x) => x.id === id)!; s.saveTask(id, { accountId: t.accountId, title: t.title, type: t.type, priority: t.priority, assigneeId: t.assigneeId, dueOffset: due, linked: t.linked, dueTime: t.dueTime ?? null, durationMin: t.durationMin ?? null, description: t.description ?? null }, user.id) }))
+      onDone(r.skipped.length ? bulkSummary(r, 'moved') : `Moved ${r.updated} tasks to ${formatUSDate(resolveOffset(due))}`)
+      onClose()
+    }}>
+      <div className="flex flex-col gap-3">
+        <Field label="New due date"><select className={inputCls} value={choice} onChange={(e) => setChoice(e.target.value)}><option value="1">Tomorrow</option><option value={String(mon)}>Next Monday</option><option value="7">+7 days</option><option value="custom">Pick a date…</option></select></Field>
+        {choice === 'custom' && <Field label="Date"><input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} /></Field>}
+      </div>
+    </Confirm>
+  )
 }

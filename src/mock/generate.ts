@@ -553,6 +553,8 @@ export function generateDataset(seed = 20261115): Dataset {
   const { holders, certificates, claims } = enrichService(seed, { accounts, policies, terms, serviceRequests, users })
   const syncRuns = enrichPeople(seed, users)
   const { templates, settings, appointments } = enrichSettings(seed, { users, carriers: CARRIERS, offices: OFFICES, policies, terms })
+  // RPT-007: a close day for Done requests, 1–5 days after creation (derived from the id, no RNG).
+  for (const r of serviceRequests) if (r.status === 'Done') r.doneOffset = Math.min(0, r.createdOffset + 1 + (Number(r.id.replace(/\D/g, '')) % 5))
   const inbox = enrichInbox(seed, { accounts, contacts, users, policies, terms, serviceRequests, activities, leads })
   activities.push(...inbox.activities)
   // US-PIP-013: a commission schedule per carrier and line (deterministic, no RNG so nothing else shifts).

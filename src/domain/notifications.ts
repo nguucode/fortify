@@ -45,8 +45,14 @@ export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | '
     if (['Upcoming', 'In review', 'Remarketing'].includes(r.status) && (pct >= 0.1 || t.pendingCancellation))
       out.push({ id: `ren-${r.id}`, kind: 'renewal-at-risk', title: `Renewal at risk: ${a.name}`, body: t.pendingCancellation ? 'Pending cancellation' : `Renewal premium up ${(pct * 100).toFixed(1)}%`, offset: Math.max(r.createdOffset, -30), to: `/renewals/${r.id}` })
   }
+  // US-SRV-016: a bulk reassignment raises one summary notification instead of one per request.
+  const batches = new Map<string, typeof data.serviceRequests>()
+  for (const s of data.serviceRequests) if (s.ownerId === user.id && s.assignBatch && s.assignBatch.byId !== user.id) batches.set(s.assignBatch.id, [...(batches.get(s.assignBatch.id) ?? []), s])
+  for (const [bid, xs] of batches)
+    if (xs.length > 1) out.push({ id: `srbatch-${bid}`, kind: 'service-assigned', title: `${xs.length} requests were assigned to you`, body: `By ${data.users?.find((u) => u.id === xs[0].assignBatch!.byId)?.name ?? 'a teammate'}`, offset: xs[0].assignBatch!.offset, to: '/service?view=list' })
+  const batched = new Set([...batches.values()].filter((xs) => xs.length > 1).flat().map((s) => s.id))
   for (const s of data.serviceRequests)
-    if (s.ownerId === user.id && s.createdById !== user.id && s.status === 'New')
+    if (s.ownerId === user.id && s.createdById !== user.id && s.status === 'New' && !batched.has(s.id))
       out.push({ id: `sr-${s.id}`, kind: 'service-assigned', title: `Service Request assigned to you: ${s.subject}`, body: `${s.id} · ${name(s.accountId)}`, offset: s.createdOffset, to: `/service/${s.id}` })
   // US-CRT-007: certificates waiting for a Principal (never the one who submitted).
   if (user.role === 'principal')

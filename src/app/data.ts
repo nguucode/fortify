@@ -900,12 +900,12 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       return { updated, skipped }
     },
     /** US-SRV-016 */
-    reassignService(id: string, toId: string, actorId: string) {
+    reassignService(id: string, toId: string, actorId: string, batch: string | null = null) {
       const s = state
       const sr = must(s.serviceRequests.find((x) => x.id === id), 'Service Request')
       if (sr.status === 'Done') throw new Error('Done')
       if (sr.ownerId === toId) throw new Error('Already assigned')
-      commit({ ...s, serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, ownerId: toId } : x)), activities: [...s.activities, activity(s, { accountId: sr.accountId, type: 'system', subject: `${id} reassigned from ${userName(sr.ownerId)} to ${userName(toId)} by ${userName(actorId)}`, body: null, createdById: actorId, linked: { kind: 'service', id } })] })
+      commit({ ...s, serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, ownerId: toId, assignBatch: batch ? { id: batch, byId: actorId, offset: 0 } : null } : x)), activities: [...s.activities, activity(s, { accountId: sr.accountId, type: 'system', subject: `${id} reassigned from ${userName(sr.ownerId)} to ${userName(toId)} by ${userName(actorId)}`, body: null, createdById: actorId, linked: { kind: 'service', id } })] })
     },
     /** US-REN-013: only within the new owner's Office. */
     reassignRenewal(id: string, toId: string, actorId: string) {
@@ -1441,7 +1441,7 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       }
       commit({
         ...s,
-        serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, status: to, dueAt, waitingSince, dueOffset: dueAt ? offsetOf(new Date(dueAt)) : x.dueOffset, resolution: to === 'Done' ? meta.resolution! : x.resolution, outcome: meta.outcome ?? x.outcome } : x)),
+        serviceRequests: s.serviceRequests.map((x) => (x.id === id ? { ...x, status: to, dueAt, waitingSince, dueOffset: dueAt ? offsetOf(new Date(dueAt)) : x.dueOffset, resolution: to === 'Done' ? meta.resolution! : x.resolution, outcome: meta.outcome ?? x.outcome, doneOffset: to === 'Done' ? 0 : null } : x)),
         activities: [...s.activities, activity(s, { accountId: sr.accountId, type: 'system', subject: `${userName(actorId)} moved ${sr.id} from ${sr.status} to ${to}${meta.note ? `: ${meta.note}` : ''}`, body: null, createdById: actorId, linked: { kind: 'service', id: sr.id } })],
       })
     },
