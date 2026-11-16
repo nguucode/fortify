@@ -1,6 +1,7 @@
 import type {
   Account,
   AccountDetails,
+  CertMarks,
   Claim,
   Holder,
   AccountDocument,
@@ -29,6 +30,11 @@ import { addBusinessHours, businessHoursBetween, slaHours } from '@/domain/sla'
  * so a failure mid-action leaves no partial records and subscribers re-render once.
  * Dates are day offsets from `today`.
  */
+/** CRT: issuing a certificate closes its Certificate request (US-SRV-004). */
+function closeLinkedSr(s: Dataset, srId: string | null, resolution: string): Dataset['serviceRequests'] {
+  return s.serviceRequests.map((r) => (r.id === srId && r.status !== 'Done' ? { ...r, status: 'Done', resolution } : r))
+}
+
 /** US-ACC-017: why an Account can't be archived, or null. Shared with the UI so the dialog shows the same reason. */
 export function archiveBlock(s: Pick<Dataset, 'policies' | 'terms' | 'opportunities' | 'serviceRequests'>, a: Pick<Account, 'id' | 'name'>): string | null {
   const live = s.policies.filter((p) => p.accountId === a.id && s.terms.some((t) => t.policyId === p.id && (t.status === 'Active' || t.status === 'Bound'))).length
@@ -705,12 +711,222 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
       commit({ ...s, xDates: s.xDates.map((v) => (v.id === id ? { ...v, ...patch } : v)), activities: [...s.activities, activity(s, { accountId: x.accountId, type: 'system', subject: `X-date updated by ${userName(actorId)}: ${patch.line ?? x.line}`, body: null, createdById: actorId, linked: null })] })
     },
 
-    /** US-XDT: add an X-date to an Account. */
-    createXDate(input: Omit<Dataset['xDates'][number], 'id'>) {
+    /** US-XDT: add an X-date to an Account (follow-up rule applies). */
+    createXDate(input: Omit<Dataset['xDates'][number], 'id'>, actorId = 'system') {
+      return this.saveXDate(null, input, actorId)
+    },
+
+    /**
+     * US-XDT-002/004: add or edit an X-date. Inside the quote window (45 days personal, 90 commercial) an open
+     * follow-up Task exists for the Producer; moving out of the window or setting Closed cancels it (never deletes).
+     */
+    saveXDate(id: string | null, input: Partial<Omit<Dataset['xDates'][number], 'id'>>, actorId: string) {
       const s = state
-      const id = seq('xdt-', s.xDates)
-      commit({ ...s, xDates: [...s.xDates, { ...input, id }] })
-      return id
+      const prev = id ? must(s.xDates.find((x) => x.id === id), 'X-date') : null
+      if (!prev && (!input.accountId || !input.line || !input.currentCarrier || input.xDateOffset == null)) throw new Error('Account, line, current carrier, and X-date are required.')
+      const xid = prev?.id ?? seq('xdt-', s.xDates)
+      const next = { ...(prev ?? { id: xid, premium: null, interestLevel: 'Medium' as const, source: { kind: 'manual' as const } }), ...input, id: xid } as Dataset['xDates'][number]
+      const account = must(s.accounts.find((a) => a.id === next.accountId), 'Account')
+      const window = account.kind === 'Business' ? 90 : 45
+      const opens = next.xDateOffset - window
+      const inWindow = opens <= 0 && next.xDateOffset >= 0
+      let tasks = s.tasks
+      const open = next.followUpTaskId ? tasks.find((t) => t.id === next.followUpTaskId && t.status === 'Open') : undefined
+      const cancel = (note: string) => { tasks = tasks.map((t) => (t.id === open!.id ? { ...t, status: 'Canceled', closeNote: note, doneOffset: 0 } : t)) }
+      if (next.interestLevel === 'Closed' || next.opportunityId) {
+        if (open) cancel(next.interestLevel === 'Closed' ? 'Interest closed' : 'Opportunity started')
+      } else if (inWindow) {
+        if (open) tasks = tasks.map((t) => (t.id === open.id ? { ...t, dueOffset: Math.max(0, opens) } : t))
+        else {
+          const tid = seq('tsk-', tasks)
+          tasks = [...tasks, { id: tid, accountId: account.id, title: `Quote ahead of X-date: ${next.line}, ${account.name}`, type: 'Call', priority: 'Normal', source: 'X-date', assigneeId: account.producerId, dueOffset: Math.max(0, opens), status: 'Open', linked: { kind: 'xdate', id: xid } }]
+          next.followUpTaskId = tid
+        }
+      } else if (open) {
+        cancel(`X-date moved to ${formatUSDate(resolveOffset(next.xDateOffset, today))}`)
+      }
+      commit({
+        ...s,
+        tasks,
+        xDates: prev ? s.xDates.map((x) => (x.id === xid ? next : x)) : [...s.xDates, next],
+        activities: [...s.activities, activity(s, { accountId: account.id, type: 'system', subject: `X-date ${prev ? 'updated' : 'added'}: ${next.line} with ${next.currentCarrier}, ${formatUSDate(resolveOffset(next.xDateOffset, today))}`, body: null, createdById: actorId, linked: { kind: 'xdate', id: xid } })],
+      })
+      return xid
+    },
+
+    /** US-XDT-005: one Opportunity for the chosen X-dates on one Account; their follow-ups are completed. */
+    startQuoteFromXDates(ids: string[], actorId: string) {
+      const s = state
+      const xs = ids.map((id) => must(s.xDates.find((x) => x.id === id), 'X-date'))
+      const account = must(s.accounts.find((a) => a.id === xs[0].accountId), 'Account')
+      if (xs.some((x) => x.accountId !== account.id)) throw new Error('Bundle X-dates from one account only.')
+      const opp: Opportunity = { id: seq('opp-', s.opportunities), accountId: account.id, type: account.status === 'Client' ? 'Cross-sell' : 'New business', stage: 'New', stageEnteredOffset: 0, lines: [...new Set(xs.map((x) => x.line))], ownerId: account.producerId, estimatedPremium: xs.reduce((n, x) => n + (x.premium ?? 0), 0), targetCloseOffset: Math.min(...xs.map((x) => x.xDateOffset)), source: 'X-date', lostReason: null, renewalId: null, leadId: null, createdOffset: 0, closedOffset: null, lineDetails: Object.fromEntries(xs.map((x) => [x.line, { currentCarrier: x.currentCarrier, currentPremium: x.premium ?? undefined, xDateOffset: x.xDateOffset }])) }
+      const taskIds = new Set(xs.map((x) => x.followUpTaskId).filter(Boolean))
+      commit({
+        ...s,
+        opportunities: [...s.opportunities, opp],
+        xDates: s.xDates.map((x) => (ids.includes(x.id) ? { ...x, opportunityId: opp.id } : x)),
+        tasks: s.tasks.map((t) => (taskIds.has(t.id) && t.status === 'Open' ? { ...t, status: 'Done', doneOffset: 0, closeNote: 'Opportunity started from X-date' } : t)),
+        activities: [...s.activities, activity(s, { accountId: account.id, type: 'system', subject: 'Opportunity started from X-date', body: null, createdById: actorId, linked: { kind: 'opportunity', id: opp.id } })],
+      })
+      return opp.id
+    },
+
+    // ---------- Certificates (CRT P1) ----------
+    saveHolder(id: string | null, input: Omit<Holder, 'id' | 'status'> & { status?: Holder['status'] }, actorId: string) {
+      const s = state
+      if (!input.name.trim() || !input.address.trim() || !input.city.trim() || !input.state.trim()) throw new Error('Name and full address are required.')
+      if (!/^\d{5}(-\d{4})?$/.test(input.zip)) throw new Error('Enter a 5-digit ZIP')
+      if (input.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.email)) throw new Error('Enter a valid email.')
+      const holders = s.holders ?? []
+      const hid = id ?? seq('hld-', holders)
+      const next: Holder = { status: 'Active', type: 'Holder-only', ...(id ? holders.find((h) => h.id === id) : {}), ...input, id: hid }
+      commit({ ...s, holders: id ? holders.map((h) => (h.id === id ? next : h)) : [...holders, next], activities: [...s.activities, activity(s, { accountId: input.accountId, type: 'system', subject: `Holder ${id ? 'updated' : 'added'}: ${next.name}`, body: null, createdById: actorId, linked: null })] })
+      return hid
+    },
+    setHolderStatus(id: string, status: 'Active' | 'Inactive', actorId: string) {
+      const s = state
+      const h = must((s.holders ?? []).find((x) => x.id === id), 'Holder')
+      commit({ ...s, holders: s.holders!.map((x) => (x.id === id ? { ...x, status } : x)), activities: [...s.activities, activity(s, { accountId: h.accountId, type: 'system', subject: `Holder ${status === 'Active' ? 'reactivated' : 'deactivated'}: ${h.name}`, body: null, createdById: actorId, linked: null })] })
+    },
+
+    /** US-CRT-005: no marks issues now; any ADDL INSD / SUBR WVD / P&NC goes to Principal review. */
+    prepareCertificate(id: string, input: { marks: Record<string, CertMarks>; delivery: string; requireAi?: boolean; policyIds?: string[] }, actorId: string, now: Date = new Date()) {
+      const s = state
+      const c = must((s.certificates ?? []).find((x) => x.id === id), 'Certificate')
+      if (c.status !== 'Requested') throw new Error('Only a Requested certificate can be prepared.')
+      const policyIds = input.policyIds ?? c.policyIds
+      if (!policyIds.length) throw new Error('Include at least one policy.')
+      const anyMark = Object.values(input.marks).some((m) => m.ai || m.wvd || m.pnc)
+      if (input.requireAi && !Object.values(input.marks).some((m) => m.ai)) throw new Error('This holder is an additional insured. Check ADDL INSD on at least one policy, or change the holder type.')
+      const at = now.toISOString()
+      const flags = { additionalInsured: Object.values(input.marks).some((m) => m.ai), waiver: Object.values(input.marks).some((m) => m.wvd), primaryNonContrib: Object.values(input.marks).some((m) => m.pnc) }
+      const next = anyMark
+        ? { ...c, ...flags, policyIds, marks: input.marks, delivery: input.delivery, status: 'Needs review' as const, preparedById: actorId, submittedById: actorId, submittedAt: at, history: [...(c.history ?? []), { at, text: `Submitted for review by ${userName(actorId)}`, byId: actorId }] }
+        : { ...c, ...flags, policyIds, marks: input.marks, delivery: input.delivery, status: 'Issued' as const, preparedById: actorId, issuedById: actorId, issuedAt: at, issuedOffset: 0, history: [...(c.history ?? []), { at, text: `Issued by ${userName(actorId)} · sent to ${input.delivery || 'holder'}`, byId: actorId }] }
+      commit({ ...s, certificates: s.certificates!.map((x) => (x.id === id ? next : x)), serviceRequests: next.status === 'Issued' ? closeLinkedSr(s, c.serviceRequestId, `Certificate ${c.id} issued.`) : s.serviceRequests })
+    },
+
+    /** US-CRT-007: a Principal who prepared, submitted, or requested it can't approve; Return needs a 10+ character note. */
+    reviewCertificate(id: string, action: 'approve' | 'return' | 'withdraw', note: string | null, actorId: string, now: Date = new Date()) {
+      const s = state
+      const c = must((s.certificates ?? []).find((x) => x.id === id), 'Certificate')
+      if (c.status !== 'Needs review') throw new Error('This certificate is not waiting for review.')
+      const at = now.toISOString()
+      if (action === 'withdraw') {
+        if (c.submittedById !== actorId) throw new Error('Only the person who submitted it can withdraw it.')
+        commit({ ...s, certificates: s.certificates!.map((x) => (x.id === id ? { ...x, status: 'Requested', history: [...(x.history ?? []), { at, text: `Withdrawn from review by ${userName(actorId)}`, byId: actorId }] } : x)) })
+        return
+      }
+      const reviewer = s.users.find((u) => u.id === actorId)
+      if (reviewer?.role !== 'principal') throw new Error('Only a Principal can review certificates.')
+      if ([c.preparedById, c.submittedById, c.createdById].includes(actorId)) throw new Error('You prepared this certificate. Another Principal must review it.')
+      if (action === 'return') {
+        if ((note ?? '').trim().length < 10) throw new Error('Add a note of at least 10 characters.')
+        commit({ ...s, certificates: s.certificates!.map((x) => (x.id === id ? { ...x, status: 'Requested', returnNote: note, history: [...(x.history ?? []), { at, text: `Returned by ${userName(actorId)}: ${note}`, byId: actorId }] } : x)) })
+        return
+      }
+      commit({
+        ...s,
+        certificates: s.certificates!.map((x) => (x.id === id ? { ...x, status: x.reissueOfId ? 'Re-issued' : 'Issued', approvedById: actorId, issuedById: actorId, issuedAt: at, issuedOffset: 0, returnNote: null, history: [...(x.history ?? []), { at, text: `Approved and issued by ${userName(actorId)}`, byId: actorId }] } : x)),
+        serviceRequests: closeLinkedSr(s, c.serviceRequestId, `Certificate ${c.id} issued.`),
+      })
+    },
+    resendCertificate(id: string, actorId: string, now: Date = new Date()) {
+      const s = state
+      const c = must((s.certificates ?? []).find((x) => x.id === id), 'Certificate')
+      const to = c.delivery || s.holders?.find((h) => h.id === c.holderId)?.email || 'the holder'
+      commit({ ...s, certificates: s.certificates!.map((x) => (x.id === id ? { ...x, history: [...(x.history ?? []), { at: now.toISOString(), text: `Resent to ${to}`, byId: actorId }] } : x)), activities: [...s.activities, activity(s, { accountId: c.accountId, type: 'system', subject: `Certificate resent to ${to}`, body: null, createdById: actorId, linked: { kind: 'certificate', id } })] })
+    },
+
+    /** US-CRT-009: re-issue on renewal; flagged certificates go to review. Returns the counts for the toast. */
+    reissueCertificates(ids: string[], actorId: string, now: Date = new Date()) {
+      const s = state
+      let certs = s.certificates ?? []
+      let reissued = 0
+      let review = 0
+      const at = now.toISOString()
+      for (const id of ids) {
+        const c = must(certs.find((x) => x.id === id), 'Certificate')
+        if (c.status !== 'Issued' && c.status !== 'Re-issued') continue
+        const flagged = c.additionalInsured || c.waiver || c.primaryNonContrib
+        const nid = `CERT-${String(certs.reduce((m, x) => Math.max(m, Number(x.id.replace(/\D/g, '')) || 0), 0) + 1).padStart(4, '0')}`
+        const policyIds = c.policyIds.map((pid) => s.policies.find((p) => p.id === pid)?.replacedByPolicyId ?? pid)
+        const fresh = { ...c, id: nid, policyIds, status: flagged ? ('Needs review' as const) : ('Re-issued' as const), reissueOfId: c.id, replacedById: null, createdOffset: 0, createdById: actorId, submittedById: flagged ? actorId : null, submittedAt: flagged ? at : null, issuedById: flagged ? null : actorId, issuedAt: flagged ? null : at, issuedOffset: flagged ? null : 0, history: [{ at, text: `Re-issue of ${c.id}${flagged ? ' · sent for Principal review' : ` · issued by ${userName(actorId)}`}`, byId: actorId }] }
+        certs = [...certs.map((x) => (x.id === id ? { ...x, status: 'Replaced' as const, replacedById: nid, history: [...(x.history ?? []), { at, text: `Replaced by ${nid}`, byId: actorId }] } : x)), fresh]
+        if (flagged) review++
+        else reissued++
+      }
+      const accountId = (s.certificates ?? []).find((c) => ids.includes(c.id))?.accountId
+      commit({ ...s, certificates: certs, activities: accountId ? [...s.activities, activity(s, { accountId, type: 'system', subject: `${reissued} certificate${reissued === 1 ? '' : 's'} re-issued${review ? ` · ${review} sent for Principal review` : ''}`, body: null, createdById: actorId, linked: null })] : s.activities })
+      return { reissued, review }
+    },
+    skipReissue(id: string, reason: string, actorId: string) {
+      const s = state
+      commit({ ...s, certificates: (s.certificates ?? []).map((x) => (x.id === id ? { ...x, noReissueReason: reason, history: [...(x.history ?? []), { at: new Date().toISOString(), text: `Not re-issued: ${reason}`, byId: actorId }] } : x)) })
+    },
+
+    // ---------- Claims (CLM P1) ----------
+    submitClaim(id: string, via: NonNullable<Claim['submittedVia']>, actorId: string) {
+      const s = state
+      const c = must((s.claims ?? []).find((x) => x.id === id), 'Claim')
+      if (c.status !== 'Reported') throw new Error('Only a Reported claim can be submitted.')
+      const carrier = s.carriers.find((k) => k.id === s.policies.find((p) => p.id === c.policyId)?.carrierId)?.name ?? 'the carrier'
+      commit({
+        ...s,
+        claims: s.claims!.map((x) => (x.id === id ? { ...x, status: 'Submitted to carrier', submittedVia: via, submittedOffset: 0, statusDates: { ...x.statusDates, 'Submitted to carrier': 0 }, events: [...(x.events ?? []), { offset: 0, text: `Submitted to ${carrier} by ${via}`, byId: actorId }] } : x)),
+        serviceRequests: s.serviceRequests.map((r) => (r.id === c.serviceRequestId && r.status === 'New' ? { ...r, status: 'In progress' } : r)),
+        activities: [...s.activities, activity(s, { accountId: c.accountId, type: 'system', subject: `Claim ${c.id} submitted to ${carrier} by ${via}`, body: null, createdById: actorId, linked: { kind: 'claim', id } })],
+      })
+    },
+    recordClaimNumber(id: string, input: { number: string; adjuster: Claim['adjuster'] }, actorId: string) {
+      const s = state
+      const c = must((s.claims ?? []).find((x) => x.id === id), 'Claim')
+      if (!/^[A-Za-z0-9-]{4,30}$/.test(input.number)) throw new Error('Use 4 to 30 letters, digits, or dashes.')
+      if (c.status === 'Reported' || c.status === 'Closed') throw new Error('Submit the claim to the carrier first.')
+      const adjuster = input.adjuster?.name ? { ...input.adjuster, assignedOffset: input.adjuster.assignedOffset ?? 0 } : c.adjuster ?? null
+      const status = c.status === 'Open' ? 'Open' : adjuster?.name ? 'Open' : 'Claim # assigned'
+      const changes = [c.carrierClaimNumber && c.carrierClaimNumber !== input.number ? `Claim # changed from ${c.carrierClaimNumber} to ${input.number}` : !c.carrierClaimNumber ? `Claim # ${input.number} recorded` : null, adjuster?.name && adjuster.name !== c.adjuster?.name ? `Adjuster ${c.adjuster?.name ? `changed from ${c.adjuster.name} to` : 'set to'} ${adjuster.name}` : null].filter(Boolean) as string[]
+      commit({
+        ...s,
+        claims: s.claims!.map((x) => (x.id === id ? { ...x, carrierClaimNumber: input.number, adjuster, status, statusDates: { ...x.statusDates, [status]: x.statusDates?.[status] ?? 0, 'Claim # assigned': x.statusDates?.['Claim # assigned'] ?? 0 }, events: [...(x.events ?? []), ...changes.map((text) => ({ offset: 0, text, byId: actorId }))] } : x)),
+        activities: changes.length ? [...s.activities, activity(s, { accountId: c.accountId, type: 'system', subject: `Claim ${c.id}: ${changes.join('; ')}`, body: null, createdById: actorId, linked: { kind: 'claim', id } })] : s.activities,
+      })
+    },
+    closeClaim(id: string, input: { outcome: 'Paid' | 'Denied' | 'Withdrawn'; amount: number | null; note: string | null; denialReason: string | null; closedOffset?: number }, actorId: string) {
+      const s = state
+      const c = must((s.claims ?? []).find((x) => x.id === id), 'Claim')
+      if (c.status !== 'Claim # assigned' && c.status !== 'Open') throw new Error('Record the carrier claim # before closing.')
+      const closedOffset = input.closedOffset ?? 0
+      if (c.submittedOffset != null && closedOffset < c.submittedOffset) throw new Error('Closed on can’t be before the claim was submitted.')
+      commit({
+        ...s,
+        claims: s.claims!.map((x) => (x.id === id ? { ...x, status: 'Closed', outcome: input.outcome, paidAmount: input.outcome === 'Paid' ? input.amount : null, denialReason: input.outcome === 'Denied' ? input.denialReason : null, closeNote: input.note, closedOffset, statusDates: { ...x.statusDates, Closed: closedOffset }, events: [...(x.events ?? []), { offset: 0, text: `Closed · ${input.outcome}`, byId: actorId }] } : x)),
+        activities: [...s.activities, activity(s, { accountId: c.accountId, type: 'system', subject: `Claim ${c.id} closed · ${input.outcome}${input.amount ? ` · $${input.amount.toLocaleString('en-US')}` : ''}`, body: input.note, createdById: actorId, linked: { kind: 'claim', id } })],
+      })
+    },
+    reopenClaim(id: string, reason: string, actorId: string) {
+      const s = state
+      const c = must((s.claims ?? []).find((x) => x.id === id), 'Claim')
+      if (c.status !== 'Closed') throw new Error('Only a closed claim can be reopened.')
+      if ((c.closedOffset ?? 0) < -90) throw new Error('Closed more than 90 days ago. Report a new claim instead.')
+      if (!reason.trim()) throw new Error('Add a reason.')
+      commit({
+        ...s,
+        claims: s.claims!.map((x) => (x.id === id ? { ...x, status: x.carrierClaimNumber ? 'Open' : 'Reported', outcome: null, closedOffset: null, events: [...(x.events ?? []), { offset: 0, text: `Reopened: ${reason}`, byId: actorId }] } : x)),
+        activities: [...s.activities, activity(s, { accountId: c.accountId, type: 'system', subject: `Claim ${c.id} reopened: ${reason}`, body: null, createdById: actorId, linked: { kind: 'claim', id } })],
+      })
+    },
+    withdrawClaim(id: string, reason: string, actorId: string) {
+      const s = state
+      const c = must((s.claims ?? []).find((x) => x.id === id), 'Claim')
+      if (c.status !== 'Reported') throw new Error('Only a claim not yet submitted can be withdrawn here.')
+      if (!reason.trim()) throw new Error('Add a reason.')
+      commit({
+        ...s,
+        claims: s.claims!.map((x) => (x.id === id ? { ...x, status: 'Closed', outcome: 'Withdrawn', withdrawReason: reason, closedOffset: 0, statusDates: { ...x.statusDates, Closed: 0 }, events: [...(x.events ?? []), { offset: 0, text: `Withdrawn: ${reason}`, byId: actorId }] } : x)),
+        activities: [...s.activities, activity(s, { accountId: c.accountId, type: 'system', subject: `Claim ${c.id} withdrawn: ${reason}`, body: null, createdById: actorId, linked: { kind: 'claim', id } })],
+      })
     },
 
     setRenewalStatus(renewalId: string, to: RenewalStatus, actorId: string, note?: string) {
@@ -817,12 +1033,12 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
         }
         if (!holderId) throw new Error('Choose a holder.')
         if (!(d.policyIds as string[] | undefined)?.length) throw new Error('Include at least one policy.')
-        const certId = `CRT-${String(certificates.length + 3100).padStart(4, '0')}`
-        certificates = [...certificates, { id: certId, accountId: account.id, holderId, policyIds: d.policyIds as string[], additionalInsured: !!d.additionalInsured, waiver: !!d.waiver, primaryNonContrib: !!d.primaryNonContrib, operations: String(d.operations ?? ''), status: special ? 'Needs review' : 'Requested', serviceRequestId: id, createdOffset: 0, createdById: actorId }]
+        const certId = `CERT-${String(certificates.reduce((m, c) => Math.max(m, Number(c.id.replace(/\D/g, '')) || 0), 122) + 1).padStart(4, '0')}`
+        certificates = [...certificates, { id: certId, accountId: account.id, holderId, policyIds: d.policyIds as string[], additionalInsured: !!d.additionalInsured, waiver: !!d.waiver, primaryNonContrib: !!d.primaryNonContrib, operations: String(d.operations ?? ''), status: special ? 'Needs review' : 'Requested', serviceRequestId: id, createdOffset: 0, createdById: actorId, submittedById: special ? actorId : null, submittedAt: special ? now.toISOString() : null, history: [{ at: now.toISOString(), text: `Requested by ${userName(actorId)} (${id})`, byId: actorId }] }]
         linked.certificateId = certId
       }
       if (input.type === 'Claim report') {
-        const claimId = `CL-${2042 + claims.length}`
+        const claimId = `CL-${claims.reduce((m, c) => Math.max(m, Number(c.id.replace(/\D/g, "")) || 0), 2041) + 1}`
         claims = [...claims, { id: claimId, accountId: account.id, policyId: input.policyId, serviceRequestId: id, lossType: (d.lossType as Claim['lossType']) ?? 'Property', lossOffset: Number(d.lossOffset ?? 0), lossTime: (d.lossTime as string) ?? null, description: String(d.description ?? input.description), status: 'Reported', details: d, createdOffset: 0, events: [{ offset: 0, text: `Reported by ${userName(actorId)}`, byId: actorId }] }]
         linked.claimId = claimId
       }

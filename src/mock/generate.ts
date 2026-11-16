@@ -1,6 +1,9 @@
 import { Faker, en_US, en, base } from '@faker-js/faker'
 import type {
   AccountDocument,
+  Certificate,
+  Claim,
+  Holder,
   Activity,
   InsuredItem,
   Lead,
@@ -542,10 +545,11 @@ export function generateDataset(seed = 20261115): Dataset {
 
   const { insuredItems, documents } = enrich(seed, { accounts, contacts, policies, terms, users, tasks, leads })
   enrichPolicies(seed, { accounts, policies, terms, insuredItems })
+  const { holders, certificates, claims } = enrichService(seed, { accounts, policies, terms, serviceRequests, users })
   // US-PIP-013: a commission schedule per carrier and line (deterministic, no RNG so nothing else shifts).
   const BASE_RATE: Partial<Record<Line, number>> = { Auto: 0.1, Home: 0.15, Umbrella: 0.15, Renters: 0.15, Condo: 0.15, Flood: 0.15, Boat: 0.12, BOP: 0.15, GL: 0.12, WC: 0.08, 'Commercial auto': 0.1, 'Commercial umbrella': 0.12 }
   const carriers = CARRIERS.map((c, i) => ({ ...c, commission: Object.fromEntries(c.lines.map((l) => [l, Math.round(((BASE_RATE[l] ?? 0.12) + ((i % 3) - 1) * 0.01) * 1000) / 1000])) }))
-  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents }
+  return { offices: OFFICES, users, carriers, accounts, contacts, policies, terms, xDates, leads, opportunities, quotes, renewals, serviceRequests, activities, tasks, insuredItems, documents, holders, certificates, claims }
 }
 
 /**
@@ -724,4 +728,63 @@ function enrichPolicies(seed: number, d: { accounts: Account[]; policies: Policy
     d.terms.push({ id: `trm-${String(d.terms.length + 1).padStart(4, '0')}`, policyId: oldId, effectiveOffset: first.effectiveOffset - 365, expirationOffset: first.effectiveOffset, premium: Math.round(first.premium * 0.9 / 10) * 10, status: 'Rewritten', pendingCancellation: false })
     p.replacesPolicyId = oldId
   }
+}
+
+/** CRT/CLM enrichment on its own seed: holders and certificates on Business clients; a Claim for each claim report. */
+function enrichService(seed: number, d: { accounts: Account[]; policies: Policy[]; terms: Term[]; serviceRequests: ServiceRequest[]; users: User[] }) {
+  const f = new Faker({ locale: [en_US, en, base] })
+  f.seed(seed + 17)
+  const int = (a: number, b: number) => f.number.int({ min: a, max: b })
+  const pick = <T,>(xs: readonly T[]) => f.helpers.arrayElement(xs)
+  const holders: Holder[] = []
+  const certificates: Certificate[] = []
+  const claims: Claim[] = []
+  const live = (pid: string) => d.terms.some((t) => t.policyId === pid && (t.status === 'Active' || t.status === 'Bound'))
+  const at = (off: number) => { const x = new Date(); x.setDate(x.getDate() + off); x.setHours(int(8, 16), pick([0, 15, 30, 45]), 0, 0); return x.toISOString() }
+  const HOLDER_NAMES = ['Westheimer Commons Development LLC', 'Harris County', 'Brazos Property Management', 'City of Houston', 'Lakeside Mall Partners', 'Gulf Coast General Contractors', 'Bayou Lending Group', 'Sunbelt Industrial REIT']
+  for (const a of d.accounts) {
+    if (a.kind !== 'Business' || a.status !== 'Client') continue
+    const pols = d.policies.filter((p) => p.accountId === a.id && live(p.id) && ['GL', 'BOP', 'WC', 'Commercial auto', 'Commercial umbrella'].includes(p.line))
+    if (!pols.length || f.datatype.boolean({ probability: 0.35 })) continue
+    const n = int(1, 3)
+    for (let k = 0; k < n; k++) {
+      const hid = `hld-${String(holders.length + 1).padStart(4, '0')}`
+      const ai = f.datatype.boolean({ probability: 0.5 })
+      holders.push({ id: hid, accountId: a.id, name: pick(HOLDER_NAMES), address: `${int(100, 9999)} ${f.location.street()}`, city: a.city, state: a.state, zip: a.zip, email: `certs@${f.internet.domainWord()}.example`, type: ai ? 'Additional insured' : 'Holder-only', project: f.datatype.boolean({ probability: 0.5 }) ? `Job #${int(1000, 9999)}` : null, status: f.datatype.boolean({ probability: 0.9 }) ? 'Active' : 'Inactive' })
+      for (let j = 0; j < int(1, 2); j++) {
+        const status = pick(['Issued', 'Issued', 'Issued', 'Requested', 'Needs review'] as const)
+        const created = -int(1, 200)
+        const policyIds = f.helpers.arrayElements(pols, int(1, Math.min(3, pols.length))).map((p) => p.id)
+        const marks = Object.fromEntries(policyIds.map((pid) => [pid, { ai: ai && d.policies.find((p) => p.id === pid)!.line !== 'WC', wvd: f.datatype.boolean({ probability: 0.2 }), pnc: ai && f.datatype.boolean({ probability: 0.3 }) }]))
+        const flags = { additionalInsured: Object.values(marks).some((m) => m.ai), waiver: Object.values(marks).some((m) => m.wvd), primaryNonContrib: Object.values(marks).some((m) => m.pnc) }
+        const id = `CERT-${String(certificates.length + 100).padStart(4, '0')}`
+        const issued = status === 'Issued'
+        certificates.push({ id, accountId: a.id, holderId: hid, policyIds, ...flags, marks, operations: `Re: ${f.company.buzzNoun()} work at ${int(100, 9999)} ${f.location.street()}`, status, serviceRequestId: null, createdOffset: created, createdById: a.accountManagerId, preparedById: status === 'Requested' ? null : a.accountManagerId, submittedById: status === 'Needs review' ? a.accountManagerId : null, submittedAt: status === 'Needs review' ? at(-int(0, 2)) : null, issuedById: issued ? a.accountManagerId : null, issuedAt: issued ? at(created + 1) : null, issuedOffset: issued ? created + 1 : null, delivery: issued ? 'Holder email' : null, history: [{ at: at(created), text: 'Requested', byId: a.accountManagerId }, ...(issued ? [{ at: at(created + 1), text: 'Issued', byId: a.accountManagerId }] : [])] })
+      }
+    }
+  }
+  // Every seeded Claim report request gets its Claim; status follows the request.
+  const STEPS = ['Reported', 'Submitted to carrier', 'Claim # assigned', 'Open', 'Closed'] as const
+  for (const r of d.serviceRequests) {
+    if (r.type !== 'Claim report') continue
+    const pol = d.policies.find((p) => p.id === r.policyId)
+    const lossType = pol?.line === 'Auto' || pol?.line === 'Commercial auto' ? 'Auto' : pol?.line === 'WC' ? "Workers' compensation" : pol && ['GL', 'Umbrella', 'Commercial umbrella'].includes(pol.line) ? 'Liability' : 'Property'
+    const step = r.status === 'Done' ? 4 : r.status === 'New' ? 0 : int(1, 3)
+    const status = STEPS[step]
+    const id = `CL-${2000 + claims.length}`
+    const prefix = (pol?.policyNumber ?? 'CLM').split('-')[0]
+    claims.push({
+      id, accountId: r.accountId, policyId: r.policyId, serviceRequestId: r.id, lossType, lossOffset: r.createdOffset - int(0, 5), description: r.subject, status, details: { cause: lossType === 'Property' ? pick(['Wind', 'Hail', 'Water', 'Fire']) : undefined, injuries: 'No' }, createdOffset: r.createdOffset,
+      submittedVia: step >= 1 ? pick(['Carrier portal', 'Email to carrier claims', 'Phone'] as const) : null,
+      submittedOffset: step >= 1 ? r.createdOffset + 1 : null,
+      carrierClaimNumber: step >= 2 ? `${prefix}-26-${int(1000000, 9999999)}` : null,
+      adjuster: step >= 3 ? { name: f.person.fullName(), type: pick(['Carrier staff', 'Independent'] as const), phone: `(555) 030-${String(int(0, 9999)).padStart(4, '0')}`, email: `adjuster${int(10, 99)}@example.com`, assignedOffset: r.createdOffset + 3 } : null,
+      outcome: step === 4 ? pick(['Paid', 'Paid', 'Denied', 'Withdrawn'] as const) : null,
+      paidAmount: step === 4 ? int(800, 24000) : null,
+      closedOffset: step === 4 ? Math.min(0, r.createdOffset + int(5, 40)) : null,
+      statusDates: Object.fromEntries(STEPS.slice(0, step + 1).map((s, i) => [s, r.createdOffset + i * 2])),
+    })
+    r.details = { ...r.details, claimId: id }
+  }
+  return { holders, certificates, claims }
 }

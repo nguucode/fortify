@@ -123,6 +123,16 @@ export function AccountPage() {
           {tab === 'overview' && (
             <div className="grid grid-cols-[1fr_360px] gap-4 max-lg:grid-cols-1">
               <div className="flex flex-col gap-4">
+                {(() => {
+                  const w = a.kind === 'Business' ? 90 : 45
+                  const x = xdates.filter((v) => v.xDateOffset >= 0 && v.xDateOffset <= w && v.interestLevel !== 'Closed' && !v.opportunityId).sort((m, n) => m.xDateOffset - n.xDateOffset)[0]
+                  return x ? (
+                    <p className="flex items-center gap-2 rounded-md bg-surface px-4 py-2.5 text-base shadow-ring">
+                      <span className="flex-1">{x.line} elsewhere expires in {x.xDateOffset} days</span>
+                      <Link to={`/accounts/${a.id}?tab=sales`} className="font-medium text-link hover:underline">Start quote</Link>
+                    </p>
+                  ) : null
+                })()}
                 <Panel title="At a glance">
                   <KeyValue items={[['Active policies', active.length || null], ['Annual premium', premium ? usd(premium) : null], ['Next expiration', nextExp != null ? `${dateOf(nextExp)} (${inDays(nextExp)})` : null], ['Open opportunities', openOpps.length || null], ['Open requests', openServices.length || null], ['Open tasks', tasks.length || null]]} />
                 </Panel>

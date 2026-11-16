@@ -5,7 +5,7 @@ import { useApp } from '@/app/store'
 import { dateOf, usd, useLookups, useMutate } from '@/app/hooks'
 import type { Account, AccountDocument, Activity, DocumentType, InsuredItem, Opportunity, Task, XDate } from '@/domain/types'
 import { StatusCell } from '@/components/ui/status'
-import { XDateDialog } from './XDateDialog'
+import { XDateDrawer } from './XDatesPages'
 import { useRisk } from './RenewalsPages'
 import { renewalWindowDays } from '@/domain/rules'
 import { DataTable, Field, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
@@ -367,23 +367,37 @@ export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: ()
         )}
       </Panel>
       <Panel title="X-dates" actions={canCreate && <Button size="sm" onClick={() => setXd('new')}>+ Add X-date</Button>}>
-        {xdates.length ? (
-          <ul className="divide-y divide-fill">
-            {xdates.map((x) => (
-              <li key={x.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 text-base max-md:grid-cols-[1fr_auto]">
-                <button onClick={() => canCreate && setXd(x)} className="min-w-0 truncate text-left text-strong hover:text-link hover:underline">{x.line} · {x.currentCarrier}</button>
+        <p className="-mt-2 mb-2 text-sm text-muted">{account.status === 'Client' ? 'Coverage this Account buys elsewhere' : 'Current coverage to quote ahead of'}</p>
+        {(() => {
+          const upcoming = xdates.filter((x) => x.xDateOffset >= 0 && x.interestLevel !== 'Closed')
+          const past = xdates.filter((x) => x.xDateOffset < 0 || x.interestLevel === 'Closed')
+          const row = (x: XDate) => {
+            const o = x.opportunityId ? data.opportunities.find((y) => y.id === x.opportunityId) : undefined
+            return (
+              <li key={x.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-3 py-2 text-base max-md:grid-cols-[1fr_auto]">
+                <button onClick={() => setXd(x)} className="min-w-0 truncate text-left text-strong hover:text-link hover:underline">{x.line} · {x.currentCarrier}</button>
                 <span className="tabular text-sm text-label max-md:hidden">{x.premium ? usd(x.premium) : '—'}</span>
-                <span className="text-sm text-label max-md:hidden">{x.interestLevel}</span>
                 <span className="tabular text-sm">{dateOf(x.xDateOffset)}</span>
-                <span className={cx('tabular w-24 text-right text-sm max-md:hidden', x.xDateOffset < 0 ? 'text-muted' : x.xDateOffset <= 60 ? 'font-medium text-warning-text' : 'text-label')}>{x.xDateOffset < 0 ? 'passed' : `${x.xDateOffset} days`}</span>
+                <span className={cx('tabular w-20 text-right text-sm max-md:hidden', x.xDateOffset < 0 ? 'text-muted' : x.xDateOffset <= (account.kind === 'Business' ? 90 : 45) ? 'font-medium text-warning-text' : 'text-label')}>{x.xDateOffset < 0 ? 'passed' : `${x.xDateOffset} days`}</span>
+                <span className="text-sm text-label max-md:hidden">{x.interestLevel}</span>
+                <span className="text-sm max-md:hidden">{o ? <Link to={`/pipeline/${o.id}`} className="text-link hover:underline">{o.stage}</Link> : <span className="text-muted">—</span>}</span>
               </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-base text-muted">No X-dates. Add one when the client mentions coverage elsewhere.</p>
-        )}
+            )
+          }
+          return (
+            <>
+              {upcoming.length ? <ul className="divide-y divide-fill">{upcoming.map(row)}</ul> : <p className="text-base text-muted">No upcoming X-dates.</p>}
+              {past.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm font-medium text-link">Past and closed ({past.length})</summary>
+                  <ul className="divide-y divide-fill">{past.map(row)}</ul>
+                </details>
+              )}
+            </>
+          )
+        })()}
       </Panel>
-      {xd && <XDateDialog account={account} xdate={xd === 'new' ? undefined : xd} onClose={() => setXd(null)} />}
+      {xd && <XDateDrawer accountId={account.id} xdate={xd === 'new' ? undefined : xd} onClose={() => setXd(null)} />}
     </div>
   )
 }

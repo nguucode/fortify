@@ -187,6 +187,14 @@ export interface XDate {
   xDateOffset: number
   premium: number | null
   interestLevel: InterestLevel
+  /** XDT P1 (absent on older rows). */
+  currentAgency?: string | null
+  policyNumber?: string | null
+  termMonths?: 6 | 12
+  notes?: string | null
+  source?: { kind: 'manual' | 'lead' | 'lost-opportunity' | 'cancellation'; id?: string } | null
+  opportunityId?: string | null
+  followUpTaskId?: string | null
 }
 
 
@@ -338,8 +346,12 @@ export interface Holder {
   state: string
   zip: string
   email: string
+  type?: 'Holder-only' | 'Additional insured'
+  project?: string | null
+  status?: 'Active' | 'Inactive'
 }
-export type CertificateStatus = 'Requested' | 'Needs review' | 'Approved' | 'Issued' | 'Rejected'
+export type CertMarks = { ai: boolean; wvd: boolean; pnc: boolean }
+export type CertificateStatus = 'Requested' | 'Needs review' | 'Issued' | 'Re-issued' | 'Replaced' | 'Withdrawn'
 export interface Certificate {
   id: string
   accountId: string
@@ -356,6 +368,19 @@ export interface Certificate {
   issuedOffset?: number | null
   approvedById?: string | null
   rejectReason?: string | null
+  /** CRT P1: per-policy marks, people, delivery, history, re-issue chain. */
+  marks?: Record<string, CertMarks>
+  preparedById?: string | null
+  submittedById?: string | null
+  submittedAt?: string | null
+  issuedById?: string | null
+  issuedAt?: string | null
+  delivery?: string | null
+  returnNote?: string | null
+  reissueOfId?: string | null
+  replacedById?: string | null
+  noReissueReason?: string | null
+  history?: { at: string; text: string; byId: string | null }[]
 }
 export type ClaimStatus = 'Reported' | 'Submitted to carrier' | 'Claim # assigned' | 'Open' | 'Closed'
 export interface Claim {
@@ -369,12 +394,20 @@ export interface Claim {
   description: string
   status: ClaimStatus
   carrierClaimNumber?: string | null
-  adjuster?: { name: string; phone?: string; email?: string } | null
+  adjuster?: { name: string; type?: 'Carrier staff' | 'Independent'; phone?: string; email?: string; assignedOffset?: number } | null
   outcome?: 'Paid' | 'Denied' | 'Withdrawn' | null
   paidAmount?: number | null
   details: Record<string, unknown>
   createdOffset: number
   events?: { offset: number; text: string; byId: string }[]
+  /** CLM P1 */
+  submittedVia?: 'Carrier portal' | 'Email to carrier claims' | 'Phone' | null
+  submittedOffset?: number | null
+  closedOffset?: number | null
+  denialReason?: string | null
+  closeNote?: string | null
+  withdrawReason?: string | null
+  statusDates?: Partial<Record<ClaimStatus, number>>
 }
 
 export type ActivityType = 'call' | 'email' | 'sms' | 'meeting' | 'note' | 'system'
@@ -387,7 +420,7 @@ export interface Activity {
   body: string | null
   occurredOffset: number
   createdById: string
-  linked: { kind: 'lead' | 'opportunity' | 'renewal' | 'service' | 'policy'; id: string } | null
+  linked: { kind: 'lead' | 'opportunity' | 'renewal' | 'service' | 'policy' | 'xdate' | 'claim' | 'certificate'; id: string } | null
   /** US-WRK-011: users @mentioned in a note. */
   mentions?: string[]
 }
