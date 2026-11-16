@@ -9,8 +9,8 @@ import { ago, dateOf, inDays, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, canWorkLead, scopeOf } from '@/domain/access'
 import { findMatches, type Match } from '@/domain/rules'
 import type { Lead, User } from '@/domain/types'
-import { DataTable, Gate, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
-import { Button, cx } from '@/components/ui/primitives'
+import { Confirm, DataTable, Gate, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
+import { Button, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { AccessDenied, NotFound } from './SystemPages'
@@ -153,7 +153,8 @@ export function LeadPage() {
   const { data, user } = useApp()
   const { userName, office, account } = useLookups()
   const [qualifyOpen, setQualifyOpen] = useState(false)
-  const [dialog, setDialog] = useState<'edit' | 'assign' | 'handoff' | 'attempt' | 'disqualify' | 'wrong' | 'bad' | null>(null)
+  const [dialog, setDialog] = useState<'edit' | 'assign' | 'handoff' | 'attempt' | 'disqualify' | 'wrong' | 'bad' | 'reopen' | null>(null)
+  const mutate = useMutate()
   const lead = data.leads.find((l) => l.id === id)
   if (!lead) return <NotFound what="lead" />
   if (!leadsInScope(user, [lead]).length) return <AccessDenied what="lead" owner={userName(lead.assigneeId)} />
@@ -177,6 +178,16 @@ export function LeadPage() {
           </>
         }
         actions={
+          lead.status === 'Disqualified' ? (
+            lead.disqualifyReason === 'Duplicate lead' ? (
+              <span className="flex items-center gap-2 text-sm text-label">
+                <Tip label={`Merged into ${lead.mergedIntoId ? leadCode(lead.mergedIntoId) : 'another lead'}`}><span tabIndex={0}><Button disabled>Reopen</Button></span></Tip>
+                {lead.mergedIntoId && <Link to={`/leads/${lead.mergedIntoId}`} className="text-link underline">Merged into {leadCode(lead.mergedIntoId)}</Link>}
+              </span>
+            ) : (
+              canWork && <Button onClick={() => setDialog('reopen')}>Reopen</Button>
+            )
+          ) :
           open && (
             <>
               {canWork && <Button onClick={() => setDialog('attempt')}>Log attempt</Button>}
@@ -256,6 +267,7 @@ export function LeadPage() {
       {(dialog === 'assign' || dialog === 'handoff') && <AssignLeadsDialog leadIds={[lead.id]} handOff={dialog === 'handoff'} onClose={() => setDialog(null)} />}
       {dialog === 'attempt' && <LogAttemptDialog lead={lead} onClose={() => setDialog(null)} onWrongNumber={() => setDialog('wrong')} />}
       {dialog === 'disqualify' && <DisqualifyDialog leadIds={[lead.id]} onClose={() => setDialog(null)} />}
+      <Confirm open={dialog === 'reopen'} onOpenChange={(o) => !o && setDialog(null)} title="Reopen this lead?" body="It returns to Contacted and keeps its history." confirmLabel="Reopen" onConfirm={async () => { await mutate((s) => s.reopenLead(lead.id, user.id), 'Lead reopened'); setDialog(null) }} />
       {dialog === 'bad' && <DisqualifyDialog leadIds={[lead.id]} presetReason="Bad contact data" onClose={() => setDialog(null)} />}
       {dialog === 'wrong' && (
         <div role="alertdialog" aria-label="Wrong number" className="fixed right-4 bottom-20 z-50 w-96 rounded-md bg-surface p-4 shadow-pop">

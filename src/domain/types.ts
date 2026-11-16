@@ -283,6 +283,8 @@ export interface Lead {
   followUpOffset?: number | null
   events?: { offset: number; text: string; byId: string }[]
   disqualifiedOffset?: number
+  /** US-LEA-009: the surviving Lead when disqualified as a duplicate. */
+  mergedIntoId?: string | null
   disqualifiedById?: string
   disqualifyNote?: string | null
 }

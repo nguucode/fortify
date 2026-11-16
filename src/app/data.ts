@@ -476,13 +476,22 @@ export function createDataStore(seed: Dataset, today: Date = new Date()) {
      * US-LEA-008: one reason (Other needs a 10+ character note). Duplicate merges attempts into the survivor;
      * Bought elsewhere can save an X-date on a matched or new Prospect Account. Nothing is deleted.
      */
+    /** US-LEA-009: back to Contacted; the old reason stays in the timeline. Duplicates can't be reopened. */
+    reopenLead(id: string, actorId: string) {
+      const s = state
+      const l = must(s.leads.find((x) => x.id === id), 'Lead')
+      if (l.status !== 'Disqualified') throw new Error('Only a Disqualified lead can be reopened.')
+      if (l.disqualifyReason === 'Duplicate lead') throw new Error('Duplicate leads were merged and can’t be reopened.')
+      const was = `${l.disqualifyReason ?? 'No reason'}${l.disqualifiedOffset != null ? ` (${formatUSDate(resolveOffset(l.disqualifiedOffset, today))})` : ''}`
+      commit({ ...s, leads: s.leads.map((x) => (x.id === id ? { ...x, status: 'Contacted' as const, disqualifyReason: null, events: [...(x.events ?? []), { offset: 0, text: `Reopened by ${userName(actorId)} · previously Disqualified: ${was}`, byId: actorId }] } : x)) })
+    },
     disqualifyLead(id: string, d: { reason: string; note: string | null; survivorId?: string; saveXDate?: { line: Line; carrier: string; offset: number; accountId?: string | null } }, actorId: string) {
       const s = state
       const l = must(s.leads.find((x) => x.id === id), 'Lead')
       if (l.status !== 'New' && l.status !== 'Contacted') throw new Error('This lead is already closed.')
       if (d.reason === 'Other' && (d.note ?? '').trim().length < 10) throw new Error('Describe the reason in at least 10 characters.')
       const code = (x: string) => `L-${1000 + Number(x.replace(/\D/g, ''))}`
-      let leads = s.leads.map((x) => (x.id === id ? { ...x, status: 'Disqualified' as const, disqualifyReason: d.reason, disqualifyNote: d.note, disqualifiedOffset: 0, disqualifiedById: actorId, events: [...(x.events ?? []), { offset: 0, text: `Disqualified by ${userName(actorId)}: ${d.reason}`, byId: actorId }] } : x))
+      let leads = s.leads.map((x) => (x.id === id ? { ...x, status: 'Disqualified' as const, disqualifyReason: d.reason, disqualifyNote: d.note, mergedIntoId: d.reason === 'Duplicate lead' ? (d.survivorId ?? null) : null, disqualifiedOffset: 0, disqualifiedById: actorId, events: [...(x.events ?? []), { offset: 0, text: `Disqualified by ${userName(actorId)}: ${d.reason}`, byId: actorId }] } : x))
       if (d.reason === 'Duplicate lead') {
         const sv = must(s.leads.find((x) => x.id === d.survivorId), 'Surviving lead')
         leads = leads.map((x) => (x.id === sv.id ? { ...x, attempts: [...x.attempts, ...l.attempts].sort((a, b) => b.offset - a.offset), events: [...(x.events ?? []), { offset: 0, text: `Duplicate ${code(l.id)} merged into this lead’s history`, byId: actorId }] } : x))

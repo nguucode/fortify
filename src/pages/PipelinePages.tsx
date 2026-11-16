@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Trophy } from 'lucide-react'
+import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Trophy, X } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { commissionFor } from '@/domain/commission'
 import { TaskSheet } from './TaskSheet'
@@ -9,8 +9,8 @@ import { OpportunitySheet } from './OpportunitySheet'
 import { dateOf, inDays, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditOpportunity, canSeeCommission, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { addMonths, checkStageMove } from '@/domain/rules'
-import type { Line, Opportunity, OpportunityStage, Quote } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel, type Column } from '@/components/patterns'
+import type { Dataset, Line, Opportunity, OpportunityStage, Quote } from '@/domain/types'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel, AttentionCallout, type AttentionItem, type Column } from '@/components/patterns'
 import { Button, CountPill, cx, Tip } from '@/components/ui/primitives'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
@@ -62,6 +62,7 @@ export function PipelinePage() {
     return (
       <div className="px-8 pt-6 pb-10 max-sm:px-4">
         <PageTitle title="Pipeline" description={`${open.length} open Opportunities · ${usd(total)} estimated premium`} actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setCreating(true)}><Plus aria-hidden className="size-4" /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}</Button>} />
+        <div className="mt-4"><PipelineNudges opps={opps} /></div>
         <div className="mt-4 flex justify-end">{toggle}</div>
         <PipelineList opps={opps} />
         {creating && <OpportunitySheet onClose={() => setCreating(false)} />}
@@ -81,6 +82,7 @@ export function PipelinePage() {
         }
       />
       {creating && <OpportunitySheet onClose={() => setCreating(false)} />}
+      <div className="mt-4"><PipelineNudges opps={opps} /></div>
       <div className="mt-4 flex justify-end">{toggle}</div>
       <div className="mt-3 grid grid-cols-5 gap-3 overflow-x-auto max-lg:min-w-[1000px]">
         {OPEN_STAGES.map((stage) => {
@@ -641,7 +643,8 @@ function PipelineList({ opps }: { opps: Opportunity[] }) {
     'Cross-sell': (o) => isOpen(o) && o.type === 'Cross-sell',
     Remarket: (o) => isOpen(o) && o.type === 'Remarket',
   }
-  const f = { stage: params.get('stage'), type: params.get('type'), line: params.get('line'), carrier: params.get('carrier'), producer: params.get('producer'), office: params.get('office'), nonext: params.get('nonext') }
+  const f = { stage: params.get('stage'), type: params.get('type'), line: params.get('line'), carrier: params.get('carrier'), producer: params.get('producer'), office: params.get('office'), nonext: params.get('nonext'), nudge: params.get('nudge') }
+  const nudgeOk = nudgeTest(data)
   const hasNext = (id: string) => data.tasks.some((t) => t.status === 'Open' && t.linked?.kind === 'opportunity' && t.linked.id === id)
   const carriersOf = (id: string) => new Set(data.quotes.filter((q) => q.opportunityId === id).map((q) => q.carrierId))
   // Best quoted = lowest quoted premium per line, summed; else the estimate.
@@ -652,7 +655,7 @@ function PipelineList({ opps }: { opps: Opportunity[] }) {
   }
   const rows = opps
     .filter((o) => (f.stage ? o.stage === f.stage : inView[view](o)))
-    .filter((o) => (!f.type || o.type === f.type) && (!f.line || o.lines.includes(f.line as Line)) && (!f.carrier || carriersOf(o.id).has(f.carrier)) && (!f.producer || o.ownerId === f.producer) && (!f.office || account(o.accountId)?.officeId === f.office) && (!f.nonext || (isOpen(o) && !hasNext(o.id))))
+    .filter((o) => (!f.type || o.type === f.type) && (!f.line || o.lines.includes(f.line as Line)) && (!f.carrier || carriersOf(o.id).has(f.carrier)) && (!f.producer || o.ownerId === f.producer) && (!f.office || account(o.accountId)?.officeId === f.office) && (!f.nonext || (isOpen(o) && !hasNext(o.id))) && (!f.nudge || nudgeOk(f.nudge, o)))
   const counts = Object.fromEntries(LIST_VIEWS.map((v) => [v, opps.filter(inView[v]).length]))
   const sorted = params.get('sort') ? rows : [...rows].sort((a, b) => a.targetCloseOffset - b.targetCloseOffset)
   const page = Math.max(1, Number(params.get('page')) || 1)
@@ -715,6 +718,7 @@ function PipelineList({ opps }: { opps: Opportunity[] }) {
         <label className="inline-flex items-center gap-1.5 text-sm text-label"><input type="checkbox" checked={!!f.nonext} onChange={(e) => set('nonext', e.target.checked ? '1' : null)} className="size-4 accent-primary" /> No next step</label>
         {Object.values(f).some(Boolean) && <button onClick={() => { const n = new URLSearchParams(); n.set('view', 'list'); if (params.get('saved')) n.set('saved', params.get('saved')!); setParams(n, { replace: true }) }} className="text-sm text-link hover:underline">Clear filters</button>}
       </div>
+      {f.nudge && <p className="mt-2"><span className="inline-flex h-6 items-center gap-1 rounded-md bg-fill px-2 text-sm">{NUDGE_CHIP[f.nudge]}<button aria-label="Remove filter" onClick={() => set('nudge', null)}><X aria-hidden className="size-3" /></button></span></p>}
       {f.stage && <p className="mt-2 text-sm text-label">Stage filter replaces the saved view.</p>}
       <div className="mt-3">
         <DataTable rows={pageRows} columns={cols} minWidth={1300} listId="pipeline" exportName="opportunities" onRowClick={(o) => navigate(`/pipeline/${o.id}`)} empty={<p className="p-6 text-center text-base text-muted">No opportunities match.</p>} />
@@ -731,4 +735,27 @@ function PipelineList({ opps }: { opps: Opportunity[] }) {
       {lostFor && <LostDialog o={lostFor} onClose={() => setLostFor(null)} />}
     </>
   )
+}
+
+const NUDGE_CHIP: Record<string, string> = { stale: 'In stage past stale threshold', expiring: 'Presented Quote expires within 7 days', overdue: 'Past target close date' }
+/** US-PIP-016: shared tests for the nudge callout and the list filter. */
+function nudgeTest(data: Dataset) {
+  return (kind: string, o: Opportunity) => {
+    if (!OPEN_STAGES.includes(o.stage)) return false
+    if (kind === 'stale') return -o.stageEnteredOffset >= (data.settings?.stages[o.stage]?.staleDays ?? 14)
+    if (kind === 'expiring') return data.quotes.some((q) => q.opportunityId === o.id && q.status === 'Presented' && q.validUntilOffset != null && q.validUntilOffset >= 0 && q.validUntilOffset <= 7)
+    if (kind === 'overdue') return o.targetCloseOffset < 0
+    return true
+  }
+}
+function PipelineNudges({ opps }: { opps: Opportunity[] }) {
+  const { data } = useApp()
+  const test = nudgeTest(data)
+  const n = (k: string) => opps.filter((o) => test(k, o)).length
+  const q = data.quotes.filter((x) => opps.some((o) => o.id === x.opportunityId && OPEN_STAGES.includes(o.stage)) && x.status === 'Presented' && x.validUntilOffset != null && x.validUntilOffset >= 0 && x.validUntilOffset <= 7).length
+  const items: AttentionItem[] = []
+  if (n('stale')) items.push({ key: 'stale', title: `${n('stale')} Opportunities past their stage's stale threshold`, to: '/pipeline?view=list&nudge=stale' })
+  if (q) items.push({ key: 'expiring', title: `${q} presented Quotes expire in the next 7 days`, to: '/pipeline?view=list&nudge=expiring' })
+  if (n('overdue')) items.push({ key: 'overdue', title: `${n('overdue')} open Opportunities are past their target close date`, to: '/pipeline?view=list&nudge=overdue' })
+  return <AttentionCallout items={items} storageKey="fortify.pipeline.nudges.collapsed" storage="session" max={3} />
 }

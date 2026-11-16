@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as Popover from '@radix-ui/react-popover'
 import { downloadCsv } from '@/app/csv'
 import { useIsMobile } from '@/app/media'
-import { ArrowDown, ArrowUp, Download, SlidersHorizontal, X, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, Download, SlidersHorizontal, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button, CountPill, cx, Tip } from './ui/primitives'
@@ -486,6 +486,33 @@ export function Panel({ title, children, actions, className }: { title?: string;
         </div>
       )}
       {children}
+    </section>
+  )
+}
+
+export type AttentionItem = { key: string; title: string; detail?: string; to?: string; onClick?: () => void }
+/** HOM-015 / PIP-016 / REN-003 / CLM-006: collapsible "Needs attention" callout; collapse state persists per browser. */
+export function AttentionCallout({ items, storageKey, storage = 'local', title = 'Needs attention', max = 5, badge = true, children }: { items: AttentionItem[]; storageKey: string; storage?: 'local' | 'session'; title?: string; max?: number; badge?: boolean; children?: ReactNode }) {
+  const store = () => (storage === 'local' ? localStorage : sessionStorage)
+  const [collapsed, setCollapsed] = useState(() => { try { return store().getItem(storageKey) === '1' } catch { return false } })
+  if (!items.length) return null
+  const toggle = () => { const n = !collapsed; setCollapsed(n); try { store().setItem(storageKey, n ? '1' : '0') } catch { /* storage blocked */ } }
+  return (
+    <section aria-label={title} className="rounded-md bg-warning-tint px-4 py-2.5 shadow-ring">
+      <button aria-expanded={!collapsed} onClick={toggle} className="flex w-full items-center gap-2 text-left text-base font-medium text-ink">
+        <AlertTriangle aria-hidden className="size-4 text-warning-text" />{title}
+        {badge && <span className="tabular rounded-full bg-surface px-1.5 text-xs leading-5 font-medium">{items.length}</span>}
+        <ChevronDown aria-hidden className={cx('ml-auto size-4 transition-transform', !collapsed && 'rotate-180')} />
+      </button>
+      {!collapsed && (
+        <ul className="mt-1.5 flex flex-col gap-1">
+          {items.slice(0, max).map((i) => {
+            const body = <><span className="block font-medium text-ink">{i.title}</span>{i.detail && <span className="block text-sm text-label">{i.detail}</span>}</>
+            return <li key={i.key}>{i.to ? <Link to={i.to} onClick={i.onClick} className="block rounded-sm py-0.5 hover:underline">{body}</Link> : i.onClick ? <button onClick={i.onClick} className="block w-full py-0.5 text-left hover:underline">{body}</button> : <div className="py-0.5">{body}</div>}</li>
+          })}
+          {children}
+        </ul>
+      )}
     </section>
   )
 }

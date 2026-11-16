@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, Clock, Minus, Plus, RefreshCw } from 'lucide-react'
+import { ArrowDown, ArrowUp, Clock, Minus, Plus, RefreshCw, X } from 'lucide-react'
 import { compareRenewal, riskReasons } from '@/domain/renewals'
 import { TaskSheet, useCompleteTask } from './TaskSheet'
 import { useApp } from '@/app/store'
@@ -8,7 +8,7 @@ import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditRenewal, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { nextRenewalStatuses, renewalWindowDays } from '@/domain/rules'
 import type { Renewal, RenewalDecision, RenewalStatus, Term } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, TabBar, ViewTabs, useTab, useView, type Column } from '@/components/patterns'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, TabBar, ViewTabs, useTab, useView, AttentionCallout, type AttentionItem, type Column } from '@/components/patterns'
 import { Button, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
@@ -77,9 +77,18 @@ export function RenewalsPage() {
     'At risk': (r) => risk(r, r.term).length > 0,
     Remarketing: (r) => r.status === 'Remarketing',
   }
+  // US-REN-003: nudges filter the worklist through ?nudge=.
+  const nudge = params.get('nudge')
+  const NUDGES: Record<string, { test: (r: Row) => boolean; label: (n: number) => string }> = {
+    'no-remarket': { test: (r) => r.term.expirationOffset <= 30 && (r.status === 'Upcoming' || r.status === 'In review'), label: (n) => `${n} renewal${n === 1 ? '' : 's'} expire in the next 30 days with no remarket started` },
+    'risky-upcoming': { test: (r) => r.status === 'Upcoming' && risk(r, r.term).length > 0, label: (n) => `${n} high-risk renewal${n === 1 ? ' is' : 's are'} still Upcoming` },
+  }
+  const setNudge = (k: string | null) => { const n = new URLSearchParams(params); if (k) n.set('nudge', k); else n.delete('nudge'); setParams(n, { replace: true }) }
+  const nudgeItems: AttentionItem[] = Object.entries(NUDGES).map(([k, v]) => ({ k, v, n: rows.filter(v.test).length })).filter((x) => x.n > 0).map(({ k, v, n }) => ({ key: k, title: v.label(n), onClick: () => setNudge(k) }))
   const list = rows
     .filter(inView[view])
     .filter((r) => !big || (changePct(r, r.term) ?? -1) >= 0.2)
+    .filter((r) => !nudge || NUDGES[nudge]?.test(r))
     .sort((a, b) => (view === 'At risk' ? (changePct(b, b.term) ?? -9) - (changePct(a, a.term) ?? -9) || a.term.expirationOffset - b.term.expirationOffset : a.term.expirationOffset - b.term.expirationOffset))
   const counts = Object.fromEntries(VIEWS.map((v) => [v, rows.filter(inView[v]).length]))
   const cols: Column<Row>[] = [
@@ -96,8 +105,10 @@ export function RenewalsPage() {
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle title="Renewals" description="Terms inside their renewal window: 45 days personal, 120 FL residential property, 60 / 90 commercial." />
+      <div className="mt-4"><AttentionCallout items={nudgeItems} storageKey="fortify.renewals.nudges.collapsed" max={3} /></div>
       <ViewTabs views={VIEWS} counts={counts} />
       <div className="mt-3 flex items-center gap-3">
+        {nudge && NUDGES[nudge] && <span className="inline-flex h-6 items-center gap-1 rounded-md bg-fill px-2 text-sm">{NUDGES[nudge].label(list.length)}<button aria-label="Remove filter" onClick={() => setNudge(null)}><X aria-hidden className="size-3" /></button></span>}
         <label className="inline-flex items-center gap-2 text-sm text-label">
           <input type="checkbox" checked={big} onChange={(e) => { const n = new URLSearchParams(params); if (e.target.checked) n.set('change', '20'); else n.delete('change'); setParams(n, { replace: true }) }} className="size-4 accent-primary" />
           Change ≥ 20%

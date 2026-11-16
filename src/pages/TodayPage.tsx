@@ -9,6 +9,8 @@ import { AgencyPipeline, AmsSync, CertificateApprovals, CertificatesWaiting, Goa
 import { CountPill, cx, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { changePct, isHighRisk } from './RenewalsPages'
+import { quoteWindow } from './XDatesPages'
+import { AttentionCallout, type AttentionItem } from '@/components/patterns'
 
 const STAGES = ['New', 'Contacted', 'Gathering info', 'Quoting', 'Proposed'] as const
 const SR_STATUSES: ServiceStatus[] = ['New', 'In progress', 'Waiting on carrier', 'Waiting on client']
@@ -359,6 +361,7 @@ export function TodayPage() {
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <h1 className="text-title font-semibold text-strong">Today</h1>
       <p className="mt-1 truncate text-base text-muted" title={office}>{date} · {office}</p>
+      <div className="mt-5"><TodayAttention /></div>
       <div className="mt-6 grid grid-cols-12 items-start gap-4 max-lg:grid-cols-1">
         <div className="col-span-8 flex min-w-0 flex-col gap-4 max-lg:col-span-1">{main}</div>
         <div className="col-span-4 flex min-w-0 flex-col gap-4 max-lg:col-span-1">
@@ -368,4 +371,39 @@ export function TodayPage() {
       </div>
     </div>
   )
+}
+
+/** US-HOM-015: role rules; each item names up to 2 records and links to the filtered list. */
+function TodayAttention() {
+  const { data, user, officeFilter } = useApp()
+  const accs = new Map(visibleAccounts(user, data.accounts).filter((a) => !officeFilter || a.officeId === officeFilter).map((a) => [a.id, a]))
+  const mine = (accountId: string) => { const a = accs.get(accountId); return !!a && (user.role !== 'producer' || a.producerId === user.id) && (user.role !== 'account-manager' || a.accountManagerId === user.id || a.officeId === user.officeId) }
+  const names = (ids: string[]) => { const u = [...new Set(ids)].map((id) => accs.get(id)?.name ?? data.accounts.find((a) => a.id === id)?.name).filter(Boolean) as string[]; return u.slice(0, 2).join(', ') + (u.length > 2 ? ` +${u.length - 2}` : '') }
+  const terms = new Map(data.terms.map((t) => [t.id, t]))
+  const items: AttentionItem[] = []
+  const add = (key: string, n: number, title: string, ids: string[], to: string) => n > 0 && items.push({ key, title: title.replace('{n}', String(n)), detail: names(ids), to })
+  if (user.role === 'producer') {
+    const stale = data.opportunities.filter((o) => o.ownerId === user.id && o.stage === 'Proposed' && data.quotes.some((q) => q.opportunityId === o.id && q.presentedOffset != null && q.presentedOffset <= -14) && !data.activities.some((a) => a.linked?.id === o.id && a.occurredOffset > Math.max(...data.quotes.filter((q) => q.opportunityId === o.id).map((q) => q.presentedOffset ?? -999))))
+    add('quotes', stale.length, '{n} Quotes presented over 14 days ago with no Activity since', stale.map((o) => o.accountId), '/pipeline?view=list&stage=Proposed')
+    const xd = data.xDates.filter((x) => mine(x.accountId) && !x.opportunityId && (() => { const w = quoteWindow(accs.get(x.accountId)!); return x.xDateOffset - w >= 0 && x.xDateOffset - w <= 7 })())
+    add('xdates', xd.length, '{n} X-dates enter their quote window this week', xd.map((x) => x.accountId), '/x-dates')
+  }
+  if (user.role === 'account-manager') {
+    const soon = data.renewals.filter((r) => r.ownerId === user.id && r.status === 'Upcoming' && (terms.get(r.termId)?.expirationOffset ?? 99) <= 30)
+    add('renewals', soon.length, '{n} Renewals expire within 30 days and are still Upcoming', soon.map((r) => r.accountId), '/renewals?view=upcoming')
+    const bound = data.terms.filter((t) => t.status === 'Bound' && t.binderExpiresOffset != null && t.binderExpiresOffset <= 7 && mine(data.policies.find((p) => p.id === t.policyId)?.accountId ?? ''))
+    add('binders', bound.length, '{n} Terms are still Bound with the binder expiring within 7 days', bound.map((t) => data.policies.find((p) => p.id === t.policyId)!.accountId), '/policies')
+  }
+  if (user.role === 'principal') {
+    const risky = data.renewals.filter((r) => accs.has(r.accountId) && ['Upcoming', 'In review'].includes(r.status) && isHighRisk(r, terms.get(r.termId)))
+    add('risk', risky.length, '{n} High-risk Renewals are not yet Remarketing', risky.map((r) => r.accountId), '/renewals?view=at-risk')
+    const certs = (data.certificates ?? []).filter((c) => c.status === 'Needs review' && accs.has(c.accountId) && c.submittedAt && Date.now() - new Date(c.submittedAt).getTime() > 86_400_000)
+    add('certs', certs.length, '{n} Certificates have waited over 1 business day for approval', certs.map((c) => c.accountId), '/certificates?view=needs-review')
+  }
+  if (user.role === 'admin') {
+    if (data.syncRuns?.[0]?.status === 'Partial') items.push({ key: 'sync', title: 'Last AMS sync was Partial', detail: data.syncRuns[0].reason, to: '/settings/data-sync' })
+    const lic = data.users.filter((u) => u.status !== 'Deactivated' && (u.licenseRecords ?? []).some((l) => l.expirationOffset >= 0 && l.expirationOffset <= 30))
+    if (lic.length) items.push({ key: 'lic', title: `${lic.length} Licenses expire within 30 days`, detail: lic.slice(0, 2).map((u) => u.name).join(', ') + (lic.length > 2 ? ` +${lic.length - 2}` : ''), to: '/settings/licenses?status=Expiring+soon' })
+  }
+  return <AttentionCallout items={items} storageKey="fortify.today.attention.collapsed" />
 }

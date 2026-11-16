@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { MoreHorizontal, Pencil, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, MoreHorizontal, Pencil, ShieldAlert } from 'lucide-react'
+import { followUps } from '@/domain/claimFollowUp'
 import { useApp } from '@/app/store'
 import { dateOf, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import type { Claim, ClaimStatus } from '@/domain/types'
-import { Confirm, DataTable, Field, inputCls, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
+import { Confirm, DataTable, Field, inputCls, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, AttentionCallout, type Column } from '@/components/patterns'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { Button, cx, Tip } from '@/components/ui/primitives'
@@ -45,13 +46,14 @@ export function ClaimsPage() {
     { key: 'num', label: 'Carrier claim #', width: 150, render: (c) => c.carrierClaimNumber ? <span className="font-mono text-sm">{c.carrierClaimNumber}</span> : <span className="text-muted">—</span>, csv: (c) => c.carrierClaimNumber ?? '' },
     { key: 'adj', label: 'Adjuster', width: 140, render: (c) => c.adjuster?.name ?? <span className="text-muted">—</span>, csv: (c) => c.adjuster?.name ?? '' },
     { key: 'status', label: 'Status', width: 170, render: (c) => <StatusCell status={c.status} reason={c.status === 'Closed' && c.outcome ? c.outcome : undefined} />, csv: statusText },
-    { key: 'days', label: 'Days open', width: 90, align: 'right', mobile: true, sort: (a, b) => daysOpen(a) - daysOpen(b), render: (c) => daysOpen(c) },
+    { key: 'days', label: 'Days open', width: 90, align: 'right', mobile: true, sort: (a, b) => daysOpen(a) - daysOpen(b), render: (c) => { const fu = followUps(c, data, new Date()); return fu.length ? <Tip label={fu[0].text}><span tabIndex={0} className="inline-flex items-center gap-1 font-medium text-warning-text"><AlertTriangle aria-hidden className="size-3.5" />{daysOpen(c)}</span></Tip> : daysOpen(c) } },
     { key: 'office', label: 'Office', width: 100, render: (c) => data.offices.find((o) => o.id === scoped.get(c.accountId)!.officeId)?.name ?? '' },
   ]
   const open = rows.filter((c) => c.status !== 'Closed')
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle title="Claims" description="Claims your agency reported. The carrier’s adjuster handles each claim; Fortify tracks it." actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setReporting(true)}>+ Report a claim</Button>} />
+      <div className="mt-4"><ClaimFollowUps claims={all} /></div>
       <ViewTabs views={VIEWS} counts={Object.fromEntries(VIEWS.map((v) => [v, all.filter(inView[v]).length]))} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {([['status', 'Status', STEPS.map((x) => [x, x])], ['loss', 'Loss type', Object.keys(FORM).map((x) => [x, x])], ['carrier', 'Carrier', data.carriers.map((c) => [c.id, c.name])], ...(user.role === 'principal' || user.role === 'admin' ? [['office', 'Office', data.offices.map((o) => [o.id, o.name])]] : [])] as [string, string, string[][]][]).map(([k, l, o]) => (
@@ -70,6 +72,7 @@ export function ClaimPage() {
   const { id = '' } = useParams()
   const { data, user } = useApp()
   const { account: getAccount, userName, carrierName } = useLookups()
+  const followUpTask = useFollowUpTask()
   const mutate = useMutate()
   const toast = useToast()
   const navigate = useNavigate()
@@ -105,6 +108,7 @@ export function ClaimPage() {
         actions={
           canEdit && (
             <span className="flex gap-2">
+              {followUps(c, data, new Date()).length > 0 && !data.tasks.some((t) => t.status === 'Open' && t.linked?.kind === 'claim' && t.linked.id === c.id) && <Tip label={followUps(c, data, new Date())[0].text}><Button onClick={() => followUpTask(c)}><AlertTriangle aria-hidden className="size-4 text-warning-text" />Create follow-up task</Button></Tip>}
               {c.status === 'Reported' && <Button variant="primary" onClick={() => setDialog('submit')}>Submit to carrier</Button>}
               {c.status === 'Submitted to carrier' && <Button variant="primary" onClick={() => setDialog('number')}>Add claim #</Button>}
               {c.status === 'Claim # assigned' && <Button onClick={() => setDialog('number')}>Add adjuster</Button>}
@@ -285,5 +289,36 @@ function ReasonDialog({ title, placeholder, onClose, onConfirm }: { title: strin
     <Confirm open onOpenChange={(o) => !o && onClose()} title={title} body="A reason is required." confirmLabel={title.split(' ')[0]} onConfirm={async () => { if (!reason.trim()) throw new Error('Add a reason.'); await onConfirm(reason.trim()); onClose() }}>
       <Field label="Reason"><input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={placeholder} /></Field>
     </Confirm>
+  )
+}
+
+/** US-CLM-006: a 1-business-day follow-up Task for the Claim's Account Manager. */
+function useFollowUpTask() {
+  const { data, user } = useApp()
+  const mutate = useMutate()
+  return (c: Claim) => {
+    const a = data.accounts.find((x) => x.id === c.accountId)!
+    const carrier = data.carriers.find((x) => x.id === data.policies.find((p) => p.id === c.policyId)?.carrierId)?.name ?? 'the carrier'
+    const d = new Date()
+    let due = 0
+    do { d.setDate(d.getDate() + 1); due++ } while (d.getDay() === 0 || d.getDay() === 6)
+    return mutate((s) => s.saveTask(null, { accountId: a.id, title: `Follow up with ${carrier} on claim ${c.carrierClaimNumber ?? c.id}`, type: 'Call', priority: 'Normal', assigneeId: a.accountManagerId, dueOffset: due, linked: { kind: 'claim', id: c.id }, dueTime: '17:00', durationMin: null, description: null }, user.id), 'Follow-up task created')
+  }
+}
+function ClaimFollowUps({ claims }: { claims: Claim[] }) {
+  const { data, user } = useApp()
+  const create = useFollowUpTask()
+  const hits = claims.map((c) => ({ c, fu: followUps(c, data, new Date()) })).filter((x) => x.fu.length)
+  const canTask = user.role !== 'admin'
+  return (
+    <AttentionCallout title={`${hits.length} claim${hits.length === 1 ? ' needs' : 's need'} follow-up`} badge={false} storageKey="fortify.claims.followup.collapsed" max={0} items={hits.map(({ c }) => ({ key: c.id, title: '' }))}>
+      {hits.slice(0, 8).map(({ c, fu }) => (
+        <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm">
+          <Link to={`/claims/${c.id}`} className="font-medium text-link underline">{c.id}</Link><span>· {fu[0].text}</span>
+          {canTask && !data.tasks.some((t) => t.status === 'Open' && t.linked?.kind === 'claim' && t.linked.id === c.id) && <button onClick={() => create(c)} className="text-link underline">Create follow-up task</button>}
+        </li>
+      ))}
+      {hits.length > 8 && <li className="text-sm text-label">and {hits.length - 8} more</li>}
+    </AttentionCallout>
   )
 }

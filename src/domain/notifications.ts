@@ -1,7 +1,8 @@
 import { canSeeAccount } from './access'
+import { followUps } from './claimFollowUp'
 import type { Dataset, User } from './types'
 
-export type NotificationKind = 'service-overdue' | 'mention' | 'lead-assigned' | 'task-due' | 'task-overdue' | 'renewal-at-risk' | 'service-assigned' | 'certificate-review' | 'xdate-followup'
+export type NotificationKind = 'claim-followup' | 'service-overdue' | 'mention' | 'lead-assigned' | 'task-due' | 'task-overdue' | 'renewal-at-risk' | 'service-assigned' | 'certificate-review' | 'xdate-followup'
 export interface AppNotification {
   id: string
   kind: NotificationKind
@@ -16,7 +17,7 @@ export interface AppNotification {
  * US-FND-008: notifications are derived from the store for the viewing user, so View as always shows that
  * user's set. IDs are stable per source record, so read state survives re-renders and store writes.
  */
-export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'> & { activities?: Dataset['activities']; users?: Dataset['users']; certificates?: Dataset['certificates']; holders?: Dataset['holders'] }, user: User): AppNotification[] {
+export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | 'tasks' | 'renewals' | 'serviceRequests' | 'terms' | 'policies'> & { activities?: Dataset['activities']; users?: Dataset['users']; certificates?: Dataset['certificates']; holders?: Dataset['holders']; claims?: Dataset['claims'] }, user: User): AppNotification[] {
   const acc = new Map(data.accounts.map((a) => [a.id, a]))
   const name = (id: string) => acc.get(id)?.name ?? ''
   const out: AppNotification[] = []
@@ -56,6 +57,13 @@ export function deriveNotifications(data: Pick<Dataset, 'accounts' | 'leads' | '
   for (const s of data.serviceRequests)
     if (s.ownerId === user.id && s.status !== 'Done' && s.status !== 'Waiting on client' && (s.dueAt ? new Date(s.dueAt) < new Date() : s.dueOffset < 0))
       out.push({ id: `sr-overdue-${s.id}`, kind: 'service-overdue', title: `${s.id} is overdue`, body: `${s.type} · ${name(s.accountId)}`, offset: Math.max(s.dueOffset, -30), to: `/service/${s.id}` })
+  // US-CLM-006: once per rule per Claim, to the Account Manager.
+  if (data.claims && data.activities && data.tasks)
+    for (const c of data.claims) {
+      if (acc.get(c.accountId)?.accountManagerId !== user.id) continue
+      for (const fu of followUps(c, { activities: data.activities, tasks: data.tasks, serviceRequests: data.serviceRequests }, new Date()))
+        out.push({ id: `claim-${fu.rule}-${c.id}`, kind: 'claim-followup', title: fu.rule === 'noClaimNumber' ? `${c.id} has no claim # after 2 business days` : `${c.id} needs a check-in`, body: `${fu.text} · ${name(c.accountId)}`, offset: 0, to: `/claims/${c.id}` })
+    }
   for (const a of data.activities ?? [])
     if (a.mentions?.includes(user.id) && a.occurredOffset >= -14)
       out.push({ id: `mention-${a.id}`, kind: 'mention', title: `${data.users?.find((u) => u.id === a.createdById)?.name ?? 'Someone'} mentioned you`, body: `${name(a.accountId)} · ${a.subject}`, offset: a.occurredOffset, to: `/accounts/${a.accountId}?tab=activity` })
