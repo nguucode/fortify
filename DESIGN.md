@@ -179,7 +179,7 @@ The rejected category default is the card grid with colored stage pills and an o
 A restrained, achromatic palette with a single saturated blue and four status hues that appear only where they encode state.
 
 ### Primary
-- **Action Blue** (primary): the primary button, focus outlines, text caret, checkbox accent, active menu checkmarks, the refetch progress line, Term ribbon ticks, and the "F" logomark. It is both the action color and the brand color; the wordmark text beside the logomark stays neutral.
+- **Action Blue** (primary): the primary button, focus outlines, text caret, checkbox accent, active menu checkmarks, the refetch progress line, Term ribbon ticks, and the Layered F logomark (a squircle tile with a top-light gradient from Action Blue to Pressed Blue; see `brand/logo/README.md`). It is both the action color and the brand color; the wordmark text beside the logomark stays neutral.
 - **Pressed Blue** (primary-hover): hover state of the primary button only.
 - **Ink Blue** (link): inline text links and link-style actions ("Clear filters", sortable header hover). Darker than Action Blue so body-size text clears 4.5:1.
 - **Selection Wash** (selection): text selection background, with strong text on top.
@@ -253,7 +253,7 @@ Flat, with ring edges. Depth is conveyed by the canvas-to-white step and a 1px r
 
 ## Shapes
 
-Gently rounded and consistent: 8px for buttons, inputs, table container tops, nav items, popovers, toasts and the logomark; 12px for the global search entry and the command palette; 4px for menu items, kbd hints, dismiss buttons and skeleton bars; full round for count pills, the Sample data badge, status dots, toggles and the avatar. The table container rounds only its top corners; the pagination footer closes the bottom.
+Gently rounded and consistent: 8px for buttons, inputs, table container tops, nav items, popovers and toasts (the logomark uses its own squircle); 12px for the global search entry and the command palette; 4px for menu items, kbd hints, dismiss buttons and skeleton bars; full round for count pills, the Sample data badge, status dots, toggles and the avatar. The table container rounds only its top corners; the pagination footer closes the bottom.
 
 ## Components
 
@@ -287,7 +287,7 @@ White container, ring, 8px top radius. 40px header row (14/600, strong) and 40px
 ### Navigation
 - **Sidebar:** 32px items, 8px radius, 14/500. Icons 16px at 1.75 stroke, 60% opacity until hover or active. Active item is white with a ring and strong text; hover fills Well Grey. Collapsed rail shows tooltips to the right and swaps group labels for 1px dividers.
 - **Saved-view tabs:** 14px text with count pills; the active tab gets a 2px strong underline and 500 weight, never blue.
-- **Top bar:** logomark (24px Action Blue tile with a white "F") and neutral wordmark, office control, Sample data badge, global search entry with a ⌘K hint; on the right, notifications, then View as and Demo controls grouped behind a 1px divider under a muted "Demo" caption, then the avatar.
+- **Top bar:** logomark (24px Layered F app icon, small cut, `/favicon.svg`) and neutral wordmark, office control, Sample data badge, global search entry with a ⌘K hint; on the right, notifications, then View as and Demo controls grouped behind a 1px divider under a muted "Demo" caption, then the avatar.
 - **Menus and popovers:** white, Pop shadow, 8px radius, 32px items with 4px radius; the selected option carries a blue check.
 - **Command palette:** 560px, 12px radius, Pop shadow, 48px input at 16px, over a strong/20 scrim.
 

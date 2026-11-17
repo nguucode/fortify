@@ -1,0 +1,31 @@
+{
+  "brand": "Fortify",
+  "tagline": "The CRM beside your AMS",
+  "brief": "Fortify is the CRM a US independent P&C agency uses to sell, service and retain personal and commercial lines. The mark moves the old blue 'F' tile into an Apple-style app icon without losing the equity staff already recognise.",
+  "adjectives": ["calm", "precise", "protective", "quiet"],
+  "criteria": "Keep the blue F tile equity, read at 16 px, avoid insurance clichés (shields, umbrellas, houses), sit inside the One Blue Rule.",
+  "mockups": ["website", "favicon-tab", "app-icon", "business-card", "social", "signage"],
+  "nav": ["Today", "Accounts", "Renewals"],
+  "brand_color": "#1447E6",
+  "greyscale": false,
+  "designer": "Fortify design",
+  "round": 2,
+  "concepts": [
+    {
+      "name": "Layered F",
+      "symbol": "final/fortify-symbol.svg",
+      "lockup": "final/fortify-horizontal-black.svg",
+      "symbol_on_tile": "final/fortify-app-icon.svg",
+      "lockup_on_dark": "final/fortify-horizontal-dark.svg",
+      "tile_color": "#1447E6",
+      "idea": "The F the team already knows, its middle arm lifted onto its own glass layer.",
+      "rationale": [
+        "Keeps the blue F tile equity; nobody has to relearn the app",
+        "The floating arm is the one ownable detail: layered cover, Apple-style depth",
+        "Outer corner shares the tile's curve; a solid small cut holds at 16 px"
+      ]
+    }
+  ],
+  "recommendation": "Layered F, approved. Use the small cut at 32 px and below, and the flat symbol for every one-colour use.",
+  "next_steps": ["Ship favicon and TopBar logomark", "Trademark search before external use", "Extend the layer motif into empty states and loading"]
+}
