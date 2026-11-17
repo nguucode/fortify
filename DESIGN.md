@@ -287,7 +287,7 @@ White container, ring, 8px top radius. 40px header row (14/600, strong) and 40px
 ### Navigation
 - **Sidebar:** 32px items, 8px radius, 14/500. Icons 16px at 1.75 stroke, 60% opacity until hover or active. Active item is white with a ring and strong text; hover fills Well Grey. Collapsed rail shows tooltips to the right and swaps group labels for 1px dividers.
 - **Saved-view tabs:** 14px text with count pills; the active tab gets a 2px strong underline and 500 weight, never blue.
-- **Top bar:** logomark (24px Layered F app icon, small cut, `/favicon.svg`) and neutral wordmark, office control, Sample data badge, global search entry with a ⌘K hint; on the right, notifications, then View as and Demo controls grouped behind a 1px divider under a muted "Demo" caption, then the avatar.
+- **Top bar:** logomark (24px Layered F app icon, `/logo.svg`) and neutral wordmark, office control, Sample data badge, global search entry with a ⌘K hint; on the right, notifications, then View as and Demo controls grouped behind a 1px divider under a muted "Demo" caption, then the avatar.
 - **Menus and popovers:** white, Pop shadow, 8px radius, 32px items with 4px radius; the selected option carries a blue check.
 - **Command palette:** 560px, 12px radius, Pop shadow, 48px input at 16px, over a strong/20 scrim.
 

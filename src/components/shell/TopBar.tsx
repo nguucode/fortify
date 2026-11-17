@@ -109,7 +109,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
     <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line bg-canvas px-4 max-sm:gap-1.5 max-sm:px-3">
       <MobileNav />
       <span className="flex items-center gap-2 pr-1 text-lg font-semibold tracking-[-0.02em] text-strong max-sm:[&>span:last-child]:hidden">
-        <img src="/favicon.svg" alt="" aria-hidden className="size-6" />
+        <img src="/logo.svg" alt="" aria-hidden className="size-6" />
         Fortify
       </span>
       <OfficeControl />
