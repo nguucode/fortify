@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useSearchParams } from 'react-router'
-import { AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
 import { useApp, useDemoControls } from '@/app/store'
 import { dateOf, useLookups, useMutate } from '@/app/hooks'
 import { MERGE_FIELDS, smsSegments, unknownTokens } from '@/domain/templates'
@@ -8,10 +8,10 @@ import { mergeValues } from '@/app/merge'
 import { INTEGRATION_DEFAULTS } from '@/app/data'
 import { renewalWindowDays } from '@/domain/rules'
 import type { AgencySettings, Office, Template, User } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
+import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, mini, PageTitle, Panel, PrimaryCell, Sheet, SheetCancel, type Column, type FilterDef } from '@/components/patterns'
 import { Markdown } from '@/product/Markdown'
 import { docs } from '@/product/spec'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { ProgressLine, Badge, Button, Callout, controlCls, cx, Due, Select, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { formatPhone } from './AccountSheets'
 import { AccessDenied } from './SystemPages'
@@ -22,23 +22,15 @@ function useCanEdit() {
   return useApp().user.role === 'admin'
 }
 const Edit = ({ children }: { children: ReactNode }) => <Gate allowed={useCanEdit()} reason={RO}>{children}</Gate>
-function Header({ title, description, actions }: { title: string; description: string; actions?: ReactNode }) {
-  const canEdit = useCanEdit()
-  return (
-    <header className="mb-5 flex items-start justify-between gap-4">
-      <div>
-        <h1 className="flex items-center gap-2 text-title font-semibold text-strong">{title}{!canEdit && <span className="rounded-full bg-fill px-2 text-xs leading-5 font-medium text-label">Read only</span>}</h1>
-        <p className="mt-1 text-base text-muted">{description}</p>
-      </div>
-      {actions}
-    </header>
-  )
+/** The PageTitle badge for viewers who can't edit Settings. */
+function ReadOnlyBadge() {
+  return useCanEdit() ? null : <Badge>Read only</Badge>
 }
 
 /** US-SET-001 */
 export function SettingsLayout() {
   const { user } = useApp()
-  if (user.role === 'producer' || user.role === 'account-manager') return <AccessDenied what="Settings" owner="an Admin" />
+  if (user.role === 'producer' || user.role === 'account-manager') return <AccessDenied what="Settings" area={{ who: 'Admins and Principals' }} />
   const groups: [string, [string, string, boolean?][]][] = [
     ['Organization', [['/settings/users', 'Users'], ['/settings/offices', 'Offices'], ['/settings/roles', 'Roles']]],
     ['Workflow', [['/settings/pipeline', 'Pipeline'], ['/settings/templates', 'Templates']]],
@@ -72,15 +64,19 @@ export function SettingsUsers() {
   const { data } = useApp()
   const { office } = useLookups()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [drawer, setDrawer] = useState<User | 'new' | null>(null)
   const f = { role: params.get('role'), office: params.get('office'), status: params.get('status') }
   const rows = data.users.filter((u) => (f.status ? (u.status ?? 'Active') === f.status : u.status !== 'Deactivated') && (!f.role || u.role === f.role) && (!f.office || u.officeId === f.office)).sort((a, b) => a.name.localeCompare(b.name))
   const book = (u: User) => data.accounts.filter((a) => a.lifecycle === 'active' && (a.producerId === u.id || a.accountManagerId === u.id)).length
   const licWarn = (u: User) => (u.licenseRecords ?? []).some((l) => l.expirationOffset <= 60)
-  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }) }
+  const filters: FilterDef[] = [
+    { k: 'role', label: 'Role', opts: Object.entries(ROLE_LABEL) },
+    { k: 'office', label: 'Office', opts: data.offices.map((o) => [o.id, o.name]) },
+    { k: 'status', label: 'Status', opts: [['Active', 'Active'], ['Invited', 'Invited'], ['Deactivated', 'Deactivated']], empty: 'Active and invited' },
+  ]
   const cols: Column<User>[] = [
-    { key: 'name', label: 'Name', render: (u) => <span className="flex min-w-0 flex-col leading-tight"><span className="truncate font-medium text-strong">{u.name}</span><span className="truncate text-sm text-muted">{u.email}</span></span>, csv: (u) => u.name },
+    { key: 'name', label: 'Name', render: (u) => <PrimaryCell name={u.name} token={u.email} />, csv: (u) => u.name },
     { key: 'role', label: 'Role', width: 150, render: (u) => ROLE_LABEL[u.role] },
     { key: 'office', label: 'Office', width: 120, render: (u) => office(u.officeId)?.name ?? '' },
     { key: 'title', label: 'Title', width: 180, render: (u) => u.title ?? '—' },
@@ -90,14 +86,20 @@ export function SettingsUsers() {
   ]
   return (
     <>
-      <Header title="Users" description="Who works in Fortify, their role, and their Office." actions={<Edit><Button variant="primary" onClick={() => setDrawer('new')}>+ Invite user</Button></Edit>} />
-      <div className="mb-3 flex flex-wrap gap-2">
-        <select aria-label="Role" value={f.role ?? ''} onChange={(e) => setP('role', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">Role</option>{Object.entries(ROLE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-        <select aria-label="Office" value={f.office ?? ''} onChange={(e) => setP('office', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">Office</option>{data.offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>
-        <select aria-label="Status" value={f.status ?? ''} onChange={(e) => setP('status', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">Active and invited</option><option>Active</option><option>Invited</option><option>Deactivated</option></select>
-      </div>
-      <p className="tabular mb-2 text-sm text-muted">{data.users.filter((u) => u.status !== 'Deactivated' && u.status !== 'Invited').length} users · {data.offices.length} offices · {data.users.filter((u) => u.status === 'Invited').length} invited</p>
-      <DataTable rows={rows} columns={cols} minWidth={960} listId="settings-users" exportName="users" onRowClick={(u) => setDrawer(u)} />
+      <PageTitle title="Users" description="Who works in Fortify, their role, and their Office." badge={<ReadOnlyBadge />} />
+      <DataTable
+        search={{ label: 'Search users', placeholder: 'Search name or email', match: (u, q) => `${u.name} ${u.email}`.toLowerCase().includes(q) }}
+        className="mt-4"
+        rows={rows}
+        columns={cols}
+        minWidth={960}
+        listId="settings-users"
+        exportName="users"
+        onRowClick={(u) => setDrawer(u)}
+        filters={filters}
+        actions={<Edit><Button variant="primary" onClick={() => setDrawer('new')}><Plus aria-hidden className="size-4" strokeWidth={1.75} />Invite user</Button></Edit>}
+        meta={<span className="tabular">{data.users.filter((u) => u.status !== 'Deactivated' && u.status !== 'Invited').length} users · {data.offices.length} offices · {data.users.filter((u) => u.status === 'Invited').length} invited</span>}
+      />
       {drawer && <UserDrawer user={drawer === 'new' ? undefined : drawer} onClose={() => setDrawer(null)} />}
     </>
   )
@@ -136,7 +138,7 @@ function UserDrawer({ user: u, onClose }: { user?: User; onClose: () => void }) 
       }
     >
       <fieldset disabled={!canEdit} className="flex flex-col gap-3">
-        {err && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}{err.startsWith('Move') && <Link to={`/accounts?${u?.role === 'producer' ? 'producer' : 'am'}=${u?.id}`} className="ml-1 text-link underline">Move Book</Link>}</p>}
+        {err && <Callout tone="danger">{err}{err.startsWith('Move') && <Link to={`/accounts?${u?.role === 'producer' ? 'producer' : 'am'}=${u?.id}`} className="ml-1 text-link underline">Move Book</Link>}</Callout>}
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name"><input className={inputCls} value={first} onChange={(e) => setFirst(e.target.value)} /></Field>
           <Field label="Last name"><input className={inputCls} value={last} onChange={(e) => setLast(e.target.value)} /></Field>
@@ -148,7 +150,7 @@ function UserDrawer({ user: u, onClose }: { user?: User; onClose: () => void }) 
           <Field label="Title (optional)"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
           <Field label="Phone (optional)"><input className={inputCls} value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} /></Field>
         </div>
-        {u && u.role === 'producer' && role === 'account-manager' && openOpps > 0 && <p className="rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring">{u.name} owns {openOpps} open Opportunities. Account Managers can't edit Opportunities; reassign them first.</p>}
+        {u && u.role === 'producer' && role === 'account-manager' && openOpps > 0 && <Callout tone="warning">{u.name} owns {openOpps} open Opportunities. Account Managers can't edit Opportunities; reassign them first.</Callout>}
         {u && officeId !== u.officeId && <p className="text-sm text-label">Their Accounts stay in {data.offices.find((o) => o.id === u.officeId)?.name}. Move the Book separately if needed.</p>}
       </fieldset>
     </Sheet>
@@ -161,7 +163,7 @@ export function SettingsOffices() {
   const [editing, setEditing] = useState<Office | null>(null)
   return (
     <>
-      <Header title="Offices" description="Fortify supports the agency's three offices." />
+      <PageTitle className="mb-5" title="Offices" description="Fortify supports the agency's three offices." badge={<ReadOnlyBadge />} />
       <div className="flex flex-col gap-3">
         {data.offices.map((o) => (
           <Panel key={o.id} title={`${o.name} ${o.state}`} actions={<Edit><Button size="sm" onClick={() => setEditing(o)}>Edit</Button></Edit>}>
@@ -181,7 +183,7 @@ function OfficeDrawer({ office: o, onClose }: { office: Office; onClose: () => v
   return (
     <Sheet open onOpenChange={(x) => !x && onClose()} title={`Edit ${o.name} ${o.state}`} footer={<><SheetCancel /><Button variant="primary" onClick={() => mutate((s) => s.updateOffice(o.id, v, user.id), `${o.name} ${o.state} office updated`).then(onClose).catch((e) => setErr((e as Error).message))}>Save</Button></>}>
       <div className="flex flex-col gap-3">
-        {err && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
+        {err && <Callout tone="danger">{err}</Callout>}
         <Field label="Address line 1"><input className={inputCls} value={v.address1} onChange={(e) => setV({ ...v, address1: e.target.value })} /></Field>
         <Field label="Address line 2"><input className={inputCls} value={v.address2} onChange={(e) => setV({ ...v, address2: e.target.value })} /></Field>
         <div className="grid grid-cols-2 gap-3">
@@ -205,7 +207,7 @@ export function SettingsRoles() {
   const matrix = md.slice(md.indexOf('## '))
   return (
     <>
-      <Header title="Roles" description="Roles are fixed in this version. Use View as to preview any role." />
+      <PageTitle className="mb-5" title="Roles" description="Roles are fixed in this version. Use View as to preview any role." badge={<ReadOnlyBadge />} />
       <Panel title="Scope">
         <ul className="divide-y divide-fill">
           {scope.map(([r, sc, desc]) => (
@@ -261,29 +263,29 @@ export function SettingsPipeline() {
       <ul className="divide-y divide-fill">
         {draft[key].map((r, i) => (
           <li key={i} className="flex items-center gap-2 py-1.5">
-            <input aria-label={`Reason ${i + 1}`} disabled={!canEdit || r.retired} className={cx(inputCls, 'h-8', r.retired && 'text-muted line-through')} value={r.name} onChange={(e) => setDraft({ ...draft, [key]: draft[key].map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} />
+            <input aria-label={`Reason ${i + 1}`} disabled={!canEdit || r.retired} className={cx(controlCls('sm'), 'w-full', r.retired && 'text-muted line-through')} value={r.name} onChange={(e) => setDraft({ ...draft, [key]: draft[key].map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} />
             <Edit><Button size="sm" onClick={() => setDraft({ ...draft, [key]: draft[key].map((x, j) => (j === i ? { ...x, retired: !x.retired } : x)) })}>{r.retired ? 'Restore' : 'Retire'}</Button></Edit>
           </li>
         ))}
       </ul>
-      {canEdit && <div className="mt-2 flex gap-2"><input aria-label="New reason" className={cx(inputCls, 'h-8')} value={value} onChange={(e) => setValue(e.target.value)} placeholder="New reason" /><Button size="sm" disabled={!value.trim()} onClick={() => { setDraft({ ...draft, [key]: [...draft[key], { name: value.trim() }] }); setValue('') }}>Add</Button></div>}
+      {canEdit && <div className="mt-2 flex gap-2"><input aria-label="New reason" className={cx(controlCls('sm'), 'w-full')} value={value} onChange={(e) => setValue(e.target.value)} placeholder="New reason" /><Button size="sm" disabled={!value.trim()} onClick={() => { setDraft({ ...draft, [key]: [...draft[key], { name: value.trim() }] }); setValue('') }}>Add</Button></div>}
       <p className="mt-2 text-sm text-muted">Retired reasons stay on past records and leave the picker.</p>
     </Panel>
   )
   return (
     <>
-      <Header title="Pipeline" description="Stage probabilities, stale thresholds, and the reasons people pick." actions={<Edit><Button variant="primary" disabled={!dirty} onClick={save}>Save changes</Button></Edit>} />
-      {warn && <p className="mb-3 flex items-center gap-2 rounded-md bg-warning-tint px-3 py-2 text-base text-ink shadow-ring"><AlertTriangle aria-hidden className="size-4 text-warning-text" />{warn}<button onClick={save} className="ml-auto text-link underline">Save anyway</button></p>}
+      <PageTitle className="mb-5" title="Pipeline" description="Stage probabilities, stale thresholds, and the reasons people pick." badge={<ReadOnlyBadge />} actions={<Edit><Button variant="primary" disabled={!dirty} onClick={save}>Save changes</Button></Edit>} />
+      {warn && <Callout tone="warning" className="mb-3" action={<button onClick={save} className="text-link underline">Save anyway</button>}>{warn}</Callout>}
       <Panel title="Opportunity stages">
-        <table className="tabular w-full max-w-xl border-collapse text-left">
-          <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong"><th>Stage</th><th>Win probability (%)</th><th>Stale after (days)</th></tr></thead>
+        <table className={cx(mini.table, 'tabular max-w-xl')}>
+          <thead><tr className={mini.head}><th className={mini.th}>Stage</th><th className={mini.th}>Win probability (%)</th><th className={mini.th}>Stale after (days)</th></tr></thead>
           <tbody>
             {order.map((st) => (
-              <tr key={st} className="h-11 border-b border-fill last:border-0">
-                <td className="font-medium">{st}</td>
-                {st === 'Won' || st === 'Lost' ? <><td className="text-label">{draft.stages[st]?.probability ?? (st === 'Won' ? 100 : 0)}</td><td className="text-muted">—</td></> : <>
-                <td><input aria-label={`${st} probability`} inputMode="numeric" disabled={!canEdit} className={cx(inputCls, 'h-8 max-w-24')} value={draft.stages[st]?.probability ?? 0} onChange={(e) => setDraft({ ...draft, stages: { ...draft.stages, [st]: { ...draft.stages[st], probability: Math.min(100, Number(e.target.value.replace(/\D/g, '')) || 0) } } })} /></td>
-                <td><input aria-label={`${st} stale days`} inputMode="numeric" disabled={!canEdit} className={cx(inputCls, 'h-8 max-w-24')} value={draft.stages[st]?.staleDays ?? 0} onChange={(e) => setDraft({ ...draft, stages: { ...draft.stages, [st]: { ...draft.stages[st], staleDays: Math.min(90, Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1)) } } })} /></td></>}
+              <tr key={st} className={mini.tr}>
+                <td className={cx(mini.td, 'font-medium')}>{st}</td>
+                {st === 'Won' || st === 'Lost' ? <><td className={cx(mini.td, 'text-label')}>{draft.stages[st]?.probability ?? (st === 'Won' ? 100 : 0)}</td><td className={cx(mini.td, 'text-muted')}>—</td></> : <>
+                <td className={mini.td}><input aria-label={`${st} probability`} inputMode="numeric" disabled={!canEdit} className={cx(controlCls('sm'), 'w-full max-w-24')} value={draft.stages[st]?.probability ?? 0} onChange={(e) => setDraft({ ...draft, stages: { ...draft.stages, [st]: { ...draft.stages[st], probability: Math.min(100, Number(e.target.value.replace(/\D/g, '')) || 0) } } })} /></td>
+                <td className={mini.td}><input aria-label={`${st} stale days`} inputMode="numeric" disabled={!canEdit} className={cx(controlCls('sm'), 'w-full max-w-24')} value={draft.stages[st]?.staleDays ?? 0} onChange={(e) => setDraft({ ...draft, stages: { ...draft.stages, [st]: { ...draft.stages[st], staleDays: Math.min(90, Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1)) } } })} /></td></>}
               </tr>
             ))}
           </tbody>
@@ -312,12 +314,12 @@ export function SettingsTemplates() {
   const { data } = useApp()
   const { userName } = useLookups()
   const mutate = useMutate()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [editing, setEditing] = useState<Template | 'new' | null>(null)
   const f = { channel: params.get('channel'), category: params.get('category'), status: params.get('status') }
   const all = data.templates ?? []
   const rows = all.filter((t) => (!f.channel || t.channel === f.channel) && (!f.category || t.category === f.category) && (!f.status || t.status === f.status)).sort((a, b) => (a.status === b.status ? a.category.localeCompare(b.category) || a.name.localeCompare(b.name) : a.status === 'Active' ? -1 : 1))
-  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }) }
+  const filters: FilterDef[] = ([['channel', 'Channel', ['Email', 'SMS', 'Certificate wording']], ['category', 'Category', ['Sales', 'X-date', 'Renewal', 'Service', 'Certificates']], ['status', 'Status', ['Active', 'Retired']]] as [string, string, string[]][]).map(([k, label, o]) => ({ k, label, opts: o.map((x) => [x, x]) }))
   const cols: Column<Template>[] = [
     { key: 'name', label: 'Name', render: (t) => <span className={cx('font-medium', t.status === 'Retired' ? 'text-muted' : 'text-strong')}>{t.name}</span>, csv: (t) => t.name },
     { key: 'channel', label: 'Channel', width: 170, render: (t) => t.channel },
@@ -342,14 +344,18 @@ export function SettingsTemplates() {
   ]
   return (
     <>
-      <Header title="Templates" description="Email, SMS, and certificate wording offered across Fortify." actions={<Edit><Button variant="primary" onClick={() => setEditing('new')}>+ New template</Button></Edit>} />
-      <div className="mb-3 flex flex-wrap gap-2">
-        {([['channel', 'Channel', ['Email', 'SMS', 'Certificate wording']], ['category', 'Category', ['Sales', 'X-date', 'Renewal', 'Service', 'Certificates']], ['status', 'Status', ['Active', 'Retired']]] as [string, string, string[]][]).map(([k, l, o]) => (
-          <select key={k} aria-label={l} value={params.get(k) ?? ''} onChange={(e) => setP(k, e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">{l}</option>{o.map((x) => <option key={x}>{x}</option>)}</select>
-        ))}
-      </div>
-      <p className="tabular mb-2 text-sm text-muted">{all.filter((t) => t.status === 'Active').length} templates · {all.filter((t) => t.status === 'Retired').length} retired</p>
-      <DataTable rows={rows} columns={cols} minWidth={1000} onRowClick={(t) => setEditing(t)} />
+      <PageTitle title="Templates" description="Email, SMS, and certificate wording offered across Fortify." badge={<ReadOnlyBadge />} />
+      <DataTable
+        search={{ label: 'Search templates', placeholder: 'Search templates', match: (t, q) => `${t.name} ${t.usedIn}`.toLowerCase().includes(q) }}
+        className="mt-4"
+        rows={rows}
+        columns={cols}
+        minWidth={1000}
+        onRowClick={(t) => setEditing(t)}
+        filters={filters}
+        actions={<Edit><Button variant="primary" onClick={() => setEditing('new')}><Plus aria-hidden className="size-4" strokeWidth={1.75} />New template</Button></Edit>}
+        meta={<span className="tabular">{all.filter((t) => t.status === 'Active').length} templates · {all.filter((t) => t.status === 'Retired').length} retired</span>}
+      />
       {editing && <TemplateEditor template={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
     </>
   )
@@ -369,7 +375,7 @@ function TemplateEditor({ template: t, onClose }: { template?: Template; onClose
   return (
     <Sheet open onOpenChange={(x) => !x && onClose()} title={t?.id ? t.name : 'New template'} footer={<><SheetCancel /><Edit><Button variant="primary" onClick={() => mutate((s) => s.saveTemplate(t?.id || null, { ...v, subject: v.channel === 'Email' ? v.subject : null }, user.id), 'Template saved').then(onClose).catch((e) => setErr((e as Error).message))}>Save template</Button></Edit></>}>
       <fieldset disabled={!canEdit} className="flex flex-col gap-3">
-        {err && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
+        {err && <Callout tone="danger">{err}</Callout>}
         <Field label="Name"><input className={inputCls} value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Channel"><select className={inputCls} value={v.channel} onChange={(e) => setV({ ...v, channel: e.target.value as Template['channel'] })}><option>Email</option><option>SMS</option><option>Certificate wording</option></select></Field>
@@ -390,7 +396,7 @@ function TemplateEditor({ template: t, onClose }: { template?: Template; onClose
       </fieldset>
       <section className="mt-5 border-t border-fill pt-4">
         <div className="mb-2 flex items-center justify-between gap-2"><h3 className="text-base font-semibold text-strong">Preview</h3>
-          <select aria-label="Sample account" value={sample} onChange={(e) => setSample(e.target.value)} className="h-8 max-w-60 rounded-md bg-surface px-2 text-sm shadow-control">{data.accounts.filter((a) => a.lifecycle === 'active').slice(0, 40).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+          <Select size="sm" aria-label="Sample account" value={sample} onChange={(e) => setSample(e.target.value)} className="max-w-60">{data.accounts.filter((a) => a.lifecycle === 'active').slice(0, 40).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select>
         </div>
         <div className="rounded-md bg-recessed p-3 text-base whitespace-pre-wrap">
           {v.channel === 'Email' && <p className="mb-2 font-medium">{preview(v.subject)}</p>}
@@ -404,7 +410,7 @@ function TemplateEditor({ template: t, onClose }: { template?: Template; onClose
 /** US-SET-009 */
 export function SettingsCarriers() {
   const { data } = useApp()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [open, setOpen] = useState<string | null>(null)
   const appt = (cid: string, st: string) => data.appointments?.find((a) => a.carrierId === cid && a.state === st)
   const inForce = (cid: string, st: string) => data.policies.filter((p) => p.carrierId === cid && data.accounts.find((a) => a.id === p.accountId)?.state === st && data.terms.some((t) => t.policyId === p.id && t.status === 'Active')).length
@@ -424,17 +430,25 @@ export function SettingsCarriers() {
     { key: 'fl', label: 'FL appointment', width: 160, render: (c) => cell(c.id, 'FL'), csv: (c) => appt(c.id, 'FL')?.status ?? '' },
     { key: 'type', label: 'Type', width: 160, render: (c) => (c.note?.includes('E&S') ? 'Excess & surplus' : c.note?.includes('last resort') ? 'Residual market' : 'Admitted') },
   ]
-  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }) }
+  const filters: FilterDef[] = [
+    { k: 'state', label: 'State', opts: [['TX', 'TX'], ['FL', 'FL']] },
+    // No ?status means Active; the option list has no "Any".
+    ...(f.state ? [{ k: 'status', label: 'Appointment status', opts: [['', 'Active'], ['Terminated', 'Terminated'], ['Not appointed', 'Not appointed']], empty: false } satisfies FilterDef] : []),
+  ]
   const c = open ? data.carriers.find((x) => x.id === open) : undefined
   return (
     <>
-      <Header title="Carriers & appointments" description="Managed in the AMS and carrier portals. Read only in Fortify." />
-      <div className="mb-3 flex gap-2">
-        <select aria-label="State" value={f.state ?? ''} onChange={(e) => setP('state', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">State</option><option>TX</option><option>FL</option></select>
-        {f.state && <select aria-label="Appointment status" value={f.status ?? 'Active'} onChange={(e) => setP('status', e.target.value)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option>Active</option><option>Terminated</option><option>Not appointed</option></select>}
-      </div>
-      <p className="tabular mb-2 text-sm text-muted">Showing {rows.length} of {data.carriers.length} carriers{f.state ? ` ${(f.status ?? 'Active').toLowerCase()} in ${f.state}` : ''}</p>
-      <DataTable rows={rows} columns={cols} minWidth={900} onRowClick={(x) => setOpen(x.id)} />
+      <PageTitle title="Carriers & appointments" description="Managed in the AMS and carrier portals. Read only in Fortify." badge={<ReadOnlyBadge />} />
+      <DataTable
+        search={{ label: 'Search carriers', placeholder: 'Search carrier or NAIC', match: (c, q) => `${c.name} ${c.naic}`.toLowerCase().includes(q) }}
+        className="mt-4"
+        rows={rows}
+        columns={cols}
+        minWidth={900}
+        onRowClick={(x) => setOpen(x.id)}
+        filters={filters}
+        meta={<span className="tabular">Showing {rows.length} of {data.carriers.length} carriers{f.state ? ` ${(f.status ?? 'Active').toLowerCase()} in ${f.state}` : ''}</span>}
+      />
       {c && (
         <Sheet open onOpenChange={(x) => !x && setOpen(null)} title={c.name} description={`NAIC ${c.naic}`} footer={<SheetCancel>Close</SheetCancel>}>
           {(['TX', 'FL'] as const).map((st) => {
@@ -455,7 +469,7 @@ export function SettingsCarriers() {
 export function SettingsLicenses() {
   const { data } = useApp()
   const { office } = useLookups()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   type Row = { id: string; u: User; l: NonNullable<User['licenseRecords']>[number] }
   const all: Row[] = data.users.filter((u) => u.status !== 'Deactivated').flatMap((u) => (u.licenseRecords ?? []).map((l, i) => ({ id: `${u.id}-${i}`, u, l })))
   const f = { user: params.get('user'), state: params.get('state'), status: params.get('status') }
@@ -463,28 +477,34 @@ export function SettingsLicenses() {
   const rows = all.filter((r) => (!f.user || r.u.id === f.user) && (!f.state || r.l.state === f.state) && (!f.status || status(r) === f.status)).sort((a, b) => a.l.expirationOffset - b.l.expirationOffset)
   const soon = all.filter((r) => status(r) === 'Expiring soon')
   const expired = all.filter((r) => status(r) === 'Expired')
-  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }) }
+  const filters: FilterDef[] = [
+    { k: 'user', label: 'User', opts: data.users.filter((u) => u.licenseRecords?.length).map((u) => [u.id, u.name]) },
+    { k: 'state', label: 'State', opts: [['TX', 'TX'], ['FL', 'FL']] },
+    { k: 'status', label: 'Status', opts: [['Active', 'Active'], ['Expiring soon', 'Expiring soon'], ['Expired', 'Expired']] },
+  ]
   const name = (l: Row['l']) => (l.state === 'TX' ? (l.lineOfAuthority.includes('CSR') ? 'General Lines – Property and Casualty (agent, limited)' : 'General Lines – Property and Casualty') : l.lineOfAuthority)
   const cols: Column<Row>[] = [
-    { key: 'user', label: 'User', render: (r) => <span className="flex min-w-0 flex-col leading-tight"><span className="truncate font-medium text-strong">{r.u.name}</span><span className="text-sm text-muted">{office(r.u.officeId)?.name}</span></span>, csv: (r) => r.u.name },
+    { key: 'user', label: 'User', render: (r) => <PrimaryCell name={r.u.name} token={office(r.u.officeId)?.name} />, csv: (r) => r.u.name },
     { key: 'state', label: 'State', width: 70, render: (r) => r.l.state },
     { key: 'type', label: 'License type', width: 280, render: (r) => name(r.l) },
     { key: 'res', label: 'Residency', width: 120, render: (r) => r.l.residency ?? (office(r.u.officeId)?.state === r.l.state ? 'Resident' : 'Nonresident') },
     { key: 'num', label: 'License #', width: 140, render: (r) => <span className="font-mono text-sm">{r.l.number}</span>, csv: (r) => r.l.number },
     { key: 'exp', label: 'Expires', width: 110, render: (r) => dateOf(r.l.expirationOffset) },
-    { key: 'status', label: 'Status', width: 190, mobile: true, render: (r) => (status(r) === 'Expired' ? <span className="font-medium text-danger-text">Expired {-r.l.expirationOffset}d ago</span> : status(r) === 'Expiring soon' ? <span className="inline-flex items-center gap-1 font-medium text-warning-text"><AlertTriangle aria-hidden className="size-3.5" />Expires in {r.l.expirationOffset} days</span> : <StatusCell status="Active" />), csv: status },
+    { key: 'status', label: 'Status', width: 190, mobile: true, render: (r) => (status(r) === 'Expired' ? <Due tone="overdue">Expired {-r.l.expirationOffset}d ago</Due> : status(r) === 'Expiring soon' ? <Due tone="soon">Expires in {r.l.expirationOffset} days</Due> : <StatusCell status="Active" />), csv: status },
   ]
   return (
     <>
-      <Header title="Licenses" description="Licenses are tracked by the agency's licensing process. Read only in Fortify." />
-      {(soon.length > 0 || expired.length > 0) && <p className="mb-3 rounded-md bg-warning-tint px-4 py-2.5 text-base text-ink shadow-ring">{soon.length} licenses expire in the next 60 days · {expired.length} expired: {[...expired, ...soon].slice(0, 6).map((r) => r.u.name).join(', ')}</p>}
-      <div className="mb-3 flex flex-wrap gap-2">
-        <select aria-label="User" value={f.user ?? ''} onChange={(e) => setP('user', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">User</option>{data.users.filter((u) => u.licenseRecords?.length).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
-        <select aria-label="State" value={f.state ?? ''} onChange={(e) => setP('state', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">State</option><option>TX</option><option>FL</option></select>
-        <select aria-label="Status" value={f.status ?? ''} onChange={(e) => setP('status', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">Status</option><option>Active</option><option>Expiring soon</option><option>Expired</option></select>
-      </div>
-      <p className="tabular mb-2 text-sm text-muted">{all.length} licenses · {new Set(all.map((r) => r.u.id)).size} users</p>
-      <DataTable rows={rows} columns={cols} minWidth={1000} />
+      <PageTitle title="Licenses" description="Licenses are tracked by the agency's licensing process. Read only in Fortify." badge={<ReadOnlyBadge />} />
+      {(soon.length > 0 || expired.length > 0) && <Callout tone="warning" className="mt-4">{soon.length} licenses expire in the next 60 days · {expired.length} expired: {[...expired, ...soon].slice(0, 6).map((r) => r.u.name).join(', ')}</Callout>}
+      <DataTable
+        search={{ label: 'Search licenses', placeholder: 'Search name or license', match: (r, q) => `${r.u.name} ${JSON.stringify(r.l)}`.toLowerCase().includes(q) }}
+        className="mt-4"
+        rows={rows}
+        columns={cols}
+        minWidth={1000}
+        filters={filters}
+        meta={<span className="tabular">{all.length} licenses · {new Set(all.map((r) => r.u.id)).size} users</span>}
+      />
     </>
   )
 }
@@ -508,25 +528,25 @@ export function SettingsDataSync() {
   }
   return (
     <>
-      <Header title="AMS data sync" description="Fortify reads policies, terms, and commission from the AMS. It never writes them back. Claims are tracked in Fortify." actions={<Edit><Button variant="primary" disabled={busy} onClick={run}>{busy ? 'Syncing…' : 'Sync now'}</Button></Edit>} />
-      {busy && <div className="mb-3 h-1 overflow-hidden rounded-full bg-fill"><div className="h-1 w-1/2 animate-pulse rounded-full bg-primary" /></div>}
+      <PageTitle className="mb-5" title="AMS data sync" description="Fortify reads policies, terms, and commission from the AMS. It never writes them back. Claims are tracked in Fortify." badge={<ReadOnlyBadge />} actions={<Edit><Button variant="primary" disabled={busy} onClick={run}>{busy ? 'Syncing…' : 'Sync now'}</Button></Edit>} />
+      {busy && <ProgressLine className="mb-3" />}
       <Panel title="Status">
-        <p className="mb-2 flex items-center gap-2 text-base"><Icon aria-hidden className={cx('size-4', overall === 'Healthy' ? 'text-success' : overall === 'Degraded' ? 'text-warning-text' : 'text-danger')} /><span className="font-medium">{overall}</span>{runs[0]?.error && <span className="text-danger-text">· {runs[0].error}</span>}</p>
+        <p className="mb-2 flex items-center gap-2 text-base"><Icon aria-hidden className={cx('size-4', overall === 'Healthy' ? 'text-success' : overall === 'Degraded' ? 'text-warning-text' : 'text-danger')} strokeWidth={1.75} /><span className="font-medium">{overall}</span>{runs[0]?.error && <span className="text-danger-text">· {runs[0].error}</span>}</p>
         <KeyValue items={[['Last successful sync', lastOk ? at(lastOk.at) : '—'], ['Next scheduled sync', 'Today 12:00 PM'], ['Schedule', 'Twice daily, 6:00 AM and 12:00 PM']]} />
       </Panel>
       <div className="mt-4"><Panel title="Synced records"><KeyValue items={Object.entries(lastOk?.counts ?? {}).filter(([k]) => k !== 'Records changed').map(([k, v]) => [k, v.toLocaleString('en-US')] as [string, string])} /></Panel></div>
       <div className="mt-4">
         <Panel title="Sync log">
-          <table className="tabular w-full border-collapse text-left">
-            <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong"><th>Started</th><th>Duration</th><th>Result</th><th className="text-right">Records changed</th><th className="pl-8">Errors</th></tr></thead>
+          <table className={cx(mini.table, 'tabular')}>
+            <thead><tr className={mini.head}><th className={mini.th}>Started</th><th className={mini.th}>Duration</th><th className={mini.th}>Result</th><th className={cx(mini.th, 'text-right')}>Records changed</th><th className={mini.th}>Errors</th></tr></thead>
             <tbody>
               {runs.map((r) => (
-                <tr key={r.id} className="h-10 border-b border-fill last:border-0">
-                  <td>{at(r.at)}</td>
-                  <td>{Math.floor(r.durationSec / 60)}m {r.durationSec % 60}s</td>
-                  <td><StatusCell status={r.status} /></td>
-                  <td className="text-right">{r.counts['Records changed'] ?? r.counts['Renewal outcomes'] ?? '—'}</td>
-                  <td className="pl-8 text-sm text-label">{r.error ?? (r.skipped ? `${r.skipped} skipped · ${r.reason}` : '—')}</td>
+                <tr key={r.id} className={mini.tr}>
+                  <td className={mini.td}>{at(r.at)}</td>
+                  <td className={mini.td}>{Math.floor(r.durationSec / 60)}m {r.durationSec % 60}s</td>
+                  <td className={mini.td}><StatusCell status={r.status} /></td>
+                  <td className={cx(mini.td, 'text-right')}>{r.counts['Records changed'] ?? r.counts['Renewal outcomes'] ?? '—'}</td>
+                  <td className={cx(mini.td, 'text-sm text-label')}>{r.error ?? (r.skipped ? `${r.skipped} skipped · ${r.reason}` : '—')}</td>
                 </tr>
               ))}
             </tbody>
@@ -566,7 +586,7 @@ export function SettingsIntegrations() {
   }
   return (
     <>
-      <Header title="Integrations" description="Connections to the agency’s other systems." />
+      <PageTitle className="mb-5" title="Integrations" description="Connections to the agency’s other systems." badge={<ReadOnlyBadge />} />
       <p className="mb-4 rounded-md bg-recessed px-4 py-2.5 text-base">Integrations are simulated in this demo. No data leaves your browser.</p>
       <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1">
         {INTEGRATIONS.map(([k, name, purpose, loses]) => {

@@ -1,16 +1,17 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { AlertTriangle, Clock } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { officeName, useApp } from '@/app/store'
 import { dateOf, inDays, usd, useLookups } from '@/app/hooks'
 import { visibleAccounts } from '@/domain/access'
 import type { Opportunity, ServiceStatus } from '@/domain/types'
-import { AgencyPipeline, AmsSync, CertificateApprovals, CertificatesWaiting, GoalPacing, MyDay, RetentionWidget, UpcomingXDates, UsersAndLicenses } from './TodayWidgets'
-import { CountPill, cx, Tip } from '@/components/ui/primitives'
+import { Widget, AgencyPipeline, AmsSync, CertificateApprovals, CertificatesWaiting, GoalPacing, MyDay, RetentionWidget, UpcomingXDates, UsersAndLicenses } from './TodayWidgets'
+import { Button, CountPill, cx, Due, RateChange, Segmented, SubHeading, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { changePct, isHighRisk } from './RenewalsPages'
 import { quoteWindow } from './XDatesPages'
-import { AttentionCallout, type AttentionItem } from '@/components/patterns'
+import { AttentionCallout, mini, PageTitle, type AttentionItem } from '@/components/patterns'
+import { dueTone } from '@/domain/urgency'
 
 const STAGES = ['New', 'Contacted', 'Gathering info', 'Quoting', 'Proposed'] as const
 const SR_STATUSES: ServiceStatus[] = ['New', 'In progress', 'Waiting on carrier', 'Waiting on client']
@@ -21,20 +22,6 @@ const lines = (ls: string[]) => (ls.length > 4 ? `${ls.slice(0, 4).join(', ')} +
 const short = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : usd(n))
 
 /** One card grammar for every Today widget: title, count pill, figures, "View all" (always visible, it is navigation). */
-function Widget({ title, count, to, figures, children, toolbar }: { title: string; count?: number; to: string; figures?: ReactNode; toolbar?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="rounded-md bg-surface shadow-ring">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pt-3 pb-2">
-        <h2 className="text-lg font-medium text-strong">{title}</h2>
-        {count != null && <CountPill n={count} />}
-        {figures && <div className="flex flex-wrap items-baseline gap-x-4 text-sm text-label">{figures}</div>}
-        <Link to={to} className="ml-auto text-sm text-link hover:underline">View all</Link>
-      </header>
-      {toolbar && <div className="px-4 pb-2">{toolbar}</div>}
-      {children}
-    </section>
-  )
-}
 const Figure = ({ label, value }: { label: string; value: string }) => (
   <span>
     {label} <span className="tabular text-base font-semibold text-strong">{value}</span>
@@ -45,19 +32,9 @@ const Empty = ({ children, to, link }: { children: ReactNode; to: string; link: 
     {children} <Link to={to} className="text-link hover:underline">{link}</Link>
   </p>
 )
-function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: T[]; onChange: (v: T) => void; label: string }) {
-  return (
-    <div role="group" aria-label={label} className="inline-flex rounded-md bg-recessed p-0.5">
-      {options.map((o) => (
-        <button key={o} aria-pressed={value === o} onClick={() => onChange(o)} className={cx('h-7 rounded-[5px] px-2.5 text-sm', value === o ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
-          {o}
-        </button>
-      ))}
-    </div>
-  )
-}
-const th = 'h-8 px-4 text-left text-sm font-semibold whitespace-nowrap text-strong'
-const td = 'h-10 px-4 text-base'
+const th = mini.th
+const td = mini.td
+const opts = <T extends string>(...vs: T[]) => vs.map((v) => ({ value: v, label: v }))
 
 /** US-HOM-002 */
 function NewLeads() {
@@ -78,10 +55,7 @@ function NewLeads() {
               <span className="max-sm:hidden"><StatusCell status={l.status} /></span>
               {l.status === 'New' && l.createdOffset < 0 ? (
                 <Tip label="No contact attempt for 2h+">
-                  <span className="tabular inline-flex items-center justify-end gap-1 text-right text-sm font-medium text-warning-text">
-                    <Clock aria-hidden className="size-3.5" />
-                    {age(l.createdOffset)}
-                  </span>
+                  <Due tone="overdue" className="justify-end text-right text-sm">{age(l.createdOffset)}</Due>
                 </Tip>
               ) : (
                 <span className="tabular text-right text-sm text-label">{age(l.createdOffset)}</span>
@@ -141,12 +115,12 @@ function Pipeline({ agency }: { agency?: boolean }) {
               )
             })}
           </ul>
-          <h3 className="px-4 pt-3 pb-1 text-sm font-medium text-label">Closing this month</h3>
+          <SubHeading className="px-4 pt-3 pb-1">Closing this month</SubHeading>
           {closing.length ? (
             <div className="overflow-x-auto">
-              <table className="tabular w-full min-w-[560px] border-collapse">
+              <table className={cx(mini.table, 'tabular min-w-[560px]')}>
                 <thead>
-                  <tr className="border-b border-fill">
+                  <tr className={mini.head}>
                     <th className={th}>Account</th>
                     <th className={cx(th, 'w-28')}>Lines</th>
                     <th className={cx(th, 'w-36')}>Stage</th>
@@ -156,7 +130,7 @@ function Pipeline({ agency }: { agency?: boolean }) {
                 </thead>
                 <tbody>
                   {closing.slice(0, 8).map((o) => (
-                    <tr key={o.id} className="border-b border-fill last:border-0 hover:bg-recessed">
+                    <tr key={o.id} className={cx(mini.tr, 'hover:bg-recessed')}>
                       <td className={cx(td, 'max-w-0 py-1.5')}>
                         <Link to={`/pipeline/${o.id}`} className="block truncate font-medium text-strong hover:underline">{account(o.accountId)?.name}</Link>
                         <span className="block text-sm text-muted">{o.type}</span>
@@ -164,9 +138,9 @@ function Pipeline({ agency }: { agency?: boolean }) {
                       <td className={cx(td, 'max-w-0 truncate text-label')}>{lines(o.lines)}</td>
                       <td className={td}><StatusCell status={o.stage} /></td>
                       <td className={cx(td, 'text-right')}>{usd(o.estimatedPremium)}</td>
-                      <td className={cx(td, o.targetCloseOffset < 0 && 'font-medium text-danger-text')}>
-                        {dateOf(o.targetCloseOffset)}
-                        {o.targetCloseOffset < 0 && <span className="block text-sm">Past due</span>}
+                      <td className={td}>
+                        <Due tone={o.targetCloseOffset < 0 ? 'overdue' : null}>{dateOf(o.targetCloseOffset)}</Due>
+                        {o.targetCloseOffset < 0 && <span className="block text-sm font-medium text-danger-text">Past due</span>}
                       </td>
                     </tr>
                   ))}
@@ -203,21 +177,21 @@ function RenewalsDue({ agency }: { agency?: boolean }) {
       count={open.length}
       to="/renewals"
       toolbar={
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {!agency && <Segmented label="Renewal scope" value={scope} options={['Mine', 'Office']} onChange={setScope} />}
+        <div className="flex flex-wrap items-center gap-2">
+          {!agency && <Segmented size="sm" label="Renewal scope" value={scope} options={opts('Mine', 'Office')} onChange={setScope} />}
           {BANDS.map(([label], i) => (
-            <button key={label} aria-pressed={band === i} onClick={() => setBand(band === i ? null : i)} className={cx('h-7 text-sm text-label hover:text-strong', band === i && 'text-strong underline decoration-primary decoration-2 underline-offset-[6px]')}>
-              {label} <span className="tabular font-semibold text-strong">{open.filter((r) => inBand(r, i)).length}</span>
-            </button>
+            <Button key={label} size="sm" aria-pressed={band === i} onClick={() => setBand(band === i ? null : i)}>
+              {label} <CountPill n={open.filter((r) => inBand(r, i)).length} />
+            </Button>
           ))}
         </div>
       }
     >
       {list.length ? (
         <div className="overflow-x-auto">
-          <table className="tabular w-full min-w-[640px] border-collapse">
+          <table className={cx(mini.table, 'tabular min-w-[640px]')}>
             <thead>
-              <tr className="border-y border-fill">
+              <tr className={cx(mini.head, 'border-t')}>
                 <th className={th}>Account</th>
                 <th className={cx(th, 'w-36')}>Expiration</th>
                 <th className={cx(th, 'w-28 text-right')}>Premium change</th>
@@ -232,7 +206,7 @@ function RenewalsDue({ agency }: { agency?: boolean }) {
                 const pct = changePct(r, t)
                 const late = r.status === 'Upcoming' && exp(r.termId) <= 30
                 return (
-                  <tr key={r.id} className="border-b border-fill last:border-0 hover:bg-recessed">
+                  <tr key={r.id} className={cx(mini.tr, 'hover:bg-recessed')}>
                     <td className={cx(td, 'max-w-0 py-1.5')}>
                       <Link to={`/renewals/${r.id}`} className="block truncate font-medium text-strong hover:underline">{account(r.accountId)?.name}</Link>
                       <span className="block truncate text-sm text-muted">{p?.line} · {p ? carrierName(p.carrierId) : ''}</span>
@@ -241,9 +215,7 @@ function RenewalsDue({ agency }: { agency?: boolean }) {
                       {t ? dateOf(t.expirationOffset) : '—'}
                       <span className="block text-sm text-muted">{t ? inDays(t.expirationOffset) : ''}</span>
                     </td>
-                    <td className={cx(td, 'text-right', pct == null ? 'text-muted' : pct > 0 ? 'text-danger-text' : pct < 0 ? 'text-success-text' : '')}>
-                      {pct == null ? '—' : `${pct > 0 ? '↑ +' : pct < 0 ? '↓ −' : ''}${Math.abs(pct * 100).toFixed(1)}%`}
-                    </td>
+                    <td className={cx(td, 'text-right')}><RateChange pct={pct} /></td>
                     <td className={td}><StatusCell status={isHighRisk(r, t) ? 'High' : 'Low'} /></td>
                     <td className={td}>
                       {late ? (
@@ -285,21 +257,21 @@ function ServiceQueue() {
       count={open.length}
       to="/service"
       toolbar={
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Segmented label="Service scope" value={scope} options={['Mine', 'Office']} onChange={setScope} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented size="sm" label="Service scope" value={scope} options={opts('Mine', 'Office')} onChange={setScope} />
           {SR_STATUSES.map((s) => (
-            <button key={s} aria-pressed={status === s} onClick={() => setStatus(status === s ? null : s)} className={cx('h-7 text-sm text-label hover:text-strong', status === s && 'text-strong underline decoration-primary decoration-2 underline-offset-[6px]')}>
-              {s} <span className="tabular font-semibold text-strong">{Math.min(99, open.filter((r) => r.status === s).length)}</span>
-            </button>
+            <Button key={s} size="sm" aria-pressed={status === s} onClick={() => setStatus(status === s ? null : s)}>
+              {s} <CountPill n={Math.min(99, open.filter((r) => r.status === s).length)} />
+            </Button>
           ))}
         </div>
       }
     >
       {list.length ? (
         <div className="overflow-x-auto">
-          <table className="tabular w-full min-w-[640px] border-collapse">
+          <table className={cx(mini.table, 'tabular min-w-[640px]')}>
             <thead>
-              <tr className="border-y border-fill">
+              <tr className={cx(mini.head, 'border-t')}>
                 <th className={th}>Subject</th>
                 <th className={cx(th, 'w-48')}>Account</th>
                 <th className={cx(th, 'w-40')}>Status</th>
@@ -311,7 +283,7 @@ function ServiceQueue() {
               {list.slice(0, 8).map((r) => {
                 const stale = r.status === 'Waiting on carrier' && r.createdOffset < -5
                 return (
-                  <tr key={r.id} className="border-b border-fill last:border-0 hover:bg-recessed">
+                  <tr key={r.id} className={cx(mini.tr, 'hover:bg-recessed')}>
                     <td className={cx(td, 'max-w-0 py-1.5')}>
                       <Link to={`/service/${r.id}`} className="block truncate font-medium text-strong hover:underline">{r.subject}</Link>
                       <span className="block text-sm text-muted">{r.type}</span>
@@ -330,7 +302,7 @@ function ServiceQueue() {
                       )}
                     </td>
                     <td className={cx(td, 'text-right text-label')}>{age(r.createdOffset)}</td>
-                    <td className={cx(td, r.dueOffset <= 0 && 'font-medium text-danger-text')}>{r.dueOffset === 0 ? 'Due today' : r.dueOffset < 0 ? `Overdue ${-r.dueOffset}d` : dateOf(r.dueOffset)}</td>
+                    <td className={td}><Due tone={dueTone(r.dueOffset, 0)}>{r.dueOffset === 0 ? 'Due today' : r.dueOffset < 0 ? `Overdue ${-r.dueOffset}d` : dateOf(r.dueOffset)}</Due></td>
                   </tr>
                 )
               })}
@@ -359,8 +331,7 @@ export function TodayPage() {
           : [<UsersAndLicenses key="u" />, <AmsSync key="a" />]
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <h1 className="text-title font-semibold text-strong">Today</h1>
-      <p className="mt-1 truncate text-base text-muted" title={office}>{date} · {office}</p>
+      <PageTitle title="Today" description={<span className="block truncate" title={office}>{date} · {office}</span>} />
       <div className="mt-5"><TodayAttention /></div>
       <div className="mt-6 grid grid-cols-12 items-start gap-4 max-lg:grid-cols-1">
         <div className="col-span-8 flex min-w-0 flex-col gap-4 max-lg:col-span-1">{main}</div>

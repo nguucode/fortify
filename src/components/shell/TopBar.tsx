@@ -4,7 +4,7 @@ import { MobileNav } from './Sidebar'
 import * as Popover from '@radix-ui/react-popover'
 import { Building2, Check, ChevronDown, Search, SlidersHorizontal, UserRound } from 'lucide-react'
 import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
-import { cx, Kbd, Tip } from '@/components/ui/primitives'
+import { Badge, cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
 import { useLocation } from 'react-router'
 import type { Role } from '@/domain/types'
@@ -38,7 +38,7 @@ function OfficeControl() {
         <Menu.Content align="start" sideOffset={4} className={menuContent}>
           {[null, ...data.offices.map((o) => o.id)].map((id) => (
             <Menu.Item key={id ?? 'all'} className={menuItem} onSelect={() => setOfficeFilter(id)}>
-              <Check aria-hidden className={cx('size-4', officeFilter === id ? 'text-primary' : 'invisible')} />
+              <Check aria-hidden className={cx('size-4', officeFilter === id ? 'text-primary' : 'invisible')} strokeWidth={1.75} />
               {id ? officeName(id) : 'All offices'}
             </Menu.Item>
           ))}
@@ -67,7 +67,7 @@ function DemoControlsButton() {
         onClick={toggle}
         className={cx('relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors duration-150', on ? 'bg-primary' : 'bg-fill shadow-control')}
       >
-        <span className={cx('absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-ring transition-transform duration-150', on && 'translate-x-4')} />
+        <span className={cx('absolute top-0.5 left-0.5 size-4 rounded-full bg-surface shadow-ring transition-transform duration-150', on && 'translate-x-4')} />
       </button>
     </label>
   )
@@ -108,13 +108,13 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   return (
     <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line bg-canvas px-4 max-sm:gap-1.5 max-sm:px-3">
       <MobileNav />
-      <span className="flex items-center gap-2 pr-1 text-lg font-semibold tracking-[-0.02em] text-strong max-sm:[&>span:last-child]:hidden">
+      <span className="flex items-center gap-2 pr-1 text-lg font-semibold text-strong max-sm:[&>span:last-child]:hidden">
         <img src="/logo.svg" alt="" aria-hidden className="size-6" />
-        Fortify
+        <span>Fortify</span>
       </span>
       <OfficeControl />
       <Tip label="All data in this demo is fictional.">
-        <span tabIndex={0} className="rounded-full bg-fill px-2 text-xs leading-5 font-medium whitespace-nowrap text-label">Sample data</span>
+        <span tabIndex={0} className="inline-flex"><Badge>Sample data</Badge></span>
       </Tip>
       <button
         onClick={onOpenPalette}
@@ -140,7 +140,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
             <Menu.Content align="end" sideOffset={4} className={menuContent}>
               {viewAsUsers.map((u) => (
                 <Menu.Item key={u.id} className={cx(menuItem, 'h-auto py-1.5')} onSelect={() => setUser(u)}>
-                  <Check aria-hidden className={cx('size-4', u.id === user.id ? 'text-primary' : 'invisible')} />
+                  <Check aria-hidden className={cx('size-4', u.id === user.id ? 'text-primary' : 'invisible')} strokeWidth={1.75} />
                   <span>
                     <span className="block font-medium text-strong">{ROLE_LABEL[u.role]}</span>
                     <span className="block text-sm text-muted">{u.name} · {officeName(u.officeId)}</span>
@@ -153,7 +153,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         <DemoControlsButton />
       </div>
       <Menu.Root>
-        <Menu.Trigger className="grid size-7 place-items-center rounded-full bg-fill text-xs font-semibold text-ink hover:shadow-control">
+        <Menu.Trigger className="grid size-7 place-items-center rounded-full bg-fill text-xs font-medium text-label hover:shadow-control">
           {initials(user.name)}
           <span className="sr-only">Account menu for {user.name}</span>
         </Menu.Trigger>

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Trophy, X } from 'lucide-react'
+import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, MoreHorizontal, Plus, SearchX, Trophy } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { commissionFor } from '@/domain/commission'
 import { TaskSheet } from './TaskSheet'
@@ -10,11 +10,12 @@ import { dateOf, inDays, offsetOfDate, usd, useLookups, useMutate } from '@/app/
 import { canEditOpportunity, canSeeCommission, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { addMonths, checkStageMove } from '@/domain/rules'
 import type { Dataset, Line, Opportunity, OpportunityStage, Quote } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, Sheet, SheetCancel, AttentionCallout, type AttentionItem, type Column } from '@/components/patterns'
-import { Button, CountPill, cx, Tip } from '@/components/ui/primitives'
+import { BOARD_CAP, BoardColumn, boardCard, Confirm, DataTable, Field, Gate, inputCls, KeyValue, ListToolbar, mini, PageTitle, Panel, PrimaryCell, RecordHeader, Sheet, SheetCancel, AttentionCallout, useView, ViewTabs, type AttentionItem, type Column, type FilterDef } from '@/components/patterns'
+import { Button, Callout, controlCls, cx, Due, Segmented, Tip } from '@/components/ui/primitives'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { StatusCell } from '@/components/ui/status'
+import { EmptyState } from '@/components/ui/states'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { AccessDenied, NotFound } from './SystemPages'
 
@@ -44,72 +45,58 @@ export function PipelinePage() {
     return (
       <div className="px-4 pt-6 pb-10">
         <PageTitle title="Pipeline" description={`${open.length} open Opportunities · ${usd(total)} estimated premium`} />
-        <div className="mt-4">
-          <DataTable rows={[...open].sort((a, b) => OPEN_STAGES.indexOf(a.stage) - OPEN_STAGES.indexOf(b.stage))} columns={listCols} onRowClick={(o) => navigate(`/pipeline/${o.id}`)} />
-        </div>
+        <DataTable className="mt-4" rows={[...open].sort((a, b) => OPEN_STAGES.indexOf(a.stage) - OPEN_STAGES.indexOf(b.stage))} columns={listCols} onRowClick={(o) => navigate(`/pipeline/${o.id}`)} />
       </div>
     )
   const toggle = (
-    <div role="group" aria-label="Layout" className="inline-flex rounded-md bg-recessed p-0.5">
-      {(['board', 'list'] as const).map((v) => (
-        <button key={v} aria-pressed={asList === (v === 'list')} onClick={() => { const n = new URLSearchParams(params); if (v === 'list') n.set('view', 'list'); else n.delete('view'); setParams(n, { replace: true }) }} className={cx('h-8 rounded-[5px] px-3 text-sm capitalize', asList === (v === 'list') ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
-          {v}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label="Layout"
+      value={asList ? 'list' : 'board'}
+      onChange={(v) => { const n = new URLSearchParams(params); if (v === 'list') n.set('view', 'list'); else n.delete('view'); setParams(n, { replace: true }) }}
+      options={[{ value: 'board', label: 'Board' }, { value: 'list', label: 'List' }]}
+    />
+  )
+  const create = user.role !== 'admin' && (
+    <Button variant="primary" onClick={() => setCreating(true)}>
+      <Plus aria-hidden className="size-4" strokeWidth={1.75} /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}
+    </Button>
   )
   if (asList)
     return (
       <div className="px-8 pt-6 pb-10 max-sm:px-4">
-        <PageTitle title="Pipeline" description={`${open.length} open Opportunities · ${usd(total)} estimated premium`} actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setCreating(true)}><Plus aria-hidden className="size-4" /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}</Button>} />
+        <PageTitle title="Pipeline" description={`${open.length} open Opportunities · ${usd(total)} estimated premium`} />
         <div className="mt-4"><PipelineNudges opps={opps} /></div>
-        <div className="mt-4 flex justify-end">{toggle}</div>
-        <PipelineList opps={opps} />
+        <PipelineList opps={opps} toggle={toggle} actions={create} />
         {creating && <OpportunitySheet onClose={() => setCreating(false)} />}
       </div>
     )
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <PageTitle
-        title="Pipeline"
-        description={`${open.length} open Opportunities · ${usd(total)} estimated premium`}
-        actions={
-          user.role !== 'admin' && (
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus aria-hidden className="size-4" /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}
-            </Button>
-          )
-        }
-      />
+      <PageTitle title="Pipeline" description={`${open.length} open Opportunities · ${usd(total)} estimated premium`} />
       {creating && <OpportunitySheet onClose={() => setCreating(false)} />}
       <div className="mt-4"><PipelineNudges opps={opps} /></div>
-      <div className="mt-4 flex justify-end">{toggle}</div>
+      <ListToolbar className="mt-4" end={create}>{toggle}</ListToolbar>
       <div className="mt-3 grid grid-cols-5 gap-3 overflow-x-auto max-lg:min-w-[1000px]">
         {OPEN_STAGES.map((stage) => {
           const col = open.filter((o) => o.stage === stage).sort((a, b) => a.targetCloseOffset - b.targetCloseOffset)
           return (
-            <section key={stage} aria-label={stage} className="flex min-w-0 flex-col rounded-md bg-recessed p-2">
-              <h2 className="flex items-center justify-between px-1.5 pb-2 text-sm font-semibold text-strong">
-                {stage}
-                <span className="tabular font-normal text-label">{col.length} · {usd(col.reduce((s, o) => s + o.estimatedPremium, 0))}</span>
-              </h2>
-              <ol className="flex flex-col gap-2">
-                {col.slice(0, 40).map((o) => (
+            <BoardColumn key={stage} title={stage} count={col.length} figure={usd(col.reduce((s, o) => s + o.estimatedPremium, 0))}>
+                {col.slice(0, BOARD_CAP).map((o) => (
                   <li key={o.id}>
-                    <button onClick={() => navigate(`/pipeline/${o.id}`)} className="w-full rounded-md bg-surface p-2.5 text-left shadow-ring transition-shadow duration-150 hover:shadow-pop">
+                    <button onClick={() => navigate(`/pipeline/${o.id}`)} className={cx(boardCard, 'w-full')}>
                       <span className="block truncate text-base font-medium text-strong">{account(o.accountId)?.name}</span>
                       <span className="block truncate text-sm text-label">{o.type} · {o.lines.join(', ')}</span>
                       <span className="tabular mt-1 flex justify-between text-sm text-muted">
                         <span>{usd(o.estimatedPremium)}</span>
-                        <span className={cx(o.targetCloseOffset < 0 && 'text-danger-text')}>close {inDays(o.targetCloseOffset)}</span>
+                        <Due tone={o.targetCloseOffset < 0 ? 'overdue' : null}>close {inDays(o.targetCloseOffset)}</Due>
                       </span>
                       {user.role !== 'producer' && <span className="block truncate text-sm text-muted">{userName(o.ownerId)}</span>}
                       {!nextOf(o.id) && <span className="mt-0.5 block text-sm font-medium text-warning-text">No next step</span>}
                     </button>
                   </li>
                 ))}
-              </ol>
-            </section>
+                {col.length > BOARD_CAP && <li className="px-1.5 text-sm text-muted">Showing {BOARD_CAP} of {col.length}. Switch to List to see all.</li>}
+            </BoardColumn>
           )
         })}
       </div>
@@ -166,12 +153,12 @@ export function OpportunityPage() {
               <Link className="text-link hover:underline" to={`/renewals/${renewal!.id}`}>Remarket for Renewal of {incumbent.policyNumber} · expires {dateOf(incumbent.expires)}</Link>
             )}
             {!closed && (
-              <span className={cx(next && next.dueOffset < 0 && 'font-medium text-danger-text')}>
+              <span>
                 Next step:{' '}
                 {next ? (
-                  `${next.title} · ${next.dueOffset < 0 ? `Overdue · due ${dateOf(next.dueOffset)}` : `due ${dateOf(next.dueOffset)}`}`
+                  <Due tone={next.dueOffset < 0 ? 'overdue' : null}>{`${next.title} · ${next.dueOffset < 0 ? `Overdue · due ${dateOf(next.dueOffset)}` : `due ${dateOf(next.dueOffset)}`}`}</Due>
                 ) : canEdit ? (
-                  <button onClick={() => setNextStep(true)} className="text-link hover:underline">+ Add next step</button>
+                  <button onClick={() => setNextStep(true)} className="inline-flex items-center gap-1 text-link hover:underline"><Plus aria-hidden className="size-3.5" />Add next step</button>
                 ) : (
                   'No next step'
                 )}
@@ -191,7 +178,7 @@ export function OpportunityPage() {
                 {o.type === 'Remarket' && o.renewalId && <Button onClick={() => mutate((s) => s.markWonWithIncumbent(o.id, user.id), 'Renewed with incumbent')}>Renew with incumbent</Button>}
                 <Gate allowed={accepted.length > 0} reason="Accept at least one Quote line first.">
                   <Button variant="primary" onClick={() => setWon(true)}>
-                    <Trophy aria-hidden className="size-4" /> Mark won
+                    <Trophy aria-hidden className="size-4" strokeWidth={1.75} /> Mark won
                   </Button>
                 </Gate>
               </span>
@@ -212,7 +199,7 @@ export function OpportunityPage() {
               return (
                 <Tip label={!st ? 'No more stages' : !canEdit ? editReason : ok ? `Move to ${st}` : check && !check.ok ? check.message : st}>
                   <button aria-label={d < 0 ? 'Previous stage' : 'Next stage'} disabled={!ok} onClick={() => ok && move(st)} className="grid w-9 shrink-0 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed disabled:text-muted disabled:hover:bg-surface min-[900px]:hidden">
-                    {d < 0 ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
+                    {d < 0 ? <ChevronLeft className="size-4" strokeWidth={1.75} /> : <ChevronRight className="size-4" strokeWidth={1.75} />}
                   </button>
                 </Tip>
               )
@@ -262,7 +249,7 @@ export function OpportunityPage() {
                     <Button size="sm" onClick={() => mutate((s) => s.markPresented(quotes.filter((q) => q.status === 'Quoted').map((q) => q.id), user.id), 'Quotes marked Presented')}>Mark presented</Button>
                   </Gate>
                   <Button size="sm" onClick={() => setAddQuote(true)}>
-                    <Plus aria-hidden className="size-4" /> Add quote
+                    <Plus aria-hidden className="size-4" strokeWidth={1.75} /> Add quote
                   </Button>
                 </span>
               </Gate>
@@ -333,44 +320,44 @@ function QuoteMatrix({ o, quotes, canEdit, onRespond, incumbent, commission }: {
   const accept = (line: Line, quoteId: string, on: boolean) => mutate((s) => s.acceptLines(o.id, { [line]: on ? quoteId : null }), on ? `${line} accepted` : `${line} cleared`)
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-left">
+      <table className={cx(mini.table, 'min-w-[640px]')}>
         <thead>
-          <tr className="h-10 border-b border-fill">
-            <th className="px-3 text-base font-semibold text-strong">Carrier</th>
-            <th className="w-36 px-3 text-base font-semibold text-strong">Status</th>
+          <tr className={mini.head}>
+            <th className={mini.th}>Carrier</th>
+            <th className={cx(mini.th, 'w-36')}>Status</th>
             {o.lines.map((l) => (
-              <th key={l} className="w-44 px-3 text-right text-base font-semibold text-strong">{l}</th>
+              <th key={l} className={cx(mini.th, 'w-44 text-right')}>{l}</th>
             ))}
-            <th className="w-32 px-3" />
+            <th className={cx(mini.th, 'w-32')} />
           </tr>
         </thead>
         <tbody>
           {incumbent && (
-            <tr className="h-12 border-b border-fill bg-recessed">
-              <td className="px-3 font-medium text-strong">Incumbent: {carrierName(incumbent.carrierId)} (renewal)</td>
-              <td className="px-3 text-sm text-label">Baseline</td>
-              {o.lines.map((line) => <td key={line} className="tabular px-3 text-right">{line === incumbent.line && incumbent.renewal != null ? usd(incumbent.renewal) : <span className="text-muted">—</span>}</td>)}
-              <td />
+            <tr className={cx(mini.tr, 'bg-recessed')}>
+              <td className={cx(mini.td, 'font-medium text-strong')}>Incumbent: {carrierName(incumbent.carrierId)} (renewal)</td>
+              <td className={cx(mini.td, 'text-sm text-label')}>Baseline</td>
+              {o.lines.map((line) => <td key={line} className={cx(mini.td, 'tabular text-right')}>{line === incumbent.line && incumbent.renewal != null ? usd(incumbent.renewal) : <span className="text-muted">—</span>}</td>)}
+              <td className={mini.td} />
             </tr>
           )}
           {quotes.map((q) => (
-            <tr key={q.id} className="h-12 border-b border-fill last:border-0">
-              <td className="px-3">
+            <tr key={q.id} className={mini.tr}>
+              <td className={mini.td}>
                 <span className="font-medium text-strong">{carrierName(q.carrierId)}</span>
                 {q.warnings.length > 0 && (
                   <Tip label={q.warnings.map((w) => w.message).join(' ')}>
-                    <AlertTriangle aria-label="Warning" className="ml-1.5 inline size-4 text-warning-text" />
+                    <AlertTriangle aria-label="Warning" className="ml-1.5 inline size-4 text-warning-text" strokeWidth={1.75} />
                   </Tip>
                 )}
                 {q.declineReason && <span className="block text-sm text-muted">{q.declineReason}</span>}
               </td>
-              <td className="px-3"><StatusCell status={q.status} /></td>
+              <td className={mini.td}><StatusCell status={q.status} /></td>
               {o.lines.map((line) => {
                 const ql = q.lines.find((l) => l.line === line)
                 const isLow = ql?.premium != null && ql.premium === lowest[line]
                 const acceptable = canEdit && ql?.premium != null && (q.status === 'Presented' || q.status === 'Quoted')
                 return (
-                  <td key={line} className="tabular px-3 text-right">
+                  <td key={line} className={cx(mini.td, 'tabular text-right')}>
                     {ql?.premium != null ? (
                       <span className="inline-flex items-center gap-2">
                         {isLow && <span className="text-sm font-medium text-success-text">Lowest</span>}
@@ -391,7 +378,7 @@ function QuoteMatrix({ o, quotes, canEdit, onRespond, incumbent, commission }: {
                   </td>
                 )
               })}
-              <td className="px-3 text-right">
+              <td className={cx(mini.td, 'text-right')}>
                 {canEdit && (q.status === 'Requested' || q.status === 'Referred') && (
                   <Button size="sm" onClick={() => onRespond(q)}>Record response</Button>
                 )}
@@ -456,9 +443,9 @@ function AddQuoteSheet({ o, onClose }: { o: Opportunity; onClose: () => void }) 
         </Field>
         <p className="text-base text-label">Lines quoted: {carrier ? o.lines.filter((l) => carrier.lines.includes(l)).join(', ') : '—'}</p>
         {warnings.map((w) => (
-          <p key={w.message} role="alert" className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-base text-ink shadow-ring">
-            <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" /> {w.message} You can still request it; the warning stays on the Quote.
-          </p>
+          <Callout key={w.message} tone="warning" role="alert">
+            {w.message} You can still request it; the warning stays on the Quote.
+          </Callout>
         ))}
       </div>
     </Sheet>
@@ -612,7 +599,7 @@ export function LostDialog({ o, onClose }: { o: Opportunity; onClose: () => void
             <label key={line} className="flex flex-wrap items-center gap-2 text-sm text-ink">
               <input type="checkbox" checked={picked[line].on} onChange={(e) => setPicked({ ...picked, [line]: { ...picked[line], on: e.target.checked } })} className="size-4 accent-primary" />
               Create X-date: {line}{d?.currentCarrier ? `, current carrier ${d.currentCarrier}` : ''}{d?.currentPremium ? `, ${usd(d.currentPremium)}` : ''}
-              <input type="date" aria-label={`${line} X-date`} value={picked[line].date} onChange={(e) => setPicked({ ...picked, [line]: { on: true, date: e.target.value } })} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control" />
+              <input type="date" aria-label={`${line} X-date`} value={picked[line].date} onChange={(e) => setPicked({ ...picked, [line]: { on: true, date: e.target.value } })} className={controlCls('sm')} />
             </label>
           ))}
         </fieldset>
@@ -623,14 +610,13 @@ export function LostDialog({ o, onClose }: { o: Opportunity; onClose: () => void
 
 const LIST_VIEWS = ['My open', 'Closing this month', 'Cross-sell', 'Remarket']
 /** US-PIP-002: list with saved views, filters in the URL, sort, 50 per page, and a row menu. */
-function PipelineList({ opps }: { opps: Opportunity[] }) {
+function PipelineList({ opps, toggle, actions }: { opps: Opportunity[]; toggle: ReactNode; actions: ReactNode }) {
   const { data, user } = useApp()
   const { account, userName, office } = useLookups()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [lostFor, setLostFor] = useState<Opportunity | null>(null)
-  const view = (() => { const v = params.get('saved'); return LIST_VIEWS.find((x) => x.toLowerCase().replace(/\s+/g, '-') === v) ?? LIST_VIEWS[0] })()
-  const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); if (k !== 'page') n.delete('page'); setParams(n, { replace: true }) }
+  const view = useView(LIST_VIEWS, 'saved')
   const agency = user.role === 'principal' || user.role === 'admin'
   const today = new Date()
   const firstOff = -(today.getDate() - 1)
@@ -658,15 +644,13 @@ function PipelineList({ opps }: { opps: Opportunity[] }) {
     .filter((o) => (!f.type || o.type === f.type) && (!f.line || o.lines.includes(f.line as Line)) && (!f.carrier || carriersOf(o.id).has(f.carrier)) && (!f.producer || o.ownerId === f.producer) && (!f.office || account(o.accountId)?.officeId === f.office) && (!f.nonext || (isOpen(o) && !hasNext(o.id))) && (!f.nudge || nudgeOk(f.nudge, o)))
   const counts = Object.fromEntries(LIST_VIEWS.map((v) => [v, opps.filter(inView[v]).length]))
   const sorted = params.get('sort') ? rows : [...rows].sort((a, b) => a.targetCloseOffset - b.targetCloseOffset)
-  const page = Math.max(1, Number(params.get('page')) || 1)
-  const pageRows = sorted.slice((page - 1) * 50, page * 50)
   const cols: Column<Opportunity>[] = [
-    { key: 'name', label: 'Opportunity', render: (o) => <span className="flex min-w-0 items-baseline gap-2"><Link to={`/pipeline/${o.id}`} className="truncate font-medium text-strong hover:text-link hover:underline">{o.name ?? `${account(o.accountId)?.name} · ${o.lines.join(', ')}`}</Link><span className="shrink-0 font-mono text-xs text-muted">{oppCode(o.id)}</span></span>, csv: (o) => o.name ?? `${account(o.accountId)?.name} · ${o.lines.join(', ')}` },
+    { key: 'name', label: 'Opportunity', render: (o) => <PrimaryCell mono={oppCode(o.id)} name={o.name ?? `${account(o.accountId)?.name} · ${o.lines.join(', ')}`} to={`/pipeline/${o.id}`} />, csv: (o) => o.name ?? `${account(o.accountId)?.name} · ${o.lines.join(', ')}` },
     { key: 'type', label: 'Type', width: 110, sort: (a, b) => a.type.localeCompare(b.type), render: (o) => o.type },
     { key: 'status', label: 'Stage', width: 140, sort: (a, b) => OPEN_STAGES.indexOf(a.stage) - OPEN_STAGES.indexOf(b.stage), render: (o) => <StatusCell status={o.stage} />, csv: (o) => o.stage },
     { key: 'lines', label: 'Lines', width: 130, render: (o) => o.lines.join(', ') },
     { key: 'premium', label: 'Premium', width: 120, align: 'right', sort: (a, b) => best(a).v - best(b).v, render: (o) => { const b = best(o); return <span>{usd(b.v)}{b.est && <span className="text-sm text-muted"> est.</span>}</span> }, csv: (o) => best(o).v },
-    { key: 'close', label: 'Target close', width: 120, mobile: true, sort: (a, b) => a.targetCloseOffset - b.targetCloseOffset, render: (o) => <span className={cx('tabular', isOpen(o) && o.targetCloseOffset < 0 && 'font-medium text-danger-text')}>{dateOf(o.targetCloseOffset)}</span>, csv: (o) => dateOf(o.targetCloseOffset) },
+    { key: 'close', label: 'Target close', width: 120, mobile: true, sort: (a, b) => a.targetCloseOffset - b.targetCloseOffset, render: (o) => <Due tone={isOpen(o) && o.targetCloseOffset < 0 ? 'overdue' : null}>{dateOf(o.targetCloseOffset)}</Due>, csv: (o) => dateOf(o.targetCloseOffset) },
     { key: 'prob', label: 'Prob.', width: 70, align: 'right', sort: (a, b) => (a.probability ?? 0) - (b.probability ?? 0), render: (o) => (o.probability != null ? `${o.probability}%` : '—') },
     { key: 'producer', label: 'Producer', width: 140, sort: (a, b) => userName(a.ownerId).localeCompare(userName(b.ownerId)), render: (o) => userName(o.ownerId) },
     { key: 'office', label: 'Office', width: 100, render: (o) => office(account(o.accountId)!.officeId)?.name ?? '' },
@@ -678,7 +662,7 @@ function PipelineList({ opps }: { opps: Opportunity[] }) {
       width: 48,
       render: (o) => (
         <Menu.Root>
-          <Menu.Trigger aria-label={`Actions for ${oppCode(o.id)}`} className="grid size-7 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong"><MoreHorizontal className="size-4" /></Menu.Trigger>
+          <Menu.Trigger aria-label={`Actions for ${oppCode(o.id)}`} className="grid size-7 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong"><MoreHorizontal className="size-4" strokeWidth={1.75} /></Menu.Trigger>
           <Menu.Portal>
             <Menu.Content align="end" sideOffset={4} className={menuContent}>
               <Menu.Item className={menuItem} onSelect={() => navigate(`/pipeline/${o.id}`)}>Open</Menu.Item>
@@ -693,45 +677,39 @@ function PipelineList({ opps }: { opps: Opportunity[] }) {
     },
   ]
   const lines = [...new Set(opps.flatMap((o) => o.lines))]
-  const select = (k: string, label: string, opts: [string, string][]) => (
-    <select aria-label={label} value={params.get(k) ?? ''} onChange={(e) => set(k, e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control">
-      <option value="">{label}</option>
-      {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-    </select>
-  )
+  const filters: FilterDef[] = [
+    { k: 'stage', label: 'Stage', opts: [...OPEN_STAGES, 'Won', 'Lost'].map((x) => [x, x]) },
+    { k: 'type', label: 'Type', opts: ['New business', 'Cross-sell', 'Remarket'].map((x) => [x, x]) },
+    { k: 'line', label: 'Line', opts: lines.map((x) => [x, x]) },
+    { k: 'carrier', label: 'Carrier quoted', opts: data.carriers.map((c) => [c.id, c.name]) },
+    ...(agency
+      ? ([
+          { k: 'producer', label: 'Producer', opts: data.users.filter((u) => u.role === 'producer').map((u) => [u.id, u.name]) },
+          { k: 'office', label: 'Office', opts: data.offices.map((o) => [o.id, o.name]) },
+        ] as FilterDef[])
+      : []),
+    { k: 'nonext', label: 'Next step', opts: [['1', 'Missing']] },
+  ]
   return (
     <>
-      <nav aria-label="Saved views" className="mt-2 flex gap-1 overflow-x-auto border-b border-line">
-        {LIST_VIEWS.map((v) => (
-          <button key={v} aria-current={v === view ? 'page' : undefined} onClick={() => set('saved', v === LIST_VIEWS[0] ? null : v.toLowerCase().replace(/\s+/g, '-'))} className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', v === view ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>
-            {v} <CountPill n={counts[v]} />
-          </button>
-        ))}
-      </nav>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {select('stage', 'Stage', [...OPEN_STAGES, 'Won', 'Lost'].map((x) => [x, x]))}
-        {select('type', 'Type', ['New business', 'Cross-sell', 'Remarket'].map((x) => [x, x]))}
-        {select('line', 'Line', lines.map((x) => [x, x]))}
-        {select('carrier', 'Carrier quoted', data.carriers.map((c) => [c.id, c.name]))}
-        {agency && select('producer', 'Producer', data.users.filter((u) => u.role === 'producer').map((u) => [u.id, u.name]))}
-        {agency && select('office', 'Office', data.offices.map((o) => [o.id, o.name]))}
-        <label className="inline-flex items-center gap-1.5 text-sm text-label"><input type="checkbox" checked={!!f.nonext} onChange={(e) => set('nonext', e.target.checked ? '1' : null)} className="size-4 accent-primary" /> No next step</label>
-        {Object.values(f).some(Boolean) && <button onClick={() => { const n = new URLSearchParams(); n.set('view', 'list'); if (params.get('saved')) n.set('saved', params.get('saved')!); setParams(n, { replace: true }) }} className="text-sm text-link hover:underline">Clear filters</button>}
-      </div>
-      {f.nudge && <p className="mt-2"><span className="inline-flex h-6 items-center gap-1 rounded-md bg-fill px-2 text-sm">{NUDGE_CHIP[f.nudge]}<button aria-label="Remove filter" onClick={() => set('nudge', null)}><X aria-hidden className="size-3" /></button></span></p>}
-      {f.stage && <p className="mt-2 text-sm text-label">Stage filter replaces the saved view.</p>}
-      <div className="mt-3">
-        <DataTable rows={pageRows} columns={cols} minWidth={1300} listId="pipeline" exportName="opportunities" onRowClick={(o) => navigate(`/pipeline/${o.id}`)} empty={<p className="p-6 text-center text-base text-muted">No opportunities match.</p>} />
-      </div>
-      {sorted.length > 50 && (
-        <div className="tabular mt-3 flex items-center justify-between text-sm text-label">
-          <span>{(page - 1) * 50 + 1}–{Math.min(page * 50, sorted.length)} of {sorted.length}</span>
-          <span className="flex gap-2">
-            <Button size="sm" disabled={page <= 1} onClick={() => set('page', String(page - 1))}>Previous</Button>
-            <Button size="sm" disabled={page * 50 >= sorted.length} onClick={() => set('page', String(page + 1))}>Next</Button>
-          </span>
-        </div>
-      )}
+      <ViewTabs param="saved" views={LIST_VIEWS} counts={counts} />
+      <DataTable
+        className="mt-4"
+        toolbar={toggle}
+        search={{ label: 'Search opportunities', placeholder: 'Search Account, ID, or line', match: (o, q) => `${account(o.accountId)?.name ?? ''} ${o.id} ${o.lines.join(' ')}`.toLowerCase().includes(q) }}
+        filters={filters}
+        actions={actions}
+        extraChips={f.nudge ? [{ k: 'nudge', label: NUDGE_CHIP[f.nudge] }] : undefined}
+        meta={f.stage ? 'Stage filter replaces the saved view.' : undefined}
+        rows={sorted}
+        pageSize={50}
+        columns={cols}
+        minWidth={1300}
+        listId="pipeline"
+        exportName="opportunities"
+        onRowClick={(o) => navigate(`/pipeline/${o.id}`)}
+        empty={<EmptyState icon={SearchX} title="No opportunities match these filters" body="Try a different search, or clear the filters." />}
+      />
       {lostFor && <LostDialog o={lostFor} onClose={() => setLostFor(null)} />}
     </>
   )

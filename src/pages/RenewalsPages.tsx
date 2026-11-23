@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { bulkSummary } from '@/app/bulk'
 import { useToast } from '@/components/ui/toast'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, Check, Clock, Minus, Plus, RefreshCw, X } from 'lucide-react'
+import { Check, Clock, Minus, Plus, RefreshCw } from 'lucide-react'
 import { compareRenewal, renewalMilestones, riskReasons } from '@/domain/renewals'
 import { TaskSheet, useCompleteTask } from './TaskSheet'
 import { useApp } from '@/app/store'
@@ -10,8 +10,9 @@ import { dateOf, inDays, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditRenewal, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { nextRenewalStatuses, renewalWindowDays } from '@/domain/rules'
 import type { Renewal, RenewalDecision, RenewalStatus, Term } from '@/domain/types'
-import { BulkPickDialog, Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, TabBar, ViewTabs, useTab, useView, AttentionCallout, type AttentionItem, type Column } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { BulkPickDialog, Confirm, DataTable, Field, Gate, inputCls, KeyValue, mini, PageTitle, Panel, RecordHeader, TabBar, ViewTabs, useTab, useView, AttentionCallout, type AttentionItem, type Column } from '@/components/patterns'
+import { Button, cx, Due, RateChange, Tip } from '@/components/ui/primitives'
+import { dueTone } from '@/domain/urgency'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
@@ -24,18 +25,14 @@ const STEPS: RenewalStatus[] = ['Upcoming', 'In review', 'Remarketing', 'Present
 export const changePct = (r: Renewal, t?: Term) => (r.renewalPremium != null && t ? (r.renewalPremium - t.premium) / t.premium : null)
 export const isHighRisk = (r: Renewal, t?: Term) => (changePct(r, t) ?? 0) >= 0.1 || !!t?.pendingCancellation
 
-/** US-REN-002: "+$1,214 · +38%"; +10% or more danger with an up arrow, −5% or less success with a down arrow. */
+/** US-REN-002: "+$1,214 · +38%"; the percent is the shared RateChange, the dollar delta sits beside it. */
 function Change({ pct, dollars }: { pct: number | null; dollars?: number | null }) {
   if (pct == null) return <span className="text-muted">Awaiting terms</span>
-  const tone = pct >= 0.1 ? 'text-danger-text' : pct <= -0.05 ? 'text-success-text' : 'text-ink'
   const sign = pct > 0 ? '+' : pct < 0 ? '−' : ''
   return (
-    <span className={cx('tabular inline-flex items-center gap-0.5 font-medium', tone)}>
-      {pct >= 0.1 && <ArrowUp aria-hidden className="size-3.5" />}
-      {pct <= -0.05 && <ArrowDown aria-hidden className="size-3.5" />}
+    <span className="tabular whitespace-nowrap">
       {dollars != null && `${sign}${usd(Math.abs(dollars))} · `}
-      {sign}
-      {Math.abs(pct * 100).toFixed(0)}%
+      <RateChange pct={pct} />
     </span>
   )
 }
@@ -59,11 +56,11 @@ const Risk = ({ reasons }: { reasons: string[] }) =>
     <StatusCell status="Low" />
   )
 
-type Row = Renewal & { term: Term; accountName: string; line: string }
+type Row = Renewal & { term: Term; accountName: string; line: string; policyNumber: string; carrier: string }
 
 export function RenewalsPage() {
   const { data, user } = useApp()
-  const { account, policy, userName } = useLookups()
+  const { account, policy, carrierName, userName } = useLookups()
   const [bulk, setBulk] = useState<{ kind: 'task' | 'assign'; ids: string[] } | null>(null)
   const bulkMutate = useMutate()
   const bulkToast = useToast()
@@ -77,7 +74,7 @@ export function RenewalsPage() {
   const terms = new Map(data.terms.map((t) => [t.id, t]))
   const rows: Row[] = data.renewals
     .filter((r) => scoped.has(r.accountId) && r.status !== 'Done')
-    .map((r) => ({ ...r, term: terms.get(r.termId)!, accountName: account(r.accountId)?.name ?? '', line: policy(r.policyId)?.line ?? '' }))
+    .map((r) => { const p = policy(r.policyId); return { ...r, term: terms.get(r.termId)!, accountName: account(r.accountId)?.name ?? '', line: p?.line ?? '', policyNumber: p?.policyNumber ?? '', carrier: p ? carrierName(p.carrierId) : '' } })
   const inView: Record<string, (r: Row) => boolean> = {
     'Due in window': (r) => r.status !== 'Decided',
     'At risk': (r) => risk(r, r.term).length > 0,
@@ -99,12 +96,12 @@ export function RenewalsPage() {
   const counts = Object.fromEntries(VIEWS.map((v) => [v, rows.filter(inView[v]).length]))
   const cols: Column<Row>[] = [
     { key: 'account', label: 'Account', sort: (a, b) => a.accountName.localeCompare(b.accountName), render: (r) => <Link to={`/renewals/${r.id}`} className="font-medium text-strong hover:text-link hover:underline">{r.accountName}</Link> },
-    { key: 'line', label: 'Line', width: 140, render: (r) => r.line },
+    { key: 'line', label: 'Line', width: 110, render: (r) => r.line },
     { key: 'status', label: 'Status', width: 130, render: (r) => <StatusCell status={r.status} /> },
-    { key: 'exp', label: 'Expires', width: 230, sort: (a, b) => a.term.expirationOffset - b.term.expirationOffset, render: (r) => <span className={cx('tabular inline-flex items-center gap-1', r.term.expirationOffset <= 14 && 'font-medium text-warning-text')}>{r.term.expirationOffset <= 14 && <Clock aria-hidden className="size-3.5" />}{dateOf(r.term.expirationOffset)} · {inDays(r.term.expirationOffset)}</span> },
+    { key: 'exp', label: 'Expires', width: 180, sort: (a, b) => a.term.expirationOffset - b.term.expirationOffset, render: (r) => <Due tone={dueTone(r.term.expirationOffset, 14)}>{dateOf(r.term.expirationOffset)} · {inDays(r.term.expirationOffset)}</Due> },
     { key: 'premium', label: 'Expiring premium', width: 140, align: 'right', render: (r) => usd(r.term.premium) },
     { key: 'renewal', label: 'Renewal premium', width: 140, align: 'right', render: (r) => (r.renewalPremium != null ? usd(r.renewalPremium) : <span className="text-muted">Awaiting terms</span>), csv: (r) => r.renewalPremium ?? '' },
-    { key: 'change', label: 'Change', width: 160, align: 'right', sort: (a, b) => (changePct(a, a.term) ?? -9) - (changePct(b, b.term) ?? -9), render: (r) => <Change pct={changePct(r, r.term)} dollars={r.renewalPremium != null ? r.renewalPremium - r.term.premium : null} />, csv: (r) => { const p = changePct(r, r.term); return p == null ? '' : `${(p * 100).toFixed(1)}%` } },
+    { key: 'change', label: 'Change', width: 150, align: 'right', sort: (a, b) => (changePct(a, a.term) ?? -9) - (changePct(b, b.term) ?? -9), render: (r) => <Change pct={changePct(r, r.term)} dollars={r.renewalPremium != null ? r.renewalPremium - r.term.premium : null} />, csv: (r) => { const p = changePct(r, r.term); return p == null ? '' : `${(p * 100).toFixed(1)}%` } },
     { key: 'risk', label: 'Risk', width: 90, render: (r) => <Risk reasons={risk(r, r.term)} />, csv: (r) => risk(r, r.term).join('; ') || 'Low' },
     { key: 'owner', label: 'Account Manager', width: 160, render: (r) => userName(r.ownerId) },
   ]
@@ -113,15 +110,13 @@ export function RenewalsPage() {
       <PageTitle title="Renewals" description="Terms inside their renewal window: 45 days personal, 120 FL residential property, 60 / 90 commercial." />
       <div className="mt-4"><AttentionCallout items={nudgeItems} storageKey="fortify.renewals.nudges.collapsed" max={3} /></div>
       <ViewTabs views={VIEWS} counts={counts} />
-      <div className="mt-3 flex items-center gap-3">
-        {nudge && NUDGES[nudge] && <span className="inline-flex h-6 items-center gap-1 rounded-md bg-fill px-2 text-sm">{NUDGES[nudge].label(list.length)}<button aria-label="Remove filter" onClick={() => setNudge(null)}><X aria-hidden className="size-3" /></button></span>}
-        <label className="inline-flex items-center gap-2 text-sm text-label">
-          <input type="checkbox" checked={big} onChange={(e) => { const n = new URLSearchParams(params); if (e.target.checked) n.set('change', '20'); else n.delete('change'); setParams(n, { replace: true }) }} className="size-4 accent-primary" />
-          Change ≥ 20%
-        </label>
-      </div>
-      <p className="tabular mt-2 mb-2 text-sm text-muted">Showing {list.length} renewals</p>
-      <DataTable bulkMax={{ n: 50, message: "Bulk actions are limited to 50 renewals." }} bulkActions={user.role === 'admin' ? undefined : [{ label: 'Start review', run: startReview }, { label: 'Add task', run: (ids) => setBulk({ kind: 'task', ids }) }, ...(user.role === 'principal' ? [{ label: 'Reassign', run: (ids: string[]) => setBulk({ kind: 'assign', ids }) }] : [])]} rows={list} columns={cols} minWidth={1100} listId="renewals" exportName="renewals" onRowClick={(r) => navigate(`/renewals/${r.id}`)} empty={<EmptyState icon={RefreshCw} title="No renewals in this view" body="Terms enter the worklist when their window opens." />} />
+      <DataTable
+        className="mt-4"
+        search={{ label: 'Search renewals', placeholder: 'Search Account, policy, or carrier', match: (r, q) => r.accountName.toLowerCase().includes(q) || r.policyNumber.toLowerCase().includes(q) || r.carrier.toLowerCase().includes(q) }}
+        filters={[{ k: 'change', label: 'Premium change', opts: [['20', '≥ 20%']] }]}
+        extraChips={nudge && NUDGES[nudge] ? [{ k: 'nudge', label: NUDGES[nudge].label(list.length) }] : undefined}
+        meta={`Showing ${list.length} renewals`}
+        bulkMax={{ n: 50, message: "Bulk actions are limited to 50 renewals." }} bulkActions={user.role === 'admin' ? undefined : [{ label: 'Start review', run: startReview }, { label: 'Add task', run: (ids) => setBulk({ kind: 'task', ids }) }, ...(user.role === 'principal' ? [{ label: 'Reassign', run: (ids: string[]) => setBulk({ kind: 'assign', ids }) }] : [])]} rows={list} columns={cols} minWidth={1300} listId="renewals" pageSize={50} exportName="renewals" onRowClick={(r) => navigate(`/renewals/${r.id}`)} empty={<EmptyState icon={RefreshCw} title="No renewals in this view" body="Terms enter the worklist when their window opens." />} />
       {bulk?.kind === 'task' && <BulkPickDialog title={`Add a task to ${bulk.ids.length} renewals`} label="Task" options={[['Call to review renewal options|30', 'Call to review renewal options · 30 days before expiration'], ['Request updated exposures|45', 'Request updated exposures · 45 days before'], ['Send renewal proposal|14', 'Send renewal proposal · 14 days before']]} confirmLabel="Add tasks" onClose={() => setBulk(null)} onConfirm={async (v) => { const [title, days] = v.split('|'); const r = await bulkMutate((s) => s.bulk(bulk.ids, (id) => { const x = s.getState().renewals.find((y) => y.id === id)!; const t = s.getState().terms.find((y) => y.id === x.termId)!; s.saveTask(null, { accountId: x.accountId, title, type: 'Call', priority: 'Normal', assigneeId: x.ownerId, dueOffset: Math.max(0, t.expirationOffset - Number(days)), linked: { kind: 'renewal', id }, dueTime: null, durationMin: null, description: null }, user.id) })); bulkToast(bulkSummary(r, 'tasks added'), 'success') }} />}
       {bulk?.kind === 'assign' && <BulkPickDialog title={`Reassign ${bulk.ids.length} renewals`} label="Account Manager" options={data.users.filter((u) => u.role === 'account-manager' && u.status !== 'Deactivated').map((u) => [u.id, `${u.name} · ${data.offices.find((o) => o.id === u.officeId)?.name}`])} confirmLabel="Reassign" onClose={() => setBulk(null)} onConfirm={async (to) => { const r = await bulkMutate((s) => s.bulk(bulk.ids, (id) => s.reassignRenewal(id, to, user.id))); const office = r.skipped.filter((x) => x.reason === 'Office mismatch').length; bulkToast(`Reassigned ${r.updated} renewals.${office ? ` ${office} skipped for Office mismatch.` : ''}`, 'success') }} />}
     </div>
@@ -216,7 +211,7 @@ export function RenewalPage() {
           compare ? (
             <CompareTable compare={compare} />
           ) : (
-            <Panel title="Compare"><p className="flex items-center gap-2 text-base text-muted"><Clock aria-hidden className="size-4" /> Compare is available once {carrierName(p.carrierId)} sends renewal terms.</p></Panel>
+            <Panel title="Compare"><p className="flex items-center gap-2 text-base text-muted"><Clock aria-hidden className="size-4" strokeWidth={1.75} /> Compare is available once {carrierName(p.carrierId)} sends renewal terms.</p></Panel>
           )
         ) : (
         <>
@@ -262,7 +257,7 @@ export function RenewalPage() {
                   <li key={t.id} className="flex items-center gap-3 py-2">
                     <input type="checkbox" aria-label={`Complete ${t.title}`} onChange={() => complete(t)} className="size-4 accent-primary" />
                     <span className="min-w-0 flex-1 truncate text-base">{t.title}</span>
-                    <span className={cx('tabular text-sm', t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-muted')}>{dateOf(t.dueOffset)}</span>
+                    <Due tone={t.dueOffset < 0 ? 'overdue' : null} className={cx('text-sm', t.dueOffset >= 0 && 'text-muted')}>{dateOf(t.dueOffset)}</Due>
                   </li>
                 ))}
               </ul>
@@ -309,21 +304,21 @@ function CompareTable({ compare }: { compare: NonNullable<ReturnType<typeof comp
   return (
     <Panel title="Expiring vs renewal">
       <div className="overflow-x-auto">
-        <table className="tabular w-full min-w-[600px] border-collapse text-left">
-          <thead><tr className="h-10 border-b border-fill"><th className="px-2 text-base font-semibold text-strong">Item</th><th className="px-2 text-base font-semibold text-strong">Expiring</th><th className="px-2 text-base font-semibold text-strong">Renewal</th><th className="px-2 text-base font-semibold text-strong">Change</th></tr></thead>
+        <table className={cx(mini.table, 'tabular min-w-[600px]')}>
+          <thead><tr className={mini.head}><th className={mini.th}>Item</th><th className={mini.th}>Expiring</th><th className={mini.th}>Renewal</th><th className={mini.th}>Change</th></tr></thead>
           <tbody>
-            <tr className="h-10 border-b border-fill font-medium">
-              <td className="px-2">Premium</td>
-              <td className="px-2">{usd(t.expiring)}</td>
-              <td className="px-2">{usd(t.renewal)}</td>
-              <td className="px-2"><Change pct={t.pct} dollars={t.change} /></td>
+            <tr className={cx(mini.tr, 'font-medium')}>
+              <td className={mini.td}>Premium</td>
+              <td className={mini.td}>{usd(t.expiring)}</td>
+              <td className={mini.td}>{usd(t.renewal)}</td>
+              <td className={mini.td}><Change pct={t.pct} dollars={t.change} /></td>
             </tr>
             {[...changed, ...(all ? unchanged : [])].map((r) => (
-              <tr key={r.item} className="h-10 border-b border-fill last:border-0">
-                <td className="px-2">{r.item}</td>
-                <td className="px-2">{r.expiring}</td>
-                <td className="px-2">{r.renewal}</td>
-                <td className="px-2">{r.kind === 'Unchanged' ? <span className="text-muted">—</span> : <span className="inline-flex items-center gap-1.5 text-label">{icon[r.kind]} {r.kind}</span>}</td>
+              <tr key={r.item} className={mini.tr}>
+                <td className={mini.td}>{r.item}</td>
+                <td className={mini.td}>{r.expiring}</td>
+                <td className={mini.td}>{r.renewal}</td>
+                <td className={mini.td}>{r.kind === 'Unchanged' ? <span className="text-muted">—</span> : <span className="inline-flex items-center gap-1.5 text-label">{icon[r.kind]} {r.kind}</span>}</td>
               </tr>
             ))}
           </tbody>
@@ -345,7 +340,7 @@ function Milestones({ state, line, lastResort, expiration }: { state: string; li
         const passed = m.offset < 0
         return (
           <li key={m.label} className={cx('flex items-center gap-1.5', passed ? 'text-muted' : 'text-ink')}>
-            {passed ? <Check aria-hidden className="size-4" /> : <Clock aria-hidden className="size-4 text-label" />}
+            {passed ? <Check aria-hidden className="size-4" strokeWidth={1.75} /> : <Clock aria-hidden className="size-4 text-label" strokeWidth={1.75} />}
             <span>{m.label} <span className="tabular">{dateOf(m.offset)}</span>{m === next && <span className="text-label"> · {inDays(m.offset)}</span>}{passed && <span className="sr-only"> (passed)</span>}</span>
           </li>
         )

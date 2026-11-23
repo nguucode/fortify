@@ -6,10 +6,10 @@ const TONE: Record<string, string> = {
   Qualified: 'green', Succeeded: 'green', 'Re-issued': 'green', Won: 'green', Active: 'green', Issued: 'green', Done: 'green', Accepted: 'green', Client: 'green', Renewed: 'green',
   'Waiting on carrier': 'orange', Partial: 'orange', 'Waiting on client': 'orange', 'Needs review': 'orange', Referred: 'orange', Remarketing: 'orange', 'Pending cancellation': 'orange', Bound: 'orange',
   Lost: 'red', High: 'red', Failed: 'red', Declined: 'red', Canceled: 'red', 'Non-renewed': 'red',
-  'Former client': 'neutral', Draft: 'neutral', Replaced: 'neutral', Withdrawn: 'neutral', Inactive: 'neutral', Closed: 'neutral', Contacted: 'neutral', Upcoming: 'neutral', Low: 'neutral', Medium: 'neutral', Expired: 'neutral', 'Not taken': 'neutral', Disqualified: 'neutral', Rewritten: 'neutral',
+  'Former client': 'neutral', Draft: 'neutral', Replaced: 'neutral', Withdrawn: 'neutral', Inactive: 'neutral', Closed: 'neutral', Contacted: 'neutral', Upcoming: 'neutral', Low: 'neutral', Medium: 'neutral', Normal: 'neutral', Expired: 'neutral', 'Not taken': 'neutral', Disqualified: 'neutral', Rewritten: 'neutral',
 }
 const DOT: Record<string, string> = {
-  blue: 'bg-[oklch(54.6%_0.245_262.9)]',
+  blue: 'bg-info',
   green: 'bg-success',
   orange: 'bg-warning',
   red: 'bg-danger',

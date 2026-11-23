@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useSearchParams } from 'react-router'
-import { ArrowDownRight, ArrowUpRight, Download, X } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Download } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf } from '@/app/hooks'
 import { downloadCsv } from '@/app/csv'
@@ -9,8 +9,8 @@ import { PRESETS, previous, rangeFor, type Preset } from '@/domain/reportRange'
 import { riskReasons } from '@/domain/renewals'
 import type { Account, Dataset, Line, Opportunity, User } from '@/domain/types'
 import { BarChart, fmtUsd, fmtUsdFull, LineChart } from '@/components/charts'
-import { Panel } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { FilterChips, FilterMenu, ListToolbar, mini, PageTitle, Panel, TabBar, useTab, type FilterDef } from '@/components/patterns'
+import { Button, controlCls, cx, Select, Tip } from '@/components/ui/primitives'
 
 type Key = 'pipeline' | 'production' | 'xdates' | 'renewals' | 'retention' | 'service' | 'commission'
 type Role = User['role']
@@ -69,15 +69,23 @@ export function ReportsPage() {
   const scopeLine = user.role === 'producer' ? `My Book · ${user.name}` : f.office ? `Office · ${office?.name} ${office?.state}` : `Agency · ${data.offices.length} offices`
   const lastSync = data.syncRuns?.find((r) => r.status !== 'Failed')
   const syncLabel = lastSync ? new Date(lastSync.at).toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
-  const chips: [string, string, string[]][] = [
-    ...(preset !== '12m' ? [[PRESETS.find(([k]) => k === preset)?.[1] ?? '', 'range', ['range', 'from', 'to']] as [string, string, string[]]] : []),
-    ...(wide && f.office ? [[`${office?.name} ${office?.state}`, 'office', ['office']] as [string, string, string[]]] : []),
-    ...(f.producer ? [[data.users.find((u) => u.id === f.producer)?.name ?? '', 'producer', ['producer']] as [string, string, string[]]] : []),
-    ...(f.lines !== 'all' ? [[`${f.lines} lines`, 'lines', ['lines']] as [string, string, string[]]] : []),
+  const filters: FilterDef[] = [
+    ...(wide ? [
+      { k: 'office', label: 'Office', empty: 'All offices', opts: data.offices.map((o) => [o.id, `${o.name} ${o.state}`] as [string, string]) },
+      { k: 'producer', label: 'Producer', empty: 'All producers', opts: data.users.filter((u) => u.role === 'producer' && (!f.office || u.officeId === f.office)).map((u) => [u.id, u.name] as [string, string]) },
+    ] : []),
+    { k: 'lines', label: 'Lines', empty: 'All lines', opts: [['Personal', 'Personal lines'], ['Commercial', 'Commercial lines']] },
+  ]
+  const rangeChip = preset !== '12m' ? [{ k: 'range', label: `Date range is ${PRESETS.find(([k]) => k === preset)?.[1] ?? ''}` }] : []
+  const chips = [
+    ...(preset !== '12m' ? [PRESETS.find(([k]) => k === preset)?.[1] ?? ''] : []),
+    ...(wide && f.office ? [`${office?.name} ${office?.state}`] : []),
+    ...(f.producer ? [data.users.find((u) => u.id === f.producer)?.name ?? ''] : []),
+    ...(f.lines !== 'all' ? [`${f.lines} lines`] : []),
   ]
   const exportCsv = () => {
     if (!table || !entry) return
-    const meta = [[`Fortify ${entry.title} report`], [`Scope: ${scopeLine}`], [`Range: ${dateOf(range.from)} to ${dateOf(range.to)}`], [`Filters: ${chips.map((c) => c[0]).join(', ') || 'None'}`], []]
+    const meta = [[`Fortify ${entry.title} report`], [`Scope: ${scopeLine}`], [`Range: ${dateOf(range.from)} to ${dateOf(range.to)}`], [`Filters: ${chips.join(', ') || 'None'}`], []]
     downloadCsv(`${entry.key}-report`, meta[0] as string[], [...meta.slice(1), table.head, ...table.rows])
   }
   const ctx: Ctx = { data, user, f, accounts, inScope, lineOk, onTable: (head, rows) => setTable({ head, rows }) }
@@ -103,38 +111,29 @@ export function ReportsPage() {
           <p className="text-base">This report isn't available for your role. <Link className="text-link underline" to={`/reports?report=${DEFAULT[user.role]}`}>Open {CATALOG.find((r) => r.key === DEFAULT[user.role])?.title}</Link></p>
         ) : (
           <>
-            <header className="mb-4 flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h1 className="text-title font-semibold text-strong">{entry.title}</h1>
-                <p className="mt-1 truncate text-base text-muted" title={scopeLine}>{scopeLine}{SYNCED.includes(entry.key) && syncLabel && ` · Data as of ${syncLabel} (AMS sync)`}</p>
-              </div>
-              <Tip label={table?.rows.length ? 'Download the breakdown table' : 'Nothing to export'}>
-                <span tabIndex={table?.rows.length ? -1 : 0}><Button disabled={!table?.rows.length} onClick={exportCsv}><Download aria-hidden className="size-4" />Export CSV</Button></span>
-              </Tip>
-            </header>
-            <div className="mb-3 flex flex-wrap items-end gap-2">
-              <select aria-label="Date range" value={preset} onChange={(e) => setP({ range: e.target.value === '12m' ? null : e.target.value })} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control">{PRESETS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+            <PageTitle
+              className="mb-4"
+              title={entry.title}
+              description={<span className="block truncate" title={scopeLine}>{scopeLine}{SYNCED.includes(entry.key) && syncLabel && ` · Data as of ${syncLabel} (AMS sync)`}</span>}
+              actions={
+                <Tip label={table?.rows.length ? 'Download the breakdown table' : 'Nothing to export'}>
+                  <span tabIndex={table?.rows.length ? -1 : 0}><Button disabled={!table?.rows.length} onClick={exportCsv}><Download aria-hidden className="size-4" strokeWidth={1.75} />Export CSV</Button></span>
+                </Tip>
+              }
+            />
+            <ListToolbar className="mb-3">
+              <Select size="md" aria-label="Date range" value={preset} onChange={(e) => setP({ range: e.target.value === '12m' ? null : e.target.value })}>{PRESETS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
               {preset === 'custom' && (
                 <>
-                  <input type="date" aria-label="From" value={cFrom} onChange={(e) => setP({ from: e.target.value || null })} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control" />
-                  <input type="date" aria-label="To" value={cTo} onChange={(e) => setP({ to: e.target.value || null })} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control" />
+                  <input type="date" aria-label="From" value={cFrom} onChange={(e) => setP({ from: e.target.value || null })} className={controlCls()} />
+                  <input type="date" aria-label="To" value={cTo} onChange={(e) => setP({ to: e.target.value || null })} className={controlCls()} />
                   {badCustom && <span role="alert" className="text-sm text-danger-text">End date must be after the start date</span>}
                 </>
               )}
-              {wide && <select aria-label="Office" value={f.office ?? ''} onChange={(e) => setP({ office: e.target.value || null })} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">All offices</option>{data.offices.map((o) => <option key={o.id} value={o.id}>{o.name} {o.state}</option>)}</select>}
-              {user.role === 'account-manager' && <span className="inline-flex h-8 items-center rounded-md bg-fill px-2.5 text-sm">{office?.name} {office?.state}</span>}
-              {user.role === 'producer' && <span className="inline-flex h-8 items-center rounded-md bg-fill px-2.5 text-sm">My Book</span>}
-              {wide && <select aria-label="Producer" value={f.producer ?? ''} onChange={(e) => setP({ producer: e.target.value || null })} className="h-8 max-w-48 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">All producers</option>{data.users.filter((u) => u.role === 'producer' && (!f.office || u.officeId === f.office)).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>}
-              <select aria-label="Lines" value={f.lines} onChange={(e) => setP({ lines: e.target.value === 'all' ? null : e.target.value })} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="all">All lines</option><option value="Personal">Personal lines</option><option value="Commercial">Commercial lines</option></select>
-              <label className="ml-2 flex h-8 items-center gap-2 text-sm"><input type="checkbox" checked={params.get('compare') !== 'off'} disabled={!prevCovered} onChange={(e) => setP({ compare: e.target.checked ? null : 'off' })} />Compare to previous period</label>
-            </div>
-            {chips.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-1.5">
-                {chips.slice(0, 3).map(([l, k, keys]) => <span key={k} className="inline-flex h-6 items-center gap-1 rounded-md bg-fill px-2 text-sm">{l}<button aria-label={`Remove ${l}`} onClick={() => setP(Object.fromEntries(keys.map((x) => [x, null])))}><X aria-hidden className="size-3" /></button></span>)}
-                {chips.length > 3 && <span className="text-sm text-muted">+{chips.length - 3}</span>}
-                <button className="ml-1 text-sm text-link underline" onClick={() => setP({ range: null, from: null, to: null, office: null, producer: null, lines: null, compare: null })}>Reset filters</button>
-              </div>
-            )}
+              <FilterMenu filters={filters} />
+              <label className="ml-2 flex h-9 items-center gap-2 text-base"><input type="checkbox" checked={params.get('compare') !== 'off'} disabled={!prevCovered} onChange={(e) => setP({ compare: e.target.checked ? null : 'off' })} />Compare to previous period</label>
+            </ListToolbar>
+            <FilterChips className="mb-4" filters={filters} extra={rangeChip} onClearAll={(n) => ['from', 'to', 'compare'].forEach((k) => n.delete(k))} />
             <p className="tabular mb-4 text-sm text-muted">{dateOf(range.from)} to {dateOf(range.to)}{f.compare && ` · compared with ${dateOf(f.prev.from)} to ${dateOf(f.prev.to)}`}{params.get('compare') !== 'off' && !prevCovered && ' · No comparison: the previous period is outside the demo data’s 12 months'}</p>
             {entry.key === 'pipeline' && <PipelineReport {...ctx} />}
             {entry.key === 'production' && <ProductionReport {...ctx} />}
@@ -157,7 +156,7 @@ function Card({ label, value, delta, better = 'up', full, hint }: { label: strin
   const good = show && (better === 'up' ? delta! >= 0 : delta! <= 0)
   const v = <p className="tabular text-metric font-semibold text-strong">{value}</p>
   return (
-    <div className="rounded-lg bg-surface p-4 shadow-ring">
+    <div className="rounded-md bg-surface p-4 shadow-ring">
       <p className="text-sm text-label">{label}</p>
       {full || hint ? <Tip label={full ?? hint}><span tabIndex={0} className="inline-block">{v}</span></Tip> : v}
       {show && <p className={cx('tabular mt-0.5 flex items-center gap-0.5 text-sm', good ? 'text-success-text' : 'text-danger-text')}><Icon aria-hidden className="size-3.5" />{signedPct(delta!)} vs previous</p>}
@@ -198,12 +197,12 @@ function Table({ head, rows, links, onTable, empty, align }: { head: string[]; r
   if (!rows.length) return <p className="py-6 text-base text-label">{empty}</p>
   return (
     <div className="overflow-x-auto">
-      <table className="tabular w-full min-w-[560px] border-collapse text-left text-base">
-        <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong">{head.map((h, i) => <th key={h} className={cx('pr-4', (align?.[i] ?? (i ? 'right' : 'left')) === 'right' && 'text-right')}>{h}</th>)}</tr></thead>
+      <table className={cx(mini.table, 'tabular min-w-[560px]')}>
+        <thead><tr className={mini.head}>{head.map((h, i) => <th key={h} className={cx(mini.th, (align?.[i] ?? (i ? 'right' : 'left')) === 'right' && 'text-right')}>{h}</th>)}</tr></thead>
         <tbody>
           {rows.map((r, ri) => (
-            <tr key={ri} className="h-10 border-b border-fill last:border-0">
-              {r.map((c, i) => <td key={i} className={cx('pr-4', (align?.[i] ?? (i ? 'right' : 'left')) === 'right' && 'text-right')}>{i === 0 && links?.[ri] ? <Link className="text-link hover:underline" to={links[ri]!}>{fmt(c)}</Link> : fmt(c)}</td>)}
+            <tr key={ri} className={mini.tr}>
+              {r.map((c, i) => <td key={i} className={cx(mini.td, (align?.[i] ?? (i ? 'right' : 'left')) === 'right' && 'text-right')}>{i === 0 && links?.[ri] ? <Link className="text-link hover:underline" to={links[ri]!}>{fmt(c)}</Link> : fmt(c)}</td>)}
             </tr>
           ))}
         </tbody>
@@ -211,13 +210,12 @@ function Table({ head, rows, links, onTable, empty, align }: { head: string[]; r
     </div>
   )
 }
-function Tabs<T extends string>({ tabs, value, onChange }: { tabs: [T, string][]; value: T; onChange: (t: T) => void }) {
-  return (
-    <div role="tablist" className="mb-2 flex gap-1 border-b border-line">
-      {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={value === k} onClick={() => onChange(k)} className={cx('-mb-px h-9 border-b-2 px-2 text-base', value === k ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>{l}</button>)}
-    </div>
-  )
+/** Breakdown tabs bound to ?by= (falls back to the first tab when the param names a tab this report lacks). */
+function useBy<T extends string>(tabs: [T, string][]): T {
+  const by = useTab(tabs[0][0], 'by') as T
+  return tabs.some(([k]) => k === by) ? by : tabs[0][0]
 }
+const ByTabs = ({ tabs }: { tabs: [string, string][] }) => <div className="mb-2"><TabBar param="by" tabs={tabs.map(([id, label]) => ({ id, label }))} /></div>
 
 /** Best quoted premium for an Opportunity: accepted lines, else the lowest quote per line, else the estimate. */
 function bestPremium(o: Opportunity, data: Dataset) {
@@ -278,7 +276,8 @@ function PipelineReport({ data, user, f, accounts, inScope, lineOk, onTable }: C
 
 /** US-RPT-004: bound = accepted quote premium on Won Opportunities; quoted = lowest quote on the same lines. */
 function ProductionReport({ data, user, f, accounts, inScope, lineOk, onTable }: Ctx) {
-  const [tab, setTab] = useState<'line' | 'carrier' | 'type' | 'producer'>('line')
+  const tabs: ['line' | 'carrier' | 'type' | 'producer', string][] = [['line', 'By line'], ['carrier', 'By carrier'], ['type', 'By type'], ...(user.role === 'producer' ? [] : [['producer', 'By Producer']] as ['producer', string][])]
+  const tab = useBy(tabs)
   type Row = { o: Opportunity; line: Line; carrierId: string; bound: number; quoted: number; offset: number }
   const won = (r: Filters['range']): Row[] =>
     data.opportunities.filter((o) => o.stage === 'Won' && inR(o.closedOffset, r) && inScope(accounts.get(o.accountId))).flatMap((o) => {
@@ -296,7 +295,6 @@ function ProductionReport({ data, user, f, accounts, inScope, lineOk, onTable }:
   const keyOf = (x: Row) => (tab === 'line' ? x.line : tab === 'carrier' ? (data.carriers.find((c) => c.id === x.carrierId)?.name ?? '—') : tab === 'type' ? x.o.type : (data.users.find((u) => u.id === x.o.ownerId)?.name ?? '—'))
   const groups = [...new Set(now.map(keyOf))].sort()
   const rows = groups.map((g) => { const xs = now.filter((x) => keyOf(x) === g); return [g, xs.length, fmtUsdFull(sum(xs, 'quoted')), fmtUsdFull(sum(xs, 'bound')), signedPct(variance(xs)), ...(canComm ? [fmtUsdFull(comm(xs))] : [])] })
-  const tabs: ['line' | 'carrier' | 'type' | 'producer', string][] = [['line', 'By line'], ['carrier', 'By carrier'], ['type', 'By type'], ...(user.role === 'producer' ? [] : [['producer', 'By Producer']] as ['producer', string][])]
   return (
     <>
       <Cards>
@@ -310,7 +308,7 @@ function ProductionReport({ data, user, f, accounts, inScope, lineOk, onTable }:
       </Panel>
       <div className="mt-4">
         <Panel>
-          <Tabs tabs={tabs} value={tab} onChange={setTab} />
+          <ByTabs tabs={tabs} />
           <Table head={[tabs.find((t) => t[0] === tab)![1].replace('By ', '').replace(/^\w/, (c) => c.toUpperCase()), 'Terms bound', 'Quoted premium', 'Bound premium', 'Variance', ...(canComm ? [user.role === 'producer' ? 'Est. commission (your share)' : 'Est. commission'] : [])]} rows={rows} links={groups.map(() => '/policies?view=recent-production')} onTable={onTable} empty="Nothing bound in this range." />
         </Panel>
       </div>
@@ -380,7 +378,8 @@ function RenewalsReport({ data, user, f, accounts, inScope, lineOk, onTable }: C
 
 /** US-RPT-006 */
 function RetentionReport({ data, user, f, accounts, inScope, lineOk, onTable }: Ctx) {
-  const [tab, setTab] = useState<'carrier' | 'line'>('carrier')
+  const tabs: ['carrier' | 'line', string][] = [['carrier', 'By carrier'], ['line', 'By line']]
+  const tab = useBy(tabs)
   const pols = new Map(data.policies.map((p) => [p.id, p]))
   const ENDED = ['Renewed', 'Rewritten', 'Non-renewed', 'Expired', 'Canceled']
   const LOST = ['Non-renewed', 'Expired', 'Canceled']
@@ -408,7 +407,7 @@ function RetentionReport({ data, user, f, accounts, inScope, lineOk, onTable }: 
           <Table head={['Outcome', 'Terms', 'Premium lost', 'Share']} rows={LOST.map((s) => { const xs = lost.filter((t) => t.status === s); return [s, xs.length, fmtUsdFull(prem(xs)), pct(lost.length ? xs.length / lost.length : null, 0)] })} links={LOST.map((s) => `/policies?view=${s === 'Canceled' ? 'canceled' : 'expired'}`)} empty="No Terms lost in this range." />
         </Panel>
       </div>
-      <div className="mt-4"><Panel><Tabs tabs={[['carrier', 'By carrier'], ['line', 'By line']]} value={tab} onChange={setTab} /><Table head={[tab === 'carrier' ? 'Carrier' : 'Line', 'Expiring', 'Retained', 'Lost', 'Retention']} rows={rows} onTable={onTable} empty="No Terms reached expiration in this range." /></Panel></div>
+      <div className="mt-4"><Panel><ByTabs tabs={tabs} /><Table head={[tab === 'carrier' ? 'Carrier' : 'Line', 'Expiring', 'Retained', 'Lost', 'Retention']} rows={rows} onTable={onTable} empty="No Terms reached expiration in this range." /></Panel></div>
     </>
   )
 }

@@ -3,11 +3,12 @@ import { AlertCircle, type LucideIcon } from 'lucide-react'
 import { Button } from './primitives'
 
 /** Shared empty, loading, and error states (US-FND-016). Left-aligned, no illustrations. */
-export function EmptyState({ icon: Icon, title, body, action }: { icon: LucideIcon; title: string; body: string; action?: ReactNode }) {
+export function EmptyState({ icon: Icon, title, body, action, page }: { icon: LucideIcon; title: string; body: string; action?: ReactNode; /** The state is the whole page (no access, not found): its title is the page H1. */ page?: boolean }) {
+  const Title = page ? 'h1' : 'p'
   return (
     <div className="flex flex-col items-start gap-1 px-4 pt-12 pb-12">
       <Icon aria-hidden className="mb-2 size-6 text-muted" strokeWidth={1.75} />
-      <p className="text-lg font-medium text-strong">{title}</p>
+      <Title className="text-lg font-medium text-strong">{title}</Title>
       <p className="max-w-[60ch] text-base text-muted">{body}</p>
       {action && <div className="mt-3">{action}</div>}
     </div>

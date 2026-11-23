@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { footerItems, isVisible, sidebarGroups, type NavItem } from '@/app/sitemap'
 import { useApp } from '@/app/store'
-import { cx, Tip } from '@/components/ui/primitives'
+import { CountPill, cx, Tip } from '@/components/ui/primitives'
 
 // Icons are presentation only; the items, order, and visibility all come from sitemap.yaml.
 const ICON: Record<string, LucideIcon> = {
@@ -78,7 +78,7 @@ export function Sidebar() {
       >
         <span className="relative shrink-0"><Icon aria-hidden className={cx('size-4', active ? 'opacity-100' : 'opacity-60 group-hover:opacity-100')} strokeWidth={1.75} />{it.id === 'inbox' && unread > 0 && !open && <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" />}</span>
         <span className={cx('truncate', !open && 'sr-only')}>{it.label}{it.id === 'inbox' && unread > 0 && <span className="sr-only">, {unread} unread</span>}</span>
-        {it.id === 'inbox' && unread > 0 && open && <span aria-hidden className="tabular ml-auto rounded-full bg-fill px-1.5 text-xs leading-5 text-label">{unread > 99 ? '99+' : unread}</span>}
+        {it.id === 'inbox' && unread > 0 && open && <span aria-hidden className="ml-auto"><CountPill n={unread} max={99} /></span>}
       </NavLink>
     )
     return open ? link : <Tip key={it.id} label={it.label} side="right">{link}</Tip>
@@ -120,7 +120,7 @@ export function Sidebar() {
             aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
             className="mt-1 flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted hover:bg-recessed hover:text-strong"
           >
-            {pinned ? <PinOff aria-hidden className="size-4 shrink-0" /> : <Pin aria-hidden className="size-4 shrink-0" />}
+            {pinned ? <PinOff aria-hidden className="size-4 shrink-0" strokeWidth={1.75} /> : <Pin aria-hidden className="size-4 shrink-0" strokeWidth={1.75} />}
             <span className={cx(!open && 'sr-only')}>{pinned ? 'Unpin sidebar' : 'Pin sidebar'}</span>
           </button>
         </div>

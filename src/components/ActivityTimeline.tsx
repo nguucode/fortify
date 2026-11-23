@@ -4,7 +4,7 @@ import { CalendarDays, Mail, MessageSquare, Phone, Sparkles, StickyNote, type Lu
 import { useApp } from '@/app/store'
 import { ago, dateOf, useLookups, useMutate } from '@/app/hooks'
 import type { Activity, ActivityType } from '@/domain/types'
-import { Button, Tip } from './ui/primitives'
+import { Avatar, Button, Tip } from './ui/primitives'
 import { Field, inputCls, Sheet, SheetCancel } from './patterns'
 
 const ICON: Record<ActivityType, LucideIcon> = { call: Phone, email: Mail, sms: MessageSquare, meeting: CalendarDays, note: StickyNote, system: Sparkles }
@@ -132,7 +132,7 @@ export function LogActivityButton({ accountId, linked }: { accountId: string; li
                   {options.map((u, i) => (
                     <li key={u.id} role="option" aria-selected={i === active}>
                       <button type="button" onMouseDown={(e) => { e.preventDefault(); pick(u.name) }} className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-base ${i === active ? 'bg-recessed' : ''}`}>
-                        <span className="grid size-6 place-items-center rounded-full bg-fill text-xs font-medium text-label">{u.name.split(' ').map((w) => w[0]).join('').slice(0, 2)}</span>
+                        <Avatar name={u.name} />
                         <span className="flex-1 truncate">{u.name}</span>
                         <span className="text-xs text-muted">{u.role.replace('-', ' ')} · {data.offices.find((o) => o.id === u.officeId)?.name}</span>
                       </button>

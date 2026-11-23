@@ -1,3 +1,4 @@
+import { RISK_RISE } from './urgency'
 import type { Policy, Renewal, Term } from './types'
 
 /** rules.md risk: High when any reason applies. Reasons show in the Risk tooltip. */
@@ -5,7 +6,7 @@ export function riskReasons(r: Pick<Renewal, 'renewalPremium'>, t: Pick<Term, 'p
   const out: string[] = []
   if (r.renewalPremium != null) {
     const pct = (r.renewalPremium - t.premium) / t.premium
-    if (pct >= 0.1) out.push(`Premium +${(pct * 100).toFixed(1)}%`)
+    if (pct >= RISK_RISE) out.push(`Premium +${(pct * 100).toFixed(1)}%`)
   }
   if (t.pendingCancellation) out.push('Pending cancellation')
   if (ctx.claimsThisTerm > 0) out.push(`${ctx.claimsThisTerm} claim${ctx.claimsThisTerm === 1 ? '' : 's'} this term`)

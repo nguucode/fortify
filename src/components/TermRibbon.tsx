@@ -64,7 +64,7 @@ export function TermRibbon({ ticks }: { ticks: RibbonTick[] }) {
               key={i}
               className={
                 t.kind === 'renewal'
-                  ? cx('absolute top-[3px] h-3.5 w-[3px] -translate-x-1/2 rounded-[1px]', near ? 'bg-warning-text' : 'bg-primary')
+                  ? cx('absolute top-[3px] h-3.5 w-[3px] -translate-x-1/2 rounded-full', near ? 'bg-warning-text' : 'bg-primary')
                   : cx('absolute top-[6px] size-2 -translate-x-1/2 rounded-full bg-surface ring-[1.5px]', near ? 'ring-warning-text' : 'ring-primary')
               }
               style={{ left: Math.max(4, t.position * RIBBON_WIDTH) }}

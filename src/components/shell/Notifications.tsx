@@ -5,7 +5,7 @@ import { AlarmClock, AtSign, Bell, ClipboardCheck, Clock, FileBadge, type Lucide
 import { dataStore, useApp } from '@/app/store'
 import { dateOf } from '@/app/hooks'
 import { deriveNotifications, type NotificationKind } from '@/domain/notifications'
-import { cx, Tip } from '@/components/ui/primitives'
+import { cx, Segmented, Tip } from '@/components/ui/primitives'
 
 const ICON: Record<NotificationKind, LucideIcon> = { 'inbox-message': AtSign, 'claim-followup': AlarmClock, 'service-overdue': AlarmClock, mention: AtSign, 'lead-assigned': UserPlus, 'task-due': Clock, 'task-overdue': AlarmClock, 'renewal-at-risk': RefreshCw, 'service-assigned': ClipboardCheck, 'certificate-review': FileBadge, 'xdate-followup': Clock }
 const keyFor = (userId: string) => `fortify.notificationsRead.${userId}`
@@ -56,16 +56,10 @@ export function NotificationsButton() {
         </Popover.Trigger>
       </Tip>
       <Popover.Portal>
-        <Popover.Content align="end" sideOffset={6} className="z-50 flex max-h-[min(560px,80vh)] w-[380px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-lg bg-surface shadow-pop">
+        <Popover.Content align="end" sideOffset={6} className="z-50 flex max-h-[min(560px,80vh)] w-[380px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-md bg-surface shadow-pop">
           <header className="flex items-center gap-2 border-b border-fill px-3 py-2">
             <h2 className="text-base font-semibold text-strong">Notifications</h2>
-            <div role="tablist" aria-label="Filter" className="ml-2 inline-flex rounded-md bg-recessed p-0.5">
-              {(['All', 'Unread'] as const).map((t) => (
-                <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cx('h-7 rounded-[5px] px-2.5 text-sm', tab === t ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
-                  {t}
-                </button>
-              ))}
-            </div>
+            <Segmented size="sm" label="Show" className="ml-2" value={tab} onChange={setTab} options={[{ value: 'All', label: 'All' }, { value: 'Unread', label: 'Unread' }]} />
             <button onClick={() => save(shown.map((n) => n.id))} disabled={!shown.some((n) => !read.has(n.id))} className="ml-auto text-sm text-link hover:underline disabled:text-muted disabled:no-underline">
               Mark all as read
             </button>

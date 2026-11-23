@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import * as Popover from '@radix-ui/react-popover'
-import { AlertTriangle, Link2, Star, X } from 'lucide-react'
+import { Link2, Star, X } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { useLookups, useMutate } from '@/app/hooks'
 import { useToast } from '@/components/ui/toast'
@@ -9,8 +9,8 @@ import { archiveBlock } from '@/app/data'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import { findMatches } from '@/domain/rules'
 import type { Account, AccountDetails, Contact, EntityType, SmsConsent, UsState, WcStatus } from '@/domain/types'
-import { Confirm, Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { Confirm, Field, inputCls, mini, Sheet, SheetCancel } from '@/components/patterns'
+import { Badge, Button, Callout, cx, SubHeading, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 
 export const HH_REL = ['Primary', 'Spouse or partner', 'Child', 'Other relative', 'Other']
@@ -44,10 +44,9 @@ function useSaving() {
   }
   return { busy, failed, run }
 }
-const Banner = ({ children }: { children: ReactNode }) => <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{children}</p>
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className="flex flex-col gap-3">
-    <h3 className="text-base font-semibold text-strong">{title}</h3>
+    <SubHeading>{title}</SubHeading>
     {children}
   </section>
 )
@@ -138,7 +137,7 @@ export function AccountFormSheet({ account, onClose }: { account?: Account; onCl
         <p className="mb-3 text-base text-label">What kind of account?</p>
         <div className="grid grid-cols-2 gap-3">
           {(['Household', 'Business'] as const).map((k) => (
-            <button key={k} onClick={() => setKind(k)} className="rounded-md bg-surface p-4 text-left shadow-ring hover:shadow-pop focus-visible:outline-2 focus-visible:outline-primary">
+            <button key={k} onClick={() => setKind(k)} className="rounded-md bg-surface p-4 text-left shadow-ring hover:bg-recessed focus-visible:outline-2 focus-visible:outline-primary">
               <span className="block text-base font-semibold text-strong">{k}</span>
               <span className="mt-0.5 block text-sm text-muted">{k === 'Household' ? 'A family and its personal lines.' : 'A company and its commercial lines.'}</span>
             </button>
@@ -162,7 +161,7 @@ export function AccountFormSheet({ account, onClose }: { account?: Account; onCl
       }
     >
       <div className="flex flex-col gap-6">
-        {failed && <Banner>{failed}</Banner>}
+        {failed && <Callout tone="danger">{failed}</Callout>}
         {editing && (
           <p className="rounded-md bg-recessed px-3 py-2 text-sm text-ink">
             Policy details are synced from the AMS. Request a policy change to update them. Kind ({account!.kind}) can’t be changed.
@@ -241,8 +240,8 @@ export function AccountFormSheet({ account, onClose }: { account?: Account; onCl
           </Section>
         )}
         {matches.length > 0 && (
-          <div className="rounded-md bg-warning-tint px-3 py-2 text-base text-ink shadow-ring">
-            <p className="flex items-center gap-2 font-medium"><AlertTriangle aria-hidden className="size-4 text-warning-text" /> This may already exist</p>
+          <Callout tone="warning">
+            <p className="font-medium">This may already exist</p>
             <ul className="mt-1">
               {matches.map((m) => {
                 const a = data.accounts.find((x) => x.id === m.accountId)!
@@ -257,7 +256,7 @@ export function AccountFormSheet({ account, onClose }: { account?: Account; onCl
             <label className="mt-2 flex items-center gap-2 text-sm">
               <input type="checkbox" checked={createAnyway} onChange={(e) => setCreateAnyway(e.target.checked)} className="size-4 accent-primary" /> Create anyway
             </label>
-          </div>
+          </Callout>
         )}
       </div>
     </Sheet>
@@ -317,7 +316,7 @@ export function ContactSheet({ contact, accountId, onClose }: { contact?: Contac
   return (
     <Sheet open onOpenChange={(v) => !v && onClose()} title={contact ? `Edit ${contact.name}` : 'New contact'} description={acc ? `On ${acc.name}` : undefined} busy={busy} footer={<><SheetCancel disabled={busy} /><Button variant="primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : contact ? 'Save changes' : 'Add contact'}</Button></>}>
       <div className="flex flex-col gap-4">
-        {failed && <Banner>{failed}</Banner>}
+        {failed && <Callout tone="danger">{failed}</Callout>}
         <div className="grid grid-cols-[1fr_1fr_88px] gap-3">
           <Field label="First name" error={err('first')}><input value={firstName} onChange={(e) => setFirst(e.target.value)} className={inputCls} /></Field>
           <Field label="Last name" error={err('last')}><input value={lastName} onChange={(e) => setLast(e.target.value)} className={inputCls} /></Field>
@@ -339,13 +338,10 @@ export function ContactSheet({ contact, accountId, onClose }: { contact?: Contac
           </Field>
         </div>
         {dup && (
-          <div className="rounded-md bg-warning-tint px-3 py-2 text-base text-ink shadow-ring">
+          <Callout tone="warning" action={!contact && accountId && !dup.accountIds.includes(accountId) && <button onClick={linkInstead} className="h-8 text-link underline">Link existing contact instead</button>}>
             {dup.name} already uses this {email && dup.email.toLowerCase() === email.toLowerCase() ? 'email' : 'phone'}
             {dupAccount ? ` (${dupAccount.name} · ${dup.relationships?.[dupAccount.id] ?? 'Contact'})` : ''}.
-            {!contact && accountId && !dup.accountIds.includes(accountId) && (
-              <button onClick={linkInstead} className="ml-1 text-link underline">Link existing contact instead</button>
-            )}
-          </div>
+          </Callout>
         )}
       </div>
     </Sheet>
@@ -380,7 +376,7 @@ export function ManageContactsSheet({ account, onClose }: { account: Account; on
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-base font-medium text-strong">
                   {c.name}
-                  {primary && <span className="inline-flex items-center gap-1 rounded-full bg-fill px-1.5 text-xs font-medium text-label"><Star aria-hidden className="size-3" /> Primary</span>}
+                  {primary && <Badge icon={Star}>Primary</Badge>}
                 </p>
                 <p className="text-sm text-label">{c.relationships?.[account.id] ?? 'Contact'} · {c.phone || '—'} · {c.email || '—'}</p>
                 <p className="text-sm text-muted">SMS {c.smsConsent?.state ?? 'Unknown'}</p>
@@ -405,7 +401,7 @@ export function ManageContactsSheet({ account, onClose }: { account: Account; on
         })}
       </ul>
       <section className="mt-5 border-t border-fill pt-4">
-        <h3 className="mb-2 text-base font-semibold text-strong">Add contact</h3>
+        <SubHeading className="mb-2">Add contact</SubHeading>
         <div className="grid grid-cols-[1fr_160px] gap-2">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, or phone" className={inputCls} aria-label="Search contacts" />
           <select value={linkRel} onChange={(e) => setLinkRel(e.target.value)} aria-label="Relationship" className={inputCls}>{rels.map((r) => <option key={r}>{r}</option>)}</select>
@@ -604,14 +600,14 @@ export function MergeDialog({ account, onClose }: { account: Account; onClose: (
                 <label key={a.id} className="inline-flex items-center gap-1"><input type="radio" name="survivor" checked={survivor.id === a.id} onChange={() => setSurvivorId(a.id)} className="accent-primary" /> {a.name}</label>
               ))}
             </div>
-            <table className="w-full text-left text-sm">
-              <thead><tr className="text-label"><th className="py-1">Field</th><th>{survivor.name}</th><th>{dup!.name}</th></tr></thead>
+            <table className={mini.table}>
+              <thead><tr className={mini.head}><th className={mini.th}>Field</th><th className={mini.th}>{survivor.name}</th><th className={mini.th}>{dup!.name}</th></tr></thead>
               <tbody>
                 {FIELDS.map(([k, get]) => (
-                  <tr key={k} className="border-t border-fill">
-                    <td className="py-1.5 pr-2 text-label">{k}</td>
+                  <tr key={k} className={mini.tr}>
+                    <td className={cx(mini.td, 'text-label')}>{k}</td>
                     {(['survivor', 'dup'] as const).map((side) => (
-                      <td key={side} className="pr-2">
+                      <td key={side} className={mini.td}>
                         <label className="inline-flex items-center gap-1.5"><input type="radio" name={k} checked={(pick[k] ?? 'survivor') === side} onChange={() => setPick({ ...pick, [k]: side })} className="accent-primary" /> {get(side === 'survivor' ? survivor : dup!) || '—'}</label>
                       </td>
                     ))}

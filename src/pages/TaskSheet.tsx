@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
 import { dataStore } from '@/app/store'
 import { useApp } from '@/app/store'
@@ -9,7 +8,7 @@ import { resolveOffset } from '@/mock/dates'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import type { Task, TaskType } from '@/domain/types'
 import { Confirm, Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { Button, Callout, cx, Tip } from '@/components/ui/primitives'
 
 const TYPES: TaskType[] = ['General', 'Call', 'Email', 'Meeting']
 const iso = (offset: number) => {
@@ -144,7 +143,7 @@ export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, li
       }
     >
       <fieldset disabled={readOnly} className="flex flex-col gap-4">
-        {failed && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">We couldn't save this task. Try again.</p>}
+        {failed && <Callout tone="danger">We couldn't save this task. Try again.</Callout>}
         {readOnly && task?.closeNote && <p className="rounded-md bg-recessed px-3 py-2 text-base text-ink">{task.status === 'Done' ? 'Completion note' : 'Cancel reason'}: {task.closeNote}</p>}
         <Field label="Title" error={err('title')} hint={system ? `Created by ${task!.source}; the title stays as the system wrote it.` : undefined}>
           <input autoFocus={!task} value={title} onChange={(e) => setTitle(e.target.value)} readOnly={system} maxLength={140} placeholder={type === 'Meeting' && primary ? `Meeting with ${primary.name}` : undefined} className={cx(inputCls, system && 'bg-recessed')} />
@@ -236,9 +235,7 @@ export function TaskSheet({ onClose, accountId: lockedAccount, task, prefill, li
           </>
         )}
         {overlap && (
-          <p className="flex items-center gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring">
-            <AlertTriangle aria-hidden className="size-4 text-warning-text" /> This overlaps {overlap.title} at {fmtTime(overlap.dueTime!)}.
-          </p>
+          <Callout tone="warning">This overlaps {overlap.title} at {fmtTime(overlap.dueTime!)}.</Callout>
         )}
         <Field label="Description">
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} className={cx(inputCls, 'h-24 py-2')} />
