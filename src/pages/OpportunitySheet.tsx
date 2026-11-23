@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { AlertTriangle, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { offsetOfDate, useLookups, useMutate } from '@/app/hooks'
 import { resolveOffset } from '@/mock/dates'
 import { visibleAccounts } from '@/domain/access'
 import type { Line, Opportunity, OpportunityType } from '@/domain/types'
-import { Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { Field, inputCls, mini, Sheet, SheetCancel } from '@/components/patterns'
+import { Button, Callout, controlCls, cx, SubHeading, Tip } from '@/components/ui/primitives'
 
 const PL: Line[] = ['Auto', 'Home', 'Umbrella', 'Renters', 'Condo', 'Flood', 'Boat']
 const CL: Line[] = ['BOP', 'GL', 'WC', 'Commercial auto']
@@ -108,9 +108,9 @@ export function OpportunitySheet({ onClose, accountId: lockedAccount, opportunit
       }
     >
       <div className="flex flex-col gap-6">
-        {failed && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">Couldn't save the Opportunity. Try again.</p>}
+        {failed && <Callout tone="danger">Couldn't save the Opportunity. Try again.</Callout>}
         <section className="flex flex-col gap-3">
-          <h3 className="text-base font-semibold text-strong">Account</h3>
+          <SubHeading>Account</SubHeading>
           {lockedAccount || editing ? (
             <Tip label={acc?.name}>
               <p className="truncate rounded-md bg-recessed px-2.5 py-2 text-base text-ink">{acc?.name}</p>
@@ -153,27 +153,27 @@ export function OpportunitySheet({ onClose, accountId: lockedAccount, opportunit
         </section>
 
         <section className="flex flex-col gap-2">
-          <h3 className="text-base font-semibold text-strong">Lines</h3>
+          <SubHeading>Lines</SubHeading>
           {lines.length > 0 && (
-            <table className="w-full border-collapse text-left">
+            <table className={mini.table}>
               <thead>
-                <tr className="text-sm font-medium text-label">
-                  <th className="pb-1">Line</th>
-                  <th className="pb-1">Current carrier</th>
-                  <th className="w-24 pb-1">Premium</th>
-                  <th className="w-32 pb-1">X-date</th>
-                  <th className="w-8" />
+                <tr className={mini.head}>
+                  <th className={mini.th}>Line</th>
+                  <th className={mini.th}>Current carrier</th>
+                  <th className={cx(mini.th, 'w-28')}>Premium</th>
+                  <th className={cx(mini.th, 'w-40')}>X-date</th>
+                  <th className={cx(mini.th, 'w-14')} />
                 </tr>
               </thead>
               <tbody>
                 {lines.map((l) => (
-                  <tr key={l}>
-                    <td className="py-1 pr-2 text-base font-medium text-strong">{l}</td>
-                    <td className="py-1 pr-2"><input aria-label={`${l} current carrier`} value={details[l]?.currentCarrier ?? ''} onChange={(e) => setDetail(l, { currentCarrier: e.target.value || undefined })} className={cx(inputCls, 'h-8')} /></td>
-                    <td className="py-1 pr-2"><input aria-label={`${l} current premium`} inputMode="numeric" value={details[l]?.currentPremium ?? ''} onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '')); setDetail(l, { currentPremium: e.target.value ? Math.min(n, 9_999_999) : undefined }) }} className={cx(inputCls, 'tabular h-8')} /></td>
-                    <td className="py-1 pr-2"><input aria-label={`${l} X-date`} type="date" value={details[l]?.xDateOffset != null ? iso(details[l]!.xDateOffset!) : ''} onChange={(e) => setDetail(l, { xDateOffset: e.target.value ? fromIso(e.target.value) : undefined })} className={cx(inputCls, 'h-8 px-1.5')} /></td>
-                    <td className="py-1">
-                      <button aria-label={`Remove ${l}`} onClick={() => setLines(lines.filter((x) => x !== l))} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong"><X className="size-4" /></button>
+                  <tr key={l} className={mini.tr}>
+                    <td className={cx(mini.td, 'font-medium text-strong')}>{l}</td>
+                    <td className={mini.td}><input aria-label={`${l} current carrier`} value={details[l]?.currentCarrier ?? ''} onChange={(e) => setDetail(l, { currentCarrier: e.target.value || undefined })} className={cx(controlCls('sm'), 'w-full')} /></td>
+                    <td className={mini.td}><input aria-label={`${l} current premium`} inputMode="numeric" value={details[l]?.currentPremium ?? ''} onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '')); setDetail(l, { currentPremium: e.target.value ? Math.min(n, 9_999_999) : undefined }) }} className={cx(controlCls('sm'), 'tabular w-full')} /></td>
+                    <td className={mini.td}><input aria-label={`${l} X-date`} type="date" value={details[l]?.xDateOffset != null ? iso(details[l]!.xDateOffset!) : ''} onChange={(e) => setDetail(l, { xDateOffset: e.target.value ? fromIso(e.target.value) : undefined })} className={cx(controlCls('sm'), 'w-full')} /></td>
+                    <td className={mini.td}>
+                      <button aria-label={`Remove ${l}`} onClick={() => setLines(lines.filter((x) => x !== l))} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong"><X className="size-4" strokeWidth={1.75} /></button>
                     </td>
                   </tr>
                 ))}
@@ -185,7 +185,7 @@ export function OpportunitySheet({ onClose, accountId: lockedAccount, opportunit
               <p className="text-sm text-muted">All lines added</p>
             ) : (
               <label className="flex items-center gap-2 text-sm text-link">
-                <Plus aria-hidden className="size-4" />
+                <Plus aria-hidden className="size-3.5" />
                 <select aria-label="Add line" value="" onChange={(e) => e.target.value && setLines([...lines, e.target.value as Line])} className="h-8 cursor-pointer rounded-md bg-transparent text-sm font-medium text-link outline-none focus-visible:outline-2 focus-visible:outline-primary">
                   <option value="">Add line</option>
                   {options.filter((l) => !lines.includes(l)).map((l) => <option key={l}>{l}</option>)}
@@ -197,18 +197,14 @@ export function OpportunitySheet({ onClose, accountId: lockedAccount, opportunit
           )}
           {err('lines') && <p className="text-sm text-danger-text">{err('lines')}</p>}
           {duplicate && (
-            <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-base text-ink shadow-ring">
-              <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" />
-              <span>
-                {duplicate.name ?? `${acc?.name} · ${duplicate.lines.join(', ')}`} is already open for {duplicate.lines.filter((l) => lines.includes(l)).join(', ')}.{' '}
-                <Link to={`/pipeline/${duplicate.id}`} onClick={onClose} className="text-link hover:underline">Open it instead?</Link>
-              </span>
-            </p>
+            <Callout tone="warning" action={<Link to={`/pipeline/${duplicate.id}`} onClick={onClose} className="inline-flex h-8 items-center text-base text-link hover:underline">Open it instead?</Link>}>
+              {duplicate.name ?? `${acc?.name} · ${duplicate.lines.join(', ')}`} is already open for {duplicate.lines.filter((l) => lines.includes(l)).join(', ')}.
+            </Callout>
           )}
         </section>
 
         <section className="grid grid-cols-2 gap-3">
-          <h3 className="col-span-2 text-base font-semibold text-strong">Dates and owner</h3>
+          <SubHeading className="col-span-2">Dates and owner</SubHeading>
           <Field label="Target close date" error={err('close')}>
             <input type="date" value={close} onChange={(e) => setClose(e.target.value)} className={inputCls} />
           </Field>

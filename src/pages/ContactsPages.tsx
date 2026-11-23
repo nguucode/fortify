@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Building2, Copy, Home, Search, User, Users } from 'lucide-react'
+import { Building2, Copy, Home, User, Users } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { ago, dateOf, useLookups } from '@/app/hooks'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import type { Contact } from '@/domain/types'
 import { DataTable, KeyValue, PageTitle, Panel, RecordHeader, type Column } from '@/components/patterns'
 import { ActivityTimeline } from '@/components/ActivityTimeline'
-import { Button, Tip } from '@/components/ui/primitives'
+import { Button, SearchField, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { useToast } from '@/components/ui/toast'
@@ -35,7 +35,7 @@ export function ContactsPage() {
     return offs.length ? Math.max(...offs) : null
   }
   const cols: Column<Contact>[] = [
-    { key: 'name', label: 'Name', width: 220, sort: (a, b) => a.name.localeCompare(b.name), render: (c) => <Link to={`/contacts/${c.id}`} className="font-medium text-strong hover:text-link hover:underline">{c.name}</Link>, csv: (c) => c.name },
+    { key: 'name', label: 'Name', sort: (a, b) => a.name.localeCompare(b.name), render: (c) => <Link to={`/contacts/${c.id}`} className="font-medium text-strong hover:text-link hover:underline">{c.name}</Link>, csv: (c) => c.name },
     {
       key: 'accounts',
       label: 'Accounts',
@@ -61,26 +61,23 @@ export function ContactsPage() {
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle title="Contacts" description="People on your accounts. A contact can belong to more than one account." />
-      <div className="mt-6 flex items-center gap-2">
-        <label className="relative w-80 max-sm:w-full">
-          <span className="sr-only">Search contacts</span>
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
-          <input
-            defaultValue={q}
-            onChange={(e) => {
+      <DataTable
+        className="mt-4"
+        toolbar={
+          <SearchField
+            label="Search contacts"
+            value={q}
+            onChange={(v) => {
               const next = new URLSearchParams(params)
-              if (e.target.value) next.set('q', e.target.value)
+              if (v) next.set('q', v)
               else next.delete('q')
               setParams(next, { replace: true })
             }}
             placeholder="Search name, phone, or email"
-            className="h-9 w-full rounded-md bg-surface pr-3 pl-8 text-base shadow-control outline-none focus-visible:outline-2 focus-visible:outline-primary"
           />
-        </label>
-      </div>
-      <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {rows.length.toLocaleString('en-US')} contacts</p>
-      <DataTable rows={rows.slice(0, 200)} columns={cols} minWidth={1100} listId="contacts" exportName="contacts" onRowClick={(c) => navigate(`/contacts/${c.id}`)} empty={<EmptyState icon={Users} title={q ? 'No contacts match this search' : 'No contacts yet'} body="Contacts are added from an account." />} />
-      {rows.length > 200 && <p className="mt-2 text-sm text-muted">Showing the first 200. Search to narrow the list.</p>}
+        }
+        meta={<>Showing {rows.length.toLocaleString('en-US')} contacts</>}
+        pageSize={50} rows={rows} columns={cols} minWidth={1100} listId="contacts" exportName="contacts" onRowClick={(c) => navigate(`/contacts/${c.id}`)} empty={<EmptyState icon={Users} title={q ? 'No contacts match this search' : 'No contacts yet'} body="Contacts are added from an account." />} />
     </div>
   )
 }

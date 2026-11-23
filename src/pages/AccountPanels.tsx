@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { AlertTriangle, FileText, Upload } from 'lucide-react'
+import { AlertTriangle, FileText, Plus, Upload } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, usd, useLookups, useMutate } from '@/app/hooks'
 import type { Account, AccountDocument, Activity, DocumentType, InsuredItem, Opportunity, Task, XDate } from '@/domain/types'
@@ -8,9 +8,10 @@ import { StatusCell } from '@/components/ui/status'
 import { XDateDrawer } from './XDatesPages'
 import { useRisk } from './RenewalsPages'
 import { renewalWindowDays } from '@/domain/rules'
-import { DataTable, Field, inputCls, KeyValue, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
+import { DataTable, Field, inputCls, KeyValue, mini, Panel, Sheet, SheetCancel, type Column } from '@/components/patterns'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { Button, cx, Due, RateChange, Segmented, Select, SubHeading, Tip } from '@/components/ui/primitives'
+import { dueTone } from '@/domain/urgency'
 import { EmptyState } from '@/components/ui/states'
 import { useCompleteTask } from './TaskSheet'
 
@@ -42,7 +43,7 @@ export function DetailsPanel({ account, onEdit }: { account: Account; onEdit?: (
         <KeyValue items={[['Mailing address', address], ['County', d.county || null], ['Coastal', account.coastal ? 'Yes, coastal ZIP' : null], ['Preferred contact', d.preferredContact], ['Account source', d.source], ['Created', dateOf(account.createdOffset)]]} />
         {items.length > 0 && (
           <div className="mt-4 border-t border-fill pt-3">
-            <h3 className="mb-1 text-sm font-semibold text-label">Insured items</h3>
+            <SubHeading className="mb-1">Insured items</SubHeading>
             {groups.map(([label, kind]) => {
               const list = items.filter((i) => i.kind === kind)
               if (!list.length) return null
@@ -117,7 +118,7 @@ export function DetailsPanel({ account, onEdit }: { account: Account; onEdit?: (
       />
       {locations.length > 0 && (
         <div className="mt-4 border-t border-fill pt-3">
-          <h3 className="mb-1 flex justify-between text-sm font-semibold text-label">Locations <span className="font-normal text-muted">{locations.length} location{locations.length === 1 ? '' : 's'} · Synced from AMS</span></h3>
+          <SubHeading className="mb-1 flex justify-between">Locations <span className="text-sm font-normal text-muted">{locations.length} location{locations.length === 1 ? '' : 's'} · Synced from AMS</span></SubHeading>
           <ul className="divide-y divide-fill">
             {locations.map((l) => (
               <li key={l.id}>
@@ -165,7 +166,7 @@ export function ActivityTab({ account, onTask }: { account: Account; onTask: (t:
               <li key={t.id} className="flex items-center gap-3 py-2">
                 <input type="checkbox" aria-label={`Complete ${t.title}`} disabled={readOnly} onChange={() => complete(t)} className="size-4 accent-primary" />
                 <button onClick={() => onTask(t)} className="min-w-0 flex-1 truncate text-left text-base text-strong hover:text-link hover:underline">{t.title}</button>
-                <span className={cx('tabular shrink-0 text-sm', t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-muted')}>{userName(t.assigneeId)} · {t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : dateOf(t.dueOffset)}</span>
+                <span className="tabular shrink-0 text-sm text-muted">{userName(t.assigneeId)} · <Due tone={t.dueOffset < 0 ? 'overdue' : null}>{t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : dateOf(t.dueOffset)}</Due></span>
               </li>
             ))}
           </ul>
@@ -178,10 +179,10 @@ export function ActivityTab({ account, onTask }: { account: Account; onTask: (t:
         title="Activity"
         actions={
           <span className="flex items-center gap-2">
-            <select value={linked} onChange={(e) => setLinked(e.target.value)} aria-label="Linked to" className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control">
+            <Select size="sm" value={linked} onChange={(e) => setLinked(e.target.value)} aria-label="Linked to">
               <option value="">All records</option>
               {options.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
+            </Select>
             {!readOnly && <LogActivityButton accountId={account.id} />}
           </span>
         }
@@ -221,17 +222,17 @@ export function DocumentsTab({ account }: { account: Account }) {
     { key: 'size', label: 'Size', width: 90, align: 'right', render: (d) => kb(d.size) },
   ]
   return (
-    <Panel title="Documents" actions={!readOnly && <Button size="sm" onClick={() => input.current?.click()}><Upload aria-hidden className="size-4" /> Upload</Button>}>
+    <Panel title="Documents" actions={!readOnly && <Button size="sm" onClick={() => input.current?.click()}><Upload aria-hidden className="size-4" strokeWidth={1.75} /> Upload</Button>}>
       <input ref={input} type="file" multiple hidden onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) setPending(fs); e.target.value = '' }} />
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Type" className="h-8 rounded-md bg-surface px-2 text-sm shadow-control">
+        <Select size="sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Type">
           <option value="">All types</option>
           {[...new Set(docs.map((d) => d.type))].map((t) => <option key={t}>{t}</option>)}
-        </select>
-        <select value={linkFilter} onChange={(e) => setLinkFilter(e.target.value)} aria-label="Linked to" className="h-8 rounded-md bg-surface px-2 text-sm shadow-control">
+        </Select>
+        <Select size="sm" value={linkFilter} onChange={(e) => setLinkFilter(e.target.value)} aria-label="Linked to">
           <option value="">All records</option>
           {links.map(([id, l]) => <option key={id} value={id}>{l}</option>)}
-        </select>
+        </Select>
         <span className="tabular text-sm text-muted">Showing {shown.length} of {docs.length} documents</span>
       </div>
       <DataTable rows={shown} columns={cols} minWidth={900} empty={<EmptyState icon={FileText} title="No documents" body="Dec pages and ID cards arrive from the AMS; upload applications, loss runs, and photos here." />} />
@@ -289,15 +290,15 @@ export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: ()
   const bound = (o: Opportunity) => data.quotes.filter((q) => q.opportunityId === o.id && q.status === 'Accepted').flatMap((q) => q.lines.filter((l) => l.accepted)).reduce((s, l) => s + (l.premium ?? 0), 0)
   const quotes = data.quotes.filter((q) => opps.some((o) => o.id === q.opportunityId)).filter((q) => quoteFilter === 'All' || ['Requested', 'Quoted', 'Referred', 'Presented'].includes(q.status))
   const xdates = data.xDates.filter((x) => x.accountId === account.id).sort((a, b) => a.xDateOffset - b.xDateOffset)
-  const th = 'h-9 px-2 text-left text-sm font-semibold text-strong'
-  const td = 'h-10 px-2 text-base'
+  const th = mini.th
+  const td = mini.td
   const canCreate = user.role !== 'admin' && account.lifecycle === 'active'
   return (
     <div className="flex flex-col gap-4">
-      <Panel title="Opportunities" actions={canCreate && <Button size="sm" onClick={onNewOpp}>{user.role === 'account-manager' ? '+ Cross-sell opportunity' : '+ Add opportunity'}</Button>}>
+      <Panel title="Opportunities" actions={canCreate && <Button size="sm" onClick={onNewOpp}><Plus aria-hidden className="size-4" strokeWidth={1.75} /> {user.role === 'account-manager' ? 'Cross-sell opportunity' : 'Add opportunity'}</Button>}>
         <div className="overflow-x-auto">
-          <table className="tabular w-full min-w-[760px] border-collapse">
-            <thead><tr className="border-b border-fill"><th className={th}>Name</th><th className={th}>Type</th><th className={th}>Stage</th><th className={th}>Lines</th><th className={cx(th, 'text-right')}>Premium</th><th className={th}>Target close</th><th className={th}>Producer</th></tr></thead>
+          <table className={cx(mini.table, 'tabular min-w-[760px]')}>
+            <thead><tr className={mini.head}><th className={th}>Name</th><th className={th}>Type</th><th className={th}>Stage</th><th className={th}>Lines</th><th className={cx(th, 'text-right')}>Premium</th><th className={th}>Target close</th><th className={th}>Producer</th></tr></thead>
             <tbody>
               {open.map((o) => (
                 <tr key={o.id} className="border-b border-fill">
@@ -306,11 +307,11 @@ export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: ()
                   <td className={td}><StatusCell status={o.stage} /></td>
                   <td className={td}>{o.lines.join(', ')}</td>
                   <td className={cx(td, 'text-right')}>{usd(o.estimatedPremium)}</td>
-                  <td className={cx(td, o.targetCloseOffset < 0 && 'font-medium text-danger-text')}>{dateOf(o.targetCloseOffset)}</td>
+                  <td className={td}><Due tone={o.targetCloseOffset < 0 ? 'overdue' : null}>{dateOf(o.targetCloseOffset)}</Due></td>
                   <td className={td}>{userName(o.ownerId)}</td>
                 </tr>
               ))}
-              {open.length === 0 && <tr><td colSpan={7} className="px-2 py-3 text-base text-muted">No open opportunities.</td></tr>}
+              {open.length === 0 && <tr><td colSpan={7} className="px-3 py-3 text-base text-muted">No open opportunities.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -335,21 +336,19 @@ export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: ()
       <Panel
         title="Quotes"
         actions={
-          <div role="group" aria-label="Quote status" className="inline-flex rounded-md bg-recessed p-0.5">
-            {(['Open', 'All'] as const).map((v) => <button key={v} aria-pressed={quoteFilter === v} onClick={() => setQuoteFilter(v)} className={cx('h-7 rounded-[5px] px-2.5 text-sm', quoteFilter === v ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label')}>{v}</button>)}
-          </div>
+          <Segmented size="sm" label="Quote status" value={quoteFilter} onChange={setQuoteFilter} options={[{ value: 'Open', label: 'Open' }, { value: 'All', label: 'All' }]} />
         }
       >
         {quotes.length ? (
           <div className="overflow-x-auto">
-            <table className="tabular w-full min-w-[760px] border-collapse">
-              <thead><tr className="border-b border-fill"><th className={th}>Carrier</th><th className={th}>Lines</th><th className={th}>Status</th><th className={cx(th, 'text-right')}>Total quoted</th><th className={th}>Valid until</th><th className={th}>Opportunity</th></tr></thead>
+            <table className={cx(mini.table, 'tabular min-w-[760px]')}>
+              <thead><tr className={mini.head}><th className={th}>Carrier</th><th className={th}>Lines</th><th className={th}>Status</th><th className={cx(th, 'text-right')}>Total quoted</th><th className={th}>Valid until</th><th className={th}>Opportunity</th></tr></thead>
               <tbody>
                 {quotes.map((q) => {
                   const o = opps.find((x) => x.id === q.opportunityId)!
                   const total = q.lines.reduce((s, l) => s + (l.premium ?? 0), 0)
                   return (
-                    <tr key={q.id} className="border-b border-fill last:border-0">
+                    <tr key={q.id} className={mini.tr}>
                       <td className={td}>{carrierName(q.carrierId)}</td>
                       <td className={td}>{q.lines.map((l) => l.line).join(', ')}</td>
                       <td className={td}><StatusCell status={q.status} /></td>
@@ -366,7 +365,7 @@ export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: ()
           <p className="text-base text-muted">{quoteFilter === 'Open' ? 'No open quotes.' : 'No quotes yet.'}</p>
         )}
       </Panel>
-      <Panel title="X-dates" actions={canCreate && <Button size="sm" onClick={() => setXd('new')}>+ Add X-date</Button>}>
+      <Panel title="X-dates" actions={canCreate && <Button size="sm" onClick={() => setXd('new')}><Plus aria-hidden className="size-4" strokeWidth={1.75} /> Add X-date</Button>}>
         <p className="-mt-2 mb-2 text-sm text-muted">{account.status === 'Client' ? 'Coverage this Account buys elsewhere' : 'Current coverage to quote ahead of'}</p>
         {(() => {
           const upcoming = xdates.filter((x) => x.xDateOffset >= 0 && x.interestLevel !== 'Closed')
@@ -378,7 +377,7 @@ export function SalesTab({ account, onNewOpp }: { account: Account; onNewOpp: ()
                 <button onClick={() => setXd(x)} className="min-w-0 truncate text-left text-strong hover:text-link hover:underline">{x.line} · {x.currentCarrier}</button>
                 <span className="tabular text-sm text-label max-md:hidden">{x.premium ? usd(x.premium) : '—'}</span>
                 <span className="tabular text-sm">{dateOf(x.xDateOffset)}</span>
-                <span className={cx('tabular w-20 text-right text-sm max-md:hidden', x.xDateOffset < 0 ? 'text-muted' : x.xDateOffset <= (account.kind === 'Business' ? 90 : 45) ? 'font-medium text-warning-text' : 'text-label')}>{x.xDateOffset < 0 ? 'passed' : `${x.xDateOffset} days`}</span>
+                <span className={cx('w-20 text-right text-sm max-md:hidden', x.xDateOffset < 0 ? 'text-muted' : 'text-label')}><Due tone={x.xDateOffset < 0 ? null : dueTone(x.xDateOffset, account.kind === 'Business' ? 90 : 45)}>{x.xDateOffset < 0 ? 'passed' : `${x.xDateOffset} days`}</Due></span>
                 <span className="text-sm text-label max-md:hidden">{x.interestLevel}</span>
                 <span className="text-sm max-md:hidden">{o ? <Link to={`/pipeline/${o.id}`} className="text-link hover:underline">{o.stage}</Link> : <span className="text-muted">—</span>}</span>
               </li>
@@ -413,27 +412,27 @@ export function RenewalsTab({ account }: { account: Account }) {
   const past = rens.filter((r) => r.status === 'Done').sort((a, b) => termOf(b.termId).expirationOffset - termOf(a.termId).expirationOffset)
   const pol = (id: string) => data.policies.find((p) => p.id === id)!
   const pct = (r: (typeof rens)[number]) => { const t = termOf(r.termId); return r.renewalPremium != null ? (r.renewalPremium - t.premium) / t.premium : null }
-  const fmtPct = (p: number | null) => (p == null ? <span className="text-muted">Awaiting terms</span> : <span className={cx(p >= 0.1 ? 'text-danger-text' : p <= -0.05 ? 'text-success-text' : '')}>{p > 0 ? '+' : p < 0 ? '−' : ''}{Math.abs(p * 100).toFixed(1)}%</span>)
+  const fmtPct = (p: number | null) => (p == null ? <span className="text-muted">Awaiting terms</span> : <RateChange pct={p} />)
   // Terms not yet in a Renewal: the soonest one tells when the next window opens.
   const withRenewal = new Set(rens.map((r) => r.termId))
   const upcoming = data.terms
     .filter((t) => (t.status === 'Active' || t.status === 'Bound') && !withRenewal.has(t.id) && data.policies.some((p) => p.id === t.policyId && p.accountId === account.id))
     .map((t) => { const p = pol(t.policyId); const w = renewalWindowDays(account.kind === 'Business' ? 'small-commercial' : p.line === 'Home' && account.state === 'FL' ? 'fl-residential-property' : 'personal'); return { t, p, w, opens: t.expirationOffset - w } })
     .sort((a, b) => a.opens - b.opens)[0]
-  const th = 'h-9 px-2 text-left text-sm font-semibold text-strong'
-  const td = 'h-10 px-2 text-base'
+  const th = mini.th
+  const td = mini.td
   return (
     <Panel title="Renewals">
       {open.length ? (
         <div className="overflow-x-auto">
-          <table className="tabular w-full min-w-[760px] border-collapse">
-            <thead><tr className="border-b border-fill"><th className={th}>Policy</th><th className={th}>Expiration</th><th className={cx(th, 'text-right')}>Days left</th><th className={th}>Status</th><th className={cx(th, 'text-right')}>Change</th><th className={th}>Risk</th><th className={th}>Account Manager</th></tr></thead>
+          <table className={cx(mini.table, 'tabular min-w-[760px]')}>
+            <thead><tr className={mini.head}><th className={th}>Policy</th><th className={th}>Expiration</th><th className={cx(th, 'text-right')}>Days left</th><th className={th}>Status</th><th className={cx(th, 'text-right')}>Change</th><th className={th}>Risk</th><th className={th}>Account Manager</th></tr></thead>
             <tbody>
               {open.map((r) => {
                 const t = termOf(r.termId)
                 const reasons = risk(r, t)
                 return (
-                  <tr key={r.id} className="border-b border-fill last:border-0">
+                  <tr key={r.id} className={mini.tr}>
                     <td className={td}><Link to={`/renewals/${r.id}`} className="text-link hover:underline">{pol(r.policyId).line} · <span className="font-mono text-sm">{pol(r.policyId).policyNumber}</span></Link></td>
                     <td className={td}>{dateOf(t.expirationOffset)}</td>
                     <td className={cx(td, 'text-right')}>{t.expirationOffset}</td>
@@ -452,7 +451,7 @@ export function RenewalsTab({ account }: { account: Account }) {
       )}
       {past.length > 0 && (
         <section className="mt-4 border-t border-fill pt-3">
-          <h3 className="mb-1 text-sm font-semibold text-label">Past renewals</h3>
+          <SubHeading className="mb-1">Past renewals</SubHeading>
           <ul className="divide-y divide-fill">
             {past.map((r) => (
               <li key={r.id}>

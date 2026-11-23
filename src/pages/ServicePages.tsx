@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { AlertCircle, AlertTriangle, ChevronDown, ClipboardCheck, Clock, MoreHorizontal, Plus, Search } from 'lucide-react'
+import { ClipboardCheck, Clock, MoreHorizontal, Plus, SearchX } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { ServiceRequestSheet } from './ServiceRequestSheet'
 import { dueLabel } from '@/domain/sla'
@@ -11,11 +11,12 @@ import { dateOf, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canEditService, canSeeAccount, visibleAccounts } from '@/domain/access'
 import { canServiceTransition } from '@/domain/rules'
 import type { ServiceRequest, ServiceStatus } from '@/domain/types'
-import { BulkPickDialog, Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Panel, RecordHeader, type Column } from '@/components/patterns'
+import { AttentionCallout, BOARD_CAP, BoardColumn, boardCard, BulkPickDialog, Confirm, DataTable, Field, Gate, inputCls, KeyValue, ListToolbar, PageTitle, Panel, PrimaryCell, RecordHeader, useView, ViewTabs, type Column, type FilterDef } from '@/components/patterns'
 import { bulkSummary } from '@/app/bulk'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
-import { Button, CountPill, cx, Tip } from '@/components/ui/primitives'
+import { Avatar, Button, Callout, cx, Due, SearchField, Segmented, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
+import { EmptyState } from '@/components/ui/states'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { AccessDenied, NotFound } from './SystemPages'
 
@@ -56,7 +57,7 @@ export function ServicePage() {
   // US-SRV-002 saved views and filters (list only); state lives in the URL.
   const now = new Date()
   const LVIEWS = ['My open', 'Overdue', 'Waiting on carrier', 'Waiting on client', 'Done last 30 days']
-  const lview = LVIEWS.find((v) => v.toLowerCase().replace(/\s+/g, '-') === params.get('saved')) ?? LVIEWS[0]
+  const lview = useView(LVIEWS, 'saved')
   const inLView: Record<string, (r: ServiceRequest) => boolean> = {
     'My open': (r) => r.status !== 'Done' && (user.role === 'producer' ? r.createdById === user.id : user.role === 'account-manager' ? r.ownerId === user.id : true),
     Overdue: (r) => r.status !== 'Done' && r.status !== 'Waiting on client' && dueDate(r) < now,
@@ -65,22 +66,18 @@ export function ServicePage() {
     'Done last 30 days': (r) => r.status === 'Done' && r.createdOffset >= -30,
   }
   const fl = { type: params.get('type'), status: params.get('status'), assignee: params.get('assignee'), office: params.get('office') }
-  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); if (k !== 'page') n.delete('page'); setParams(n, { replace: true }) }
   const listRows = items
     .filter(inLView[lview])
     .filter((r) => (!fl.type || r.type === fl.type) && (!fl.status || r.status === fl.status) && (!fl.assignee || r.ownerId === fl.assignee) && (!fl.office || account(r.accountId)?.officeId === fl.office))
     .sort((a, b) => dueDate(a).getTime() - dueDate(b).getTime())
-  const page = Math.max(1, Number(params.get('page')) || 1)
   const attention = open.filter((r) => (r.status !== 'Waiting on client' && dueDate(r) < now) || waitingDays(r) > 5)
-  const [showAttention, setShowAttention] = useState(true)
   const moveTo = (r: ServiceRequest, to: ServiceStatus) => {
     // Done needs a resolution, which the record asks for.
     if (to === 'Done') return navigate(`/service/${r.id}?close=1`)
     mutate((s) => s.setServiceStatus(r.id, to, user.id), `${r.id} moved to ${to}`)
   }
   const columns: Column<ServiceRequest>[] = [
-    { key: 'id', label: 'ID', width: 110, render: (r) => <span className="font-mono text-sm text-label">{r.id}</span> },
-    { key: 'subject', label: 'Subject', render: (r) => <span className="flex min-w-0 flex-col leading-tight"><span className="truncate font-medium text-strong">{r.subject}</span><span className="truncate text-sm text-muted">{account(r.accountId)?.name}</span></span>, csv: (r) => r.subject },
+    { key: 'subject', label: 'Subject', render: (r) => <PrimaryCell mono={r.id} name={r.subject} to={`/service/${r.id}`} token={account(r.accountId)?.name} />, csv: (r) => `${r.id} ${r.subject}` },
     { key: 'type', label: 'Type', width: 150, sort: (a, b) => a.type.localeCompare(b.type), render: (r) => r.type },
     { key: 'status', label: 'Status', width: 160, sort: (a, b) => COLUMNS.indexOf(a.status) - COLUMNS.indexOf(b.status), render: (r) => <StatusCell status={r.status} />, csv: (r) => r.status },
     { key: 'policy', label: 'Policy', width: 160, render: (r) => <span className="font-mono text-sm">{policy(r.policyId)?.policyNumber ?? '—'}</span>, csv: (r) => policy(r.policyId)?.policyNumber ?? '' },
@@ -90,119 +87,106 @@ export function ServicePage() {
     { key: 'due', label: 'Due', width: 150, mobile: true, sort: (a, b) => dueDate(a).getTime() - dueDate(b).getTime(), render: (r) => <DueIndicator r={r} />, csv: (r) => dateOf(r.dueOffset) },
     { key: 'age', label: 'Age', width: 70, align: 'right', sort: (a, b) => b.createdOffset - a.createdOffset, render: (r) => `${-r.createdOffset}d` },
   ]
+  const filters: FilterDef[] = [
+    { k: 'type', label: 'Type', opts: ['Policy change', 'Certificate request', 'Claim report', 'ID card / evidence', 'Billing question', 'Cancellation request', 'General'].map((x) => [x, x]) },
+    { k: 'status', label: 'Status', opts: COLUMNS.map((x) => [x, x]) },
+    { k: 'assignee', label: 'Assignee', opts: data.users.filter((u) => u.role === 'account-manager' && (user.role !== 'account-manager' || u.officeId === user.officeId)).map((u): [string, string] => [u.id, u.name]) },
+    ...(user.role === 'principal' || user.role === 'admin' ? [{ k: 'office', label: 'Office', opts: data.offices.map((o): [string, string] => [o.id, o.name]) }] : []),
+  ]
+  const toolbar = (
+    <>
+      <SearchField value={q} onChange={setQ} placeholder="Search requests, Accounts, policy numbers" label="Search requests" />
+      <Button aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
+        Assigned to me
+      </Button>
+      <Segmented label="Layout" className="max-md:hidden" value={list ? 'list' : 'board'} onChange={setView} options={[{ value: 'board', label: 'Board' }, { value: 'list', label: 'List' }]} />
+    </>
+  )
+  const create = (
+    <Gate allowed={!readOnly} reason="Admins have read-only access to Service Requests.">
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        <Plus aria-hidden className="size-4" strokeWidth={1.75} /> New request
+      </Button>
+    </Gate>
+  )
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle
         title="Service"
         description="Post-sale work for your Accounts: changes, certificates, claims, billing."
-        actions={
-          <Gate allowed={!readOnly} reason="Admins have read-only access to Service Requests.">
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus aria-hidden className="size-4" /> New request
-            </Button>
-          </Gate>
-        }
       />
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <label className="relative w-80 max-sm:w-full">
-          <span className="sr-only">Search requests</span>
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search requests, Accounts, policy numbers" className={cx(inputCls, 'pl-8')} />
-        </label>
-        <button aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)} className={cx('h-9 rounded-md px-3 text-sm shadow-ring', mineOnly ? 'bg-recessed font-semibold text-strong' : 'bg-surface text-label hover:bg-recessed')}>
-          Assigned to me
-        </button>
-        <div role="group" aria-label="Layout" className="ml-auto inline-flex rounded-md bg-recessed p-0.5 max-md:hidden">
-          {(['board', 'list'] as const).map((v) => (
-            <button key={v} aria-pressed={list === (v === 'list')} onClick={() => setView(v)} className={cx('h-8 rounded-[5px] px-3 text-sm capitalize', list === (v === 'list') ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
-              {v}
-            </button>
-          ))}
-        </div>
-      </div>
       {attention.length > 0 && (
-        <section className="mt-4 rounded-md bg-warning-tint px-4 py-2.5 shadow-ring">
-          <button aria-expanded={showAttention} onClick={() => setShowAttention(!showAttention)} className="flex w-full items-center gap-2 text-left text-base font-medium text-ink">
-            <AlertTriangle aria-hidden className="size-4 text-warning-text" /> {attention.length} request{attention.length === 1 ? '' : 's'} need attention
-            <ChevronDown aria-hidden className={cx('ml-auto size-4 transition-transform', showAttention && 'rotate-180')} />
-          </button>
-          {showAttention && (
-            <ul className="mt-1.5 flex flex-col gap-0.5 text-sm">
-              {attention.slice(0, 6).map((r) => (
-                <li key={r.id}><Link to={`/service/${r.id}`} className="text-link underline">{r.id}</Link> · {r.type} · {waitingDays(r) > 5 ? `Waiting ${waitingDays(r)}d` : dueLabel(dueDate(r), now, false).text}</li>
-              ))}
-              {attention.length > 6 && <li className="text-label">and {attention.length - 6} more</li>}
-            </ul>
-          )}
-        </section>
-      )}
-      <p className="tabular mt-3 text-sm text-muted">
-        {list ? `Showing ${Math.min(50, listRows.length)} of ${listRows.length} ${lview === 'Done last 30 days' ? 'done' : 'open'} requests` : `${open.length} open · ${open.filter((r) => r.status !== 'Waiting on client' && dueDate(r) < now).length} overdue · ${open.filter((r) => r.status === 'Waiting on carrier' && waitingDays(r) > 5).length} waiting on carrier more than 5 days`}
-      </p>
-      {list ? (
-        <div className="mt-2">
-          <nav aria-label="Saved views" className="mb-3 flex gap-1 overflow-x-auto border-b border-line">
-            {LVIEWS.map((v) => (
-              <button key={v} aria-current={v === lview ? 'page' : undefined} onClick={() => setP('saved', v === LVIEWS[0] ? null : v.toLowerCase().replace(/\s+/g, '-'))} className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', v === lview ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>
-                {v} <CountPill n={items.filter(inLView[v]).length} />
-              </button>
-            ))}
-          </nav>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {([['type', 'Type', ['Policy change', 'Certificate request', 'Claim report', 'ID card / evidence', 'Billing question', 'Cancellation request', 'General'].map((x) => [x, x])], ['status', 'Status', COLUMNS.map((x) => [x, x])], ['assignee', 'Assignee', data.users.filter((u) => u.role === 'account-manager' && (user.role !== 'account-manager' || u.officeId === user.officeId)).map((u) => [u.id, u.name])], ...(user.role === 'principal' || user.role === 'admin' ? [['office', 'Office', data.offices.map((o) => [o.id, o.name])]] : [])] as [string, string, string[][]][]).map(([k, label, opts]) => (
-              <select key={k} aria-label={label} value={params.get(k) ?? ''} onChange={(e) => setP(k, e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control">
-                <option value="">{label}</option>
-                {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            ))}
-            {Object.values(fl).some(Boolean) && <button onClick={() => { const n = new URLSearchParams(); n.set('view', 'list'); setParams(n, { replace: true }) }} className="text-sm text-link hover:underline">Clear filters</button>}
-          </div>
-          <DataTable bulkMax={{ n: 200, message: "Select up to 200 at a time" }} bulkActions={user.role === 'account-manager' || user.role === 'principal' ? [{ label: 'Reassign', run: (ids) => setBulk({ kind: 'assign', ids }) }, { label: 'Change status', run: (ids) => setBulk({ kind: 'status', ids }) }] : undefined} rows={listRows.slice((page - 1) * 50, page * 50)} columns={columns} listId="service" exportName="service-requests" onRowClick={(r) => navigate(`/service/${r.id}`)} minWidth={1300} empty={<p className="p-6 text-center text-base text-muted">No requests match these filters.</p>} />
-          {listRows.length > 50 && (
-            <div className="tabular mt-3 flex items-center justify-between text-sm text-label">
-              <span>{(page - 1) * 50 + 1}–{Math.min(page * 50, listRows.length)} of {listRows.length}</span>
-              <span className="flex gap-2">
-                <Button size="sm" disabled={page <= 1} onClick={() => setP('page', String(page - 1))}>Previous</Button>
-                <Button size="sm" disabled={page * 50 >= listRows.length} onClick={() => setP('page', String(page + 1))}>Next</Button>
-              </span>
-            </div>
-          )}
+        <div className="mt-4">
+          <AttentionCallout title={`${attention.length} request${attention.length === 1 ? '' : 's'} need attention`} badge={false} storage="session" storageKey="fortify.service.attention.collapsed" max={6} items={attention.map((r) => ({ key: r.id, title: `${r.id} · ${r.type}`, detail: waitingDays(r) > 5 ? `Waiting ${waitingDays(r)}d` : dueLabel(dueDate(r), now, false).text, to: `/service/${r.id}` }))}>
+            {attention.length > 6 && <li className="text-sm text-label">and {attention.length - 6} more</li>}
+          </AttentionCallout>
         </div>
+      )}
+      {list ? (
+        <>
+          <ViewTabs param="saved" views={LVIEWS} counts={Object.fromEntries(LVIEWS.map((v) => [v, items.filter(inLView[v]).length]))} />
+          <DataTable
+            className="mt-4"
+            toolbar={toolbar}
+            filters={filters}
+            onClearFilters={(next) => next.delete('saved')}
+            actions={create}
+            meta={`Showing ${listRows.length} ${lview === 'Done last 30 days' ? 'done' : 'open'} requests`}
+            bulkMax={{ n: 200, message: "Select up to 200 at a time" }}
+            bulkActions={user.role === 'account-manager' || user.role === 'principal' ? [{ label: 'Reassign', run: (ids) => setBulk({ kind: 'assign', ids }) }, { label: 'Change status', run: (ids) => setBulk({ kind: 'status', ids }) }] : undefined}
+            rows={listRows}
+            pageSize={50}
+            columns={columns}
+            listId="service"
+            exportName="service-requests"
+            onRowClick={(r) => navigate(`/service/${r.id}`)}
+            minWidth={1300}
+            empty={<EmptyState icon={SearchX} title="No requests match these filters" body="Try a different search, or clear the filters." />}
+          />
+        </>
       ) : (
-        <div className="mt-3 overflow-x-auto pb-2">
+        <>
+        <ListToolbar className="mt-6" end={create}>{toolbar}</ListToolbar>
+        <p className="tabular mt-3 text-sm text-muted">
+          {`${open.length} open · ${open.filter((r) => r.status !== 'Waiting on client' && dueDate(r) < now).length} overdue · ${open.filter((r) => r.status === 'Waiting on carrier' && waitingDays(r) > 5).length} waiting on carrier more than 5 days`}
+        </p>
+        <div className="mt-2 overflow-x-auto pb-2">
           <div className="grid min-w-[1440px] grid-cols-5 gap-3 xl:min-w-0">
             {COLUMNS.map((st) => {
               const col = items.filter((r) => r.status === st).sort((a, b) => a.dueOffset - b.dueOffset)
               return (
-                <section key={st} aria-label={st} className="flex min-w-0 flex-col rounded-md bg-recessed p-2">
-                  <h2 className="flex items-center justify-between px-1.5 pb-2 text-base font-semibold text-strong">
-                    {st}
-                    <CountPill n={col.length} />
-                  </h2>
-                  <ol className="flex flex-col gap-2">
-                    {col.slice(0, 50).map((r) => {
+                <BoardColumn
+                  key={st}
+                  title={st}
+                  count={col.length}
+                  footer={st === 'Done' && (
+                    <p className="mt-2 px-1.5 text-sm text-label">
+                      Showing done in the last 14 days ·{' '}
+                      <Link to="/service?view=list" className="text-link underline">View all in list</Link>
+                    </p>
+                  )}
+                >
+                    {col.slice(0, BOARD_CAP).map((r) => {
                       const waiting = waitingDays(r)
                       return (
-                        <li key={r.id} className="relative rounded-md bg-surface shadow-ring transition-shadow duration-150 hover:shadow-pop">
-                          <Link to={`/service/${r.id}`} className="block p-3 pr-10 outline-offset-2">
+                        <li key={r.id} className="relative">
+                          <Link to={`/service/${r.id}`} className={cx(boardCard, 'block pr-10 outline-offset-2')}>
                             <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
                               <span className="font-mono whitespace-nowrap">{r.id}</span>
                               <span className="truncate">{r.type}</span>
-                              {r.priority === 'High' && <span className="shrink-0 font-medium text-danger-text">High</span>}
+                              {r.priority === 'High' && <span className="shrink-0"><StatusCell status="High" /></span>}
                             </span>
                             <span title={r.subject} className="mt-0.5 line-clamp-2 text-base font-medium text-strong">{r.subject}</span>
                             <span className="block truncate text-sm text-label">{account(r.accountId)?.name}</span>
                             {waiting > 5 && <span className="mt-0.5 flex items-center gap-1 text-sm text-label"><Clock aria-hidden className="size-3.5" /> Waiting {waiting}d</span>}
                             <span className="mt-1.5 flex justify-between gap-2 text-sm text-muted">
-                              <span title={userName(r.ownerId)} className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-xs font-medium text-label">
-                                {userName(r.ownerId).split(' ').map((w) => w[0]).join('').slice(0, 2)}
-                              </span>
+                              <Avatar labelled name={userName(r.ownerId)} />
                               {r.status !== 'Done' && <span className="shrink-0 text-sm"><DueIndicator r={r} now={now} /></span>}
                             </span>
                           </Link>
                           <Menu.Root>
                             <Menu.Trigger aria-label={`Actions for ${r.id}`} className="absolute top-2 right-2 grid size-7 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong">
-                              <MoreHorizontal className="size-4" />
+                              <MoreHorizontal aria-hidden className="size-4" strokeWidth={1.75} />
                             </Menu.Trigger>
                             <Menu.Portal>
                               <Menu.Content align="end" sideOffset={4} className={menuContent}>
@@ -224,19 +208,13 @@ export function ServicePage() {
                         </li>
                       )
                     })}
-                    {col.length > 50 && <li className="px-1.5 text-sm text-muted">Showing 50 of {col.length}. Switch to List to see all.</li>}
-                  </ol>
-                  {st === 'Done' && (
-                    <p className="mt-2 px-1.5 text-sm text-label">
-                      Showing done in the last 14 days ·{' '}
-                      <Link to="/service?view=list" className="text-link underline">View all in list</Link>
-                    </p>
-                  )}
-                </section>
+                    {col.length > BOARD_CAP && <li className="px-1.5 text-sm text-muted">Showing {BOARD_CAP} of {col.length}. Switch to List to see all.</li>}
+                </BoardColumn>
               )
             })}
           </div>
         </div>
+        </>
       )}
       {bulk?.kind === 'assign' && <BulkPickDialog title={`Reassign ${bulk.ids.length} requests`} label="Account Manager" options={data.users.filter((u) => u.role === 'account-manager' && u.status !== 'Deactivated' && (user.role === 'principal' || u.officeId === user.officeId)).map((u) => [u.id, u.name])} confirmLabel="Reassign" onClose={() => setBulk(null)} onConfirm={async (to) => { const batch = `b-${Date.now().toString(36)}`; const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.reassignService(id, to, user.id, batch))); bulkToast(bulkSummary(r, 'reassigned'), r.skipped.length ? 'info' : 'success') }} />}
       {bulk?.kind === 'status' && <BulkPickDialog title={`Change status of ${bulk.ids.length} requests`} label="Status" options={[['In progress', 'In progress'], ['Waiting on carrier', 'Waiting on carrier'], ['Waiting on client', 'Waiting on client'], ['Done', 'Done: close requests one at a time to record the result', true]]} note={{ label: 'Waiting for', required: (v) => v.startsWith('Waiting') }} onClose={() => setBulk(null)} onConfirm={async (to, note) => { const r = await mutate((s) => s.bulk(bulk.ids, (id) => s.setServiceStatus(id, to as never, user.id, { note: note || undefined }))); bulkToast(bulkSummary(r), r.skipped.length ? 'info' : 'success') }} />}
@@ -259,14 +237,8 @@ export function dueDate(r: ServiceRequest) {
 export function DueIndicator({ r, now = new Date() }: { r: ServiceRequest; now?: Date }) {
   if (r.status === 'Done') return <span className="text-muted">—</span>
   const l = dueLabel(dueDate(r), now, r.status === 'Waiting on client')
-  return (
-    <span className={cx('tabular inline-flex items-center gap-1 whitespace-nowrap', l.tone === 'danger' ? 'font-medium text-danger-text' : l.tone === 'warning' ? 'font-medium text-warning-text' : l.tone === 'muted' ? 'text-label' : '')}>
-      {l.tone === 'danger' && <AlertCircle aria-hidden className="size-3.5" />}
-      {l.tone === 'warning' && <AlertTriangle aria-hidden className="size-3.5" />}
-      {l.tone === 'muted' && <Clock aria-hidden className="size-3.5" />}
-      {l.text}
-    </span>
-  )
+  if (l.tone === 'muted') return <span className="tabular inline-flex items-center gap-1 whitespace-nowrap text-label"><Clock aria-hidden className="size-3.5" />{l.text}</span>
+  return <Due tone={l.tone === 'danger' ? 'overdue' : l.tone === 'warning' ? 'soon' : null}>{l.text}</Due>
 }
 const waitingDays = (r: ServiceRequest) => (r.status === 'Waiting on carrier' || r.status === 'Waiting on client' ? -r.createdOffset : 0)
 
@@ -355,7 +327,7 @@ export function ServiceRequestPage() {
               </p>
             )}
             <RequestDetails r={r} />
-            {r.resolution && <p className="mt-3 rounded-md bg-success-tint px-3 py-2 text-base text-ink">Resolution: {r.resolution}</p>}
+            {r.resolution && <Callout tone="success" className="mt-3">Resolution: {r.resolution}</Callout>}
           </Panel>
           <Panel title="Activity" actions={<LogActivityButton accountId={account.id} linked={{ kind: 'service', id: r.id }} />}>
             <ActivityTimeline linked={{ kind: 'service', id: r.id }} accountId={account.id} />

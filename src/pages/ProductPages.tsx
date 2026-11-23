@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, Search, SearchX, X } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Search, SearchX } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { Markdown } from '@/product/Markdown'
 import { docs, EPIC_ORDER, epics, glossary, health, routes, sessions, sitemap, slugify, stories, storiesForRoute, storyById, type Story } from '@/product/spec'
-import { Button, CountPill, cx, Kbd, Tip } from '@/components/ui/primitives'
+import { Badge, Button, Callout, CountPill, cx, FilterChip, Kbd, SearchField, Select, Tip } from '@/components/ui/primitives'
+import { FilterMenu, ListToolbar, PageTitle } from '@/components/patterns'
 import { StatusCell } from '@/components/ui/status'
 import { useToast } from '@/components/ui/toast'
 import { EmptyState } from '@/components/ui/states'
@@ -50,11 +51,11 @@ export function ProductLayout() {
       <div className="min-w-0 flex-1 px-8 pt-6 pb-12 max-sm:px-4">
         <label className="mb-4 block lg:hidden">
           <span className="sr-only">Jump to</span>
-          <select value={current} onChange={(e) => e.target.value && navigate(e.target.value)} className="h-9 w-full rounded-md bg-surface px-2.5 text-base text-ink shadow-control">
+          <Select value={current} onChange={(e) => e.target.value && navigate(e.target.value)} className="w-full">
             <option value="">Jump to…</option>
             <optgroup label="IA">{ia.map(([to, l]) => <option key={to} value={to}>{l}</option>)}</optgroup>
             <optgroup label="Backlog">{backlog.map(([to, l]) => <option key={to} value={to}>{l}</option>)}</optgroup>
-          </select>
+          </Select>
         </label>
         <Outlet />
       </div>
@@ -64,11 +65,10 @@ export function ProductLayout() {
 
 function Title({ title, description, meta }: { title: React.ReactNode; description?: string; meta?: React.ReactNode }) {
   return (
-    <header className="mb-6">
-      <h1 className="text-title font-semibold text-strong">{title}</h1>
-      {description && <p className="mt-1 text-base text-muted">{description}</p>}
+    <div className="mb-6">
+      <PageTitle title={title} description={description} />
       {meta && <p className="tabular mt-1 text-sm text-label">{meta}</p>}
-    </header>
+    </div>
   )
 }
 
@@ -89,19 +89,16 @@ export function ProductOverview() {
       <Title title="Product" description="Information architecture and user-story backlog, rendered from spec/." />
       <div className="grid grid-cols-6 gap-3 max-lg:grid-cols-3">
         {stats.map(([k, v, to]) => (
-          <Link key={k} to={to} className="rounded-md bg-surface p-3 shadow-ring hover:shadow-pop">
+          <Link key={k} to={to} className="rounded-md bg-surface p-3 shadow-ring hover:bg-recessed">
             <span className="block text-sm text-label">{k}</span>
             <span className="tabular mt-1 block text-metric font-semibold text-strong">{v}</span>
           </Link>
         ))}
       </div>
-      <section className={cx('mt-4 flex items-start gap-2 rounded-md px-4 py-3 shadow-ring', health.length ? 'bg-danger-tint' : 'bg-success-tint')}>
-        {health.length ? <AlertTriangle aria-hidden className="mt-0.5 size-4 text-danger" /> : <CheckCircle2 aria-hidden className="mt-0.5 size-4 text-success" />}
-        <div className="text-base text-ink">
-          <p className="font-medium">Spec health: {health.length ? `${health.length} problems` : 'All checks pass'}</p>
-          {health.slice(0, 10).map((h) => <p key={h} className="text-sm">{h}</p>)}
-        </div>
-      </section>
+      <Callout tone={health.length ? 'danger' : 'success'} className="mt-4">
+        <p className="font-medium">Spec health: {health.length ? `${health.length} problems` : 'All checks pass'}</p>
+        {health.slice(0, 10).map((h) => <p key={h} className="text-sm">{h}</p>)}
+      </Callout>
       <h2 className="mt-8 mb-2 text-lg font-medium text-strong">Epics</h2>
       <div className="overflow-x-auto rounded-md bg-surface shadow-ring">
         <table className="tabular w-full min-w-[900px] border-collapse text-left">
@@ -126,7 +123,7 @@ export function ProductOverview() {
       </div>
       <div className="mt-6 grid grid-cols-4 gap-3 max-lg:grid-cols-2">
         {[['Sitemap', 'Routes, navigation, and story coverage', '/product/sitemap'], ['Object model', 'Objects, lifecycles, timing, business rules', '/product/object-model'], ['Roles & permissions', 'Scopes and the permission matrix', '/product/roles'], ['Glossary', 'The canonical vocabulary', '/product/glossary']].map(([t, d, to]) => (
-          <Link key={to} to={to} className="rounded-md bg-surface p-4 shadow-ring hover:shadow-pop">
+          <Link key={to} to={to} className="rounded-md bg-surface p-4 shadow-ring hover:bg-recessed">
             <p className="text-base font-medium text-strong">{t}</p>
             <p className="mt-0.5 text-sm text-muted">{d}</p>
           </Link>
@@ -181,7 +178,7 @@ export function ProductSitemap() {
           <p key={t.id} className="flex items-center gap-2 border-b border-fill px-3 py-2 text-base text-strong">
             {t.label}
             {t.shortcut && <Kbd>{t.shortcut}</Kbd>}
-            {t.demo && <span className="rounded-full bg-fill px-1.5 text-xs leading-5 text-label">Demo</span>}
+            {t.demo && <Badge>Demo</Badge>}
             <Link to="/product/epics/fnd" className="ml-auto text-sm text-link hover:underline">Shell</Link>
           </p>
         ))}
@@ -242,9 +239,9 @@ export function ProductRoles() {
       </p>
       <label className="mb-4 flex items-center gap-2 text-base text-label">
         Highlight role
-        <select value={role} onChange={(e) => setParams({ role: e.target.value }, { replace: true })} className="h-9 rounded-md bg-surface px-2 text-base text-ink shadow-control">
+        <Select value={role} onChange={(e) => setParams({ role: e.target.value }, { replace: true })}>
           {Object.entries(labels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        </Select>
       </label>
       <style>{`.roles-doc table:has(th:nth-child(5)) td:nth-child(n+2):not(:nth-child(${col})), .roles-doc table:has(th:nth-child(5)) th:nth-child(n+2):not(:nth-child(${col})) { color: var(--color-muted); } .roles-doc table:has(th:nth-child(5)) td:nth-child(${col}), .roles-doc table:has(th:nth-child(5)) th:nth-child(${col}) { background: var(--color-recessed); color: var(--color-strong); font-weight: 600; } .roles-doc table:has(th:nth-child(5)) thead th { position: sticky; top: 0; background: var(--color-surface); } .roles-doc table:has(th:nth-child(5)) td:first-child { position: sticky; left: 0; background: var(--color-surface); }`}</style>
       <div className="roles-doc">
@@ -275,11 +272,7 @@ export function ProductGlossary() {
           </a>
         ))}
       </nav>
-      <label className="relative mb-6 block w-80 max-sm:w-full">
-        <span className="sr-only">Search terms</span>
-        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search terms or avoided words" className="h-9 w-full rounded-md bg-surface pr-3 pl-8 text-base shadow-control outline-none focus-visible:outline-2 focus-visible:outline-primary" />
-      </label>
+      <SearchField label="Search terms" placeholder="Search terms or avoided words" value={q} onChange={setQ} className="mb-6 block" />
       {list.length === 0 && <EmptyState icon={Search} title="No terms match" body="Try a word the team might say instead, like “ticket” or “deal”." />}
       {sections.map((s) => (
         <section key={s} id={`section-${slugify(s)}`} className="mb-8 scroll-mt-4">
@@ -294,7 +287,7 @@ export function ProductGlossary() {
                 </div>
                 <Tip label="Copy link">
                   <button aria-label={`Copy link to ${g.name}`} onClick={() => navigator.clipboard?.writeText(`${location.origin}/product/glossary#${g.slug}`).then(() => toast('Link copied', 'success'))} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong">
-                    <Copy className="size-4" />
+                    <Copy className="size-4" strokeWidth={1.75} />
                   </button>
                 </Tip>
               </li>
@@ -325,64 +318,61 @@ function useBacklogFilter(fixedEpic?: string) {
     else next.delete(key)
     setParams(next, { replace: true })
   }
+  const setQ = (v: string) => {
+    const next = new URLSearchParams(params)
+    if (v) next.set('q', v)
+    else next.delete('q')
+    setParams(next, { replace: true })
+  }
+  const applied = [...rolesSel.map((r) => ['role', r, `Role is ${ROLE_SLUG[r] ?? r}`, rolesSel] as const), ...statusSel.map((v) => ['status', v, `Status is ${v}`, statusSel] as const), ...(fixedEpic ? [] : epicsSel.map((c) => ['epic', c, `Epic is ${c}`, epicsSel] as const))]
+  const filtered = (epicsSel.length > 0 && !fixedEpic) || pr.length > 0 || rolesSel.length > 0 || statusSel.length > 0 || params.get('q')
   const toolbar = (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
-      <label className="relative w-72 max-sm:w-full">
-        <span className="sr-only">Search stories</span>
-        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
-        <input
-          defaultValue={params.get('q') ?? ''}
-          onChange={(e) => {
-            const next = new URLSearchParams(params)
-            if (e.target.value) next.set('q', e.target.value)
-            else next.delete('q')
-            setParams(next, { replace: true })
-          }}
-          placeholder="Search ID, title, or text"
-          className="h-9 w-full rounded-md bg-surface pr-3 pl-8 text-base shadow-control outline-none focus-visible:outline-2 focus-visible:outline-primary"
-        />
-      </label>
-      {['P0', 'P1', 'P2'].map((p) => (
-        <button key={p} aria-pressed={pr.includes(p)} onClick={() => toggle('priority', p, pr)} className={cx('h-8 rounded-md px-2.5 text-sm font-medium shadow-ring', pr.includes(p) ? 'bg-recessed font-semibold text-strong' : 'bg-surface text-label hover:bg-recessed')}>
-          {p}
-        </button>
-      ))}
-      <select value="" onChange={(e) => e.target.value && toggle('role', e.target.value, rolesSel)} className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control" aria-label="Add Role filter">
-        <option value="">Role…</option>
-        {Object.entries(ROLE_SLUG).map(([k, v]) => <option key={k} value={k}>{rolesSel.includes(k) ? '✓ ' : ''}{v}</option>)}
-      </select>
-      <select value="" onChange={(e) => e.target.value && toggle('status', e.target.value, statusSel)} className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control" aria-label="Add Status filter">
-        <option value="">Status…</option>
-        {STATUSES.map((v) => <option key={v} value={v}>{statusSel.includes(v) ? '✓ ' : ''}{v}</option>)}
-      </select>
-      <button onClick={() => { const next = new URLSearchParams(params); next.set('role', user.role); setParams(next, { replace: true }) }} aria-pressed={rolesSel.length === 1 && rolesSel[0] === user.role} className="h-8 rounded-md bg-surface px-2.5 text-sm font-medium text-label shadow-ring hover:bg-recessed aria-pressed:bg-recessed aria-pressed:text-strong">
-        Mine
-      </button>
-      {[...rolesSel.map((r) => ['role', r, ROLE_SLUG[r] ?? r, rolesSel] as const), ...statusSel.map((v) => ['status', v, v, statusSel] as const)].map(([k, v, label, cur]) => (
-        <span key={k + v} className="inline-flex h-8 items-center gap-1 rounded-md bg-surface pr-1 pl-2.5 text-sm text-ink shadow-ring">
-          {k === 'role' ? 'Role' : 'Status'}: {label}
-          <button onClick={() => toggle(k, v, [...cur])} aria-label={`Remove ${label}`} className="grid size-6 place-items-center rounded-sm text-muted hover:bg-recessed hover:text-strong">
-            <X className="size-3.5" />
-          </button>
-        </span>
-      ))}
-      {!fixedEpic && (
-        <select value="" onChange={(e) => e.target.value && toggle('epic', e.target.value, epicsSel)} className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control" aria-label="Add Epic filter">
-          <option value="">Epic…</option>
-          {EPIC_ORDER.map((c) => <option key={c} value={c}>{c} · {epicName(c)}</option>)}
-        </select>
+    <div className="mb-3 flex flex-col gap-2">
+      <ListToolbar>
+        <SearchField label="Search stories" placeholder="Search ID, title, or text" value={params.get('q') ?? ''} onChange={setQ} />
+        {['P0', 'P1', 'P2'].map((p) => (
+          <Button key={p} aria-pressed={pr.includes(p)} onClick={() => toggle('priority', p, pr)}>
+            {p}
+          </Button>
+        ))}
+        <FilterMenu filters={[]} count={applied.length}>
+          {/* Multi-value: each pick adds or removes one value; applied values show as chips. */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-label">Role</span>
+            <Select value="" onChange={(e) => e.target.value && toggle('role', e.target.value, rolesSel)}>
+              <option value="">Add a role…</option>
+              {Object.entries(ROLE_SLUG).map(([k, v]) => <option key={k} value={k}>{rolesSel.includes(k) ? '✓ ' : ''}{v}</option>)}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-label">Status</span>
+            <Select value="" onChange={(e) => e.target.value && toggle('status', e.target.value, statusSel)}>
+              <option value="">Add a status…</option>
+              {STATUSES.map((v) => <option key={v} value={v}>{statusSel.includes(v) ? '✓ ' : ''}{v}</option>)}
+            </Select>
+          </label>
+          {!fixedEpic && (
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-label">Epic</span>
+              <Select value="" onChange={(e) => e.target.value && toggle('epic', e.target.value, epicsSel)}>
+                <option value="">Add an Epic…</option>
+                {EPIC_ORDER.map((c) => <option key={c} value={c}>{epicsSel.includes(c) ? '✓ ' : ''}{c} · {epicName(c)}</option>)}
+              </Select>
+            </label>
+          )}
+        </FilterMenu>
+        <Button onClick={() => { const next = new URLSearchParams(params); next.set('role', user.role); setParams(next, { replace: true }) }} aria-pressed={rolesSel.length === 1 && rolesSel[0] === user.role}>
+          Mine
+        </Button>
+      </ListToolbar>
+      {(applied.length > 0 || filtered) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {applied.map(([k, v, label, cur]) => (
+            <FilterChip key={k + v} label={label} onRemove={() => toggle(k, v, [...cur])} />
+          ))}
+          {filtered && <button onClick={() => setParams(new URLSearchParams(), { replace: true })} className="text-sm font-medium text-link hover:underline">Clear all</button>}
+        </div>
       )}
-      {!fixedEpic && epicsSel.map((c) => (
-        <span key={c} className="inline-flex h-8 items-center gap-1 rounded-md bg-surface pr-1 pl-2.5 text-sm text-ink shadow-ring">
-          Epic: {c}
-          <button onClick={() => toggle('epic', c, epicsSel)} aria-label={`Remove Epic ${c}`} className="grid size-6 place-items-center rounded-sm text-muted hover:bg-recessed hover:text-strong">
-            <X className="size-3.5" />
-          </button>
-        </span>
-      ))}
-      {(epicsSel.length > 0 && !fixedEpic) || pr.length > 0 || rolesSel.length > 0 || statusSel.length > 0 || params.get('q') ? (
-        <button onClick={() => setParams(new URLSearchParams(), { replace: true })} className="h-8 px-1 text-sm text-link hover:underline">Clear filters</button>
-      ) : null}
     </div>
   )
   return { list, toolbar, meta: `Showing ${list.length} of ${fixedEpic ? stories.filter((s) => s.epic === fixedEpic).length : stories.length} stories · ${list.filter((s) => s.priority === 'P0').length} P0 · ${sessions(list)} FE sessions` }
@@ -492,7 +482,7 @@ export function ProductStoryMap() {
                   <div key={c} className="min-h-16 rounded-md bg-recessed p-1.5">
                     {cell.length > 0 ? <p className="tabular px-1 pb-1 text-xs text-label">{cell.length} · {sessions(cell)} sessions</p> : <p className="px-1 text-sm text-muted">—</p>}
                     {cell.map((s) => (
-                      <Link key={s.id} to={`/product/stories/${s.id}`} className="mb-1 block rounded-md bg-surface px-2 py-1.5 text-sm shadow-ring hover:shadow-pop">
+                      <Link key={s.id} to={`/product/stories/${s.id}`} className="mb-1 block rounded-md bg-surface px-2 py-1.5 text-sm shadow-ring hover:bg-recessed">
                         <span className="flex items-center justify-between gap-1">
                           <span className="font-mono text-xs text-label">{s.id.slice(3)}</span>
                           <StatusCell status={s.status} />
@@ -565,9 +555,9 @@ export function ProductStory() {
         <Link to="/product/backlog" className="hover:text-link hover:underline">Backlog</Link> / <Link to={`/product/epics/${s.epic.toLowerCase()}`} className="hover:text-link hover:underline">{s.epic}</Link> / <span className="font-mono">{s.id}</span>
       </nav>
       <div className="mb-4 flex items-start justify-between gap-4 max-sm:flex-col max-sm:gap-2">
-        <h1 className="text-title font-semibold text-strong">{s.title}</h1>
+        <PageTitle title={s.title} />
         <Button onClick={() => navigator.clipboard?.writeText(s.path).then(() => toast('File path copied', 'success'))}>
-          <Copy aria-hidden className="size-4" /> Copy file path
+          <Copy aria-hidden className="size-4" strokeWidth={1.75} /> Copy file path
         </Button>
       </div>
       <dl className="mb-6 grid grid-cols-[140px_1fr] gap-x-6 max-sm:grid-cols-[88px_1fr] max-sm:gap-x-3 gap-y-2 rounded-md bg-surface p-4 text-base shadow-ring">
@@ -592,18 +582,18 @@ export function ProductStory() {
       {(['Story', 'Acceptance criteria', 'UI states', 'Design notes', 'FE notes', 'Mock data'] as const).map((h) => (
         <section key={h} id={h.toLowerCase().replace(/\s+/g, '-')}>
           <h2 className="mt-6 mb-1 text-lg font-medium text-strong">{h}</h2>
-          {s.sections[h] ? <Markdown source={s.sections[h]} /> : <p className="rounded-md bg-warning-tint px-3 py-2 text-base text-ink shadow-ring">Not written yet. Add a “## {h}” section to {s.path}.</p>}
+          {s.sections[h] ? <Markdown source={s.sections[h]} /> : <Callout tone="warning">Not written yet. Add a “## {h}” section to {s.path}.</Callout>}
         </section>
       ))}
       <nav aria-label="Story pagination" className="mt-10 flex justify-between gap-4 border-t border-line pt-4 text-base">
         {prev ? (
           <Link to={`/product/stories/${prev.id}`} className="inline-flex min-w-0 items-center gap-1.5 text-link hover:underline">
-            <ChevronLeft aria-hidden className="size-4 shrink-0" /> <span className="truncate"><span className="font-mono text-sm">{prev.id}</span> {prev.title}</span>
+            <ChevronLeft aria-hidden className="size-4 shrink-0" strokeWidth={1.75} /> <span className="truncate"><span className="font-mono text-sm">{prev.id}</span> {prev.title}</span>
           </Link>
         ) : <span />}
         {next && (
           <Link to={`/product/stories/${next.id}`} className="inline-flex min-w-0 items-center gap-1.5 text-right text-link hover:underline">
-            <span className="truncate"><span className="font-mono text-sm">{next.id}</span> {next.title}</span> <ChevronRight aria-hidden className="size-4 shrink-0" />
+            <span className="truncate"><span className="font-mono text-sm">{next.id}</span> {next.title}</span> <ChevronRight aria-hidden className="size-4 shrink-0" strokeWidth={1.75} />
           </Link>
         )}
       </nav>

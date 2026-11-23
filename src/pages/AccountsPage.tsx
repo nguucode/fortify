@@ -2,14 +2,16 @@ import { downloadCsv } from '@/app/csv'
 import { AccountFormSheet, ReassignDialog } from './AccountSheets'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import * as Popover from '@radix-ui/react-popover'
-import { ArrowDown, ArrowUp, Building2, Clock, Download, Filter, Home, Plus, Search, SearchX, Users, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Building2, Download, Home, Plus, SearchX, Users } from 'lucide-react'
 import { accountRows, useApp, useDemoControls } from '@/app/store'
 import { savedViewsFor } from '@/app/sitemap'
 import { scopeOf, visibleAccounts } from '@/domain/access'
 import { ACCOUNT_VIEWS, queryAccounts, type AccountRow, type AccountSortKey, type AccountView } from '@/domain/accounts'
 import { daysBetween, formatUSDate } from '@/mock/dates'
-import { Button, CountPill, cx, Tip } from '@/components/ui/primitives'
+import { Button, cx, Due, ProgressLine, SearchField, Tip } from '@/components/ui/primitives'
+import { DisplayMenu, PAGE_SIZES, TablePagination, FilterChips, FilterMenu, ListToolbar, PageTitle, SelectionBar, useTablePrefs, ViewTabs, type FilterDef } from '@/components/patterns'
+import { dueTone } from '@/domain/urgency'
+import { useIsMobile } from '@/app/media'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState, ErrorState, SkeletonRows } from '@/components/ui/states'
 import { useToast } from '@/components/ui/toast'
@@ -42,7 +44,6 @@ const COLS: Col[] = [
   { key: 'ribbon', label: 'Next 12 months', width: 144 },
   { key: 'lastActivity', label: 'Last activity', sortable: true, width: 100 },
 ]
-const PAGE_SIZES = [25, 50, 100]
 
 // One format for the whole column: relative, with the absolute date in a tooltip.
 function relative(d: Date, today: Date) {
@@ -97,7 +98,9 @@ export function AccountsPage() {
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [reassign, setReassign] = useState(false)
-  const canBulk = user.role === 'principal' || user.role === 'admin'
+  const mobile = useIsMobile()
+  // Mobile is a read-only rendition (US-FND-011): no bulk selection.
+  const canBulk = !mobile && (user.role === 'principal' || user.role === 'admin')
   const [state, setState] = useState<{ status: 'loading' | 'error' | 'ready'; loaded: boolean; rows: AccountRow[]; refId?: string }>({ status: 'loading', loaded: false, rows: [] })
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
@@ -123,7 +126,9 @@ export function AccountsPage() {
   }, [controls.forceErrorOn, controls.empty])
 
   const today = useMemo(() => new Date(), [])
-  const cols = COLS
+  const [prefs, savePrefs] = useTablePrefs('accounts')
+  const cols = COLS.filter((c, i) => i === 0 || !prefs.hidden.includes(c.key))
+  const rowH = prefs.compact ? 'h-8' : 'h-10'
   const agencyScope = scopeOf(user) === 'Agency'
   const result = queryAccounts(state.rows, { view, search: q, filters, sort, page, pageSize, includeArchived })
   const isFiltered = !!(q || officeFilter || FILTER_KEYS.some((k) => params.get(k)))
@@ -143,7 +148,7 @@ export function AccountsPage() {
 
   const producers = data.users.filter((u) => u.role === 'producer')
   const managers = data.users.filter((u) => u.role === 'account-manager')
-  const FILTERS = [
+  const FILTERS: FilterDef[] = [
     { k: 'status', label: 'Status', opts: [['Prospect', 'Prospect'], ['Client', 'Client'], ['Former client', 'Former client']] },
     { k: 'kind', label: 'Kind', opts: [['Household', 'Household'], ['Business', 'Business']] },
     { k: 'office', label: 'Office', opts: data.offices.map((o) => [o.id, `${o.name} ${o.state}`]) },
@@ -151,11 +156,8 @@ export function AccountsPage() {
     { k: 'am', label: 'Account Manager', opts: managers.map((p) => [p.id, p.name]) },
     { k: 'state', label: 'State', opts: [['TX', 'Texas'], ['FL', 'Florida']] },
   ]
-  const chips = [
-    ...FILTERS.filter((f) => params.get(f.k)).map((f) => ({ k: f.k, label: `${f.label} is ${f.opts.find(([v]) => v === params.get(f.k))?.[1] ?? params.get(f.k)}` })),
-    ...(includeArchived ? [{ k: 'archived', label: 'Including archived' }] : []),
-  ]
 
+  const show = (k: string) => cols.some((c) => c.key === k)
   const onSort = (key: AccountSortKey) => {
     const next = sort?.key !== key ? key : sort.dir === 'asc' ? `-${key}` : null
     set({ sort: next })
@@ -163,242 +165,169 @@ export function AccountsPage() {
 
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <header className="flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-title font-semibold text-strong">Accounts</h1>
-          <p className="mt-1 text-base text-muted">Households and Businesses the agency sells to and services.</p>
-        </div>
-      </header>
+      <PageTitle title="Accounts" description="Households and Businesses the agency sells to and services." />
+      <ViewTabs views={views} counts={showRows ? result.viewCounts : null} />
 
-      <nav aria-label="Saved views" className="mt-6 flex gap-1 overflow-x-auto border-b border-line">
-        {views.map((v) => {
-          const active = v === view
-          return (
-            <button
-              key={v}
-              onClick={() => set({ view: v === views[0] ? null : slug(v) })}
-              aria-current={active ? 'page' : undefined}
-              className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base transition-colors duration-150', active ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}
-            >
-              {v}
-              <CountPill n={showRows ? result.viewCounts[v] : null} />
-            </button>
-          )
-        })}
-      </nav>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <label className="relative w-80 max-sm:w-full">
-          <span className="sr-only">Search accounts</span>
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Search accounts"
-            className="h-9 w-full rounded-md bg-surface pr-3 pl-8 text-base shadow-control outline-none focus-visible:outline-2 focus-visible:outline-primary"
-          />
-        </label>
-        <Popover.Root>
-          <Popover.Trigger asChild>
-            <Button>
-              <Filter aria-hidden className="size-4" strokeWidth={1.75} /> Filters
-              {chips.length > 0 && <CountPill n={chips.length} />}
-            </Button>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content align="start" sideOffset={6} className="z-50 flex w-72 flex-col gap-3 rounded-md bg-surface p-4 shadow-pop">
-              {FILTERS.map((f) => (
-                <label key={f.k} className="flex flex-col gap-1">
-                  <span className="text-sm font-medium text-label">{f.label}</span>
-                  <select value={params.get(f.k) ?? ''} onChange={(e) => set({ [f.k]: e.target.value || null })} className="h-9 rounded-md bg-surface px-2 text-base shadow-control">
-                    <option value="">Any</option>
-                    {f.opts.map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-              {user.role === 'admin' && (
-                <label className="flex items-center gap-2 text-base text-ink">
-                  <input type="checkbox" checked={includeArchived} onChange={(e) => set({ archived: e.target.checked ? '1' : null })} className="size-4 accent-primary" />
-                  Include archived
-                </label>
-              )}
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
-        <Button onClick={exportCsv} disabled={!ready || result.total === 0}>
-          <Download aria-hidden className="size-4" strokeWidth={1.75} /> Export
-        </Button>
-        <div className="flex-1" />
-        <Button variant="primary" className={cx('max-md:hidden', showEmpty && !isFiltered && 'invisible')} onClick={() => setCreating(true)}>
-          <Plus aria-hidden className="size-4" /> New account
-        </Button>
-      </div>
-
-      {selected.size > 0 && (
-        <div role="region" aria-label="Selection" className="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-recessed px-3 py-1.5">
-          <span className="tabular text-sm font-medium text-strong">{selected.size.toLocaleString('en-US')} selected</span>
-          {result.total > selected.size && (
-            <button onClick={() => setSelected(new Set(queryAccounts(state.rows, { view, search: q, filters, sort, page: 1, pageSize: 100000, includeArchived }).rows.map((r) => r.id)))} className="text-sm text-link hover:underline">
-              Select all {result.total.toLocaleString('en-US')} matching
-            </button>
+      <ListToolbar
+        className="mt-4"
+        end={
+          <Button variant="primary" className={cx(showEmpty && !isFiltered && 'invisible')} onClick={() => setCreating(true)}>
+            <Plus aria-hidden className="size-4" strokeWidth={1.75} /> New account
+          </Button>
+        }
+      >
+        <SearchField label="Search accounts" placeholder="Search accounts" value={draft} onChange={setDraft} />
+        <FilterMenu filters={FILTERS}>
+          {user.role === 'admin' && (
+            <label className="flex items-center gap-2 text-base text-ink">
+              <input type="checkbox" checked={includeArchived} onChange={(e) => set({ archived: e.target.checked ? '1' : null })} className="size-4 accent-primary" />
+              Include archived
+            </label>
           )}
+        </FilterMenu>
+        {!mobile && (
+          <>
+            <DisplayMenu columns={COLS} prefs={prefs} onChange={savePrefs} />
+            <Button onClick={exportCsv} disabled={!ready || result.total === 0}>
+              <Download aria-hidden className="size-4" strokeWidth={1.75} /> Export
+            </Button>
+          </>
+        )}
+      </ListToolbar>
+
+      <FilterChips className="mt-3" filters={FILTERS} extra={includeArchived ? [{ k: 'archived', label: 'Including archived' }] : []} />
+      {selected.size > 0 && (
+        <SelectionBar matching count={selected.size} total={result.total} onSelectAll={result.total > selected.size ? () => setSelected(new Set(queryAccounts(state.rows, { view, search: q, filters, sort, page: 1, pageSize: 100000, includeArchived }).rows.map((r) => r.id))) : undefined} onClear={() => setSelected(new Set())}>
           <Button size="sm" onClick={() => setReassign(true)}>Reassign {selected.size.toLocaleString('en-US')} accounts</Button>
-          <button onClick={() => setSelected(new Set())} className="text-sm text-link hover:underline">Clear selection</button>
-        </div>
+        </SelectionBar>
       )}
       {creating && <AccountFormSheet onClose={() => setCreating(false)} />}
       {reassign && <ReassignDialog accountIds={[...selected]} onClose={() => setReassign(false)} onDone={(p) => { setSelected(new Set()); if (p) set({ producer: p }) }} />}
-
-      {chips.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {chips.map((c) => (
-            <span key={c.k} className="inline-flex h-7 items-center gap-1 rounded-md bg-surface pr-1 pl-2.5 text-sm text-ink shadow-ring">
-              {c.label}
-              <button aria-label={`Remove ${c.label}`} onClick={() => set({ [c.k]: null })} className="grid size-5 place-items-center rounded-sm text-muted hover:bg-recessed hover:text-strong">
-                <X className="size-3.5" />
-              </button>
-            </span>
-          ))}
-          <button onClick={() => set(Object.fromEntries(FILTER_KEYS.map((k) => [k, null])))} className="text-sm font-medium text-link hover:underline">
-            Clear all
-          </button>
-        </div>
-      )}
 
       <p className="tabular mt-3 text-sm text-muted" aria-live="polite">
         {showRows ? `Showing ${result.rows.length.toLocaleString('en-US')} of ${result.total.toLocaleString('en-US')} accounts · ${compactUsd(result.premiumTotal)} annual premium` : ' '}
       </p>
 
       <div className="relative mt-2 overflow-x-auto rounded-t-md bg-surface shadow-ring">
-        {refetching && <span aria-hidden className="absolute inset-x-0 top-10 z-20 h-0.5 bg-primary" />}
-        <table
-          className="w-full table-fixed border-collapse text-left"
-          // The Account column keeps at least 284px; narrower windows scroll with that column sticky.
-          style={{ minWidth: 284 + cols.reduce((sum, c) => sum + (c.width ?? 0), 0) }}
-          aria-busy={state.status === 'loading'}
-        >
-          <colgroup>
-            {cols.map((c) => (
-              <col key={c.key} style={c.width ? { width: c.width } : undefined} />
-            ))}
-          </colgroup>
-          <thead>
-            <tr className="h-10 border-b border-fill">
-              {cols.map((c) => {
-                const active = sort?.key === c.key
-                return (
-                  <th
-                    key={c.key}
-                    scope="col"
-                    aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                    className={cx('px-3 text-base font-semibold whitespace-nowrap text-strong', c.align === 'right' && 'text-right', c.key === 'name' && 'sticky left-0 z-10 bg-surface')}
-                  >
-                    {c.key === 'name' && canBulk && (
-                      <input type="checkbox" aria-label="Select all on this page" checked={result.rows.length > 0 && result.rows.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set([...selected, ...result.rows.map((r) => r.id)]) : new Set([...selected].filter((id) => !result.rows.some((r) => r.id === id))))} className="mr-2 size-4 align-middle accent-primary" />
-                    )}
-                    {c.sortable ? (
-                      <button onClick={() => onSort(c.key as AccountSortKey)} className={cx('inline-flex items-center gap-1 rounded-sm hover:text-link', c.align === 'right' && 'flex-row-reverse')}>
-                        {c.label}
-                        {active && (sort.dir === 'asc' ? <ArrowUp aria-hidden className="size-3.5" /> : <ArrowDown aria-hidden className="size-3.5" />)}
-                      </button>
-                    ) : c.key === 'ribbon' ? (
-                      <RibbonAxis label={c.label} />
-                    ) : (
-                      c.label
-                    )}
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {state.status === 'loading' && !state.loaded && <SkeletonRows cols={cols.length} />}
+        {refetching && <ProgressLine className="absolute inset-x-0 top-10 z-20" />}
+        {mobile ? (
+          // US-FND-011: the same stacked rows as every other list below 768px: name, status, one key value.
+          <ul className="divide-y divide-fill" aria-busy={state.status === 'loading'}>
             {showRows &&
-              result.rows.map((r) => {
-                const soon = r.nextExpiration && daysBetween(today, r.nextExpiration) <= 30
-                return (
-                  <tr
-                    key={r.id}
-                    onClick={(e) => !(e.target as HTMLElement).closest('a,button,[tabindex]') && navigate(`/accounts/${r.id}`)}
-                    className="h-10 cursor-pointer border-b border-fill text-base transition-colors duration-100 hover:bg-recessed"
-                  >
-                    <td className="sticky left-0 z-10 bg-inherit px-3">
-                      <div className="flex min-w-0 items-center gap-2">
-                        {canBulk && <input type="checkbox" aria-label={`Select ${r.name}`} checked={selected.has(r.id)} onChange={() => setSelected((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n })} className="size-4 shrink-0 accent-primary" />}
-                        {r.kind === 'Household' ? <Home aria-label="Household" className="size-4 shrink-0 text-muted" strokeWidth={1.75} /> : <Building2 aria-label="Business" className="size-4 shrink-0 text-muted" strokeWidth={1.75} />}
-                        <Tip label={r.name}>
-                          <Link to={`/accounts/${r.id}`} className="max-w-[72%] flex-none truncate font-medium text-strong hover:text-link hover:underline">
-                            {r.name}
-                          </Link>
-                        </Tip>
-                        <span className="min-w-0 truncate text-sm text-muted">
-                          {r.contactName ?? 'No contact'}
-                          {agencyScope && ` · ${r.officeName}`}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3"><StatusCell status={r.status} /></td>
-                    <td className="truncate px-3 text-ink">{r.producerName}</td>
-                    <td className="truncate px-3 text-ink">{r.accountManagerName}</td>
-                    <td className="tabular px-3 text-right">{r.activePolicyCount || <span className="text-muted">—</span>}</td>
-                    <td className="tabular px-3 text-right">{r.annualPremium ? usd(r.annualPremium) : <span className="text-muted">—</span>}</td>
-                    <td className={cx('tabular px-3 whitespace-nowrap', soon ? 'font-medium text-warning-text' : 'text-ink')}>
-                      {r.nextExpiration ? (
-                        <span className="inline-flex items-center gap-1">
-                          {soon && <Clock aria-hidden className="size-3.5" />}
-                          {formatUSDate(r.nextExpiration)}
-                        </span>
-                      ) : (
-                        <span className="text-muted">—</span>
+              result.rows.map((r) => (
+                <li key={r.id}>
+                  <Link to={`/accounts/${r.id}`} className="flex min-h-14 items-center gap-3 px-3 py-2 text-base active:bg-recessed">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-strong">{r.name}</span>
+                      <span className="mt-0.5 block text-sm"><StatusCell status={r.status} /></span>
+                    </span>
+                    <span className="tabular max-w-[45%] shrink-0 truncate text-right text-sm text-label">{r.annualPremium ? usd(r.annualPremium) : '—'}</span>
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <table
+            className="w-full table-fixed border-collapse text-left"
+            // The Account column keeps at least 284px; narrower windows scroll with that column sticky.
+            style={{ minWidth: 284 + cols.reduce((sum, c) => sum + (c.width ?? 0), 0) }}
+            aria-busy={state.status === 'loading'}
+          >
+            <colgroup>
+              {cols.map((c) => (
+                <col key={c.key} style={c.width ? { width: c.width } : undefined} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr className="h-10 border-b border-fill">
+                {cols.map((c) => {
+                  const active = sort?.key === c.key
+                  return (
+                    <th
+                      key={c.key}
+                      scope="col"
+                      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                      className={cx('px-3 text-base font-semibold whitespace-nowrap text-strong', c.align === 'right' && 'text-right', c.key === 'name' && 'sticky left-0 z-10 bg-surface')}
+                    >
+                      {c.key === 'name' && canBulk && (
+                        <input type="checkbox" aria-label="Select all on this page" checked={result.rows.length > 0 && result.rows.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set([...selected, ...result.rows.map((r) => r.id)]) : new Set([...selected].filter((id) => !result.rows.some((r) => r.id === id))))} className="mr-2 size-4 align-middle accent-primary" />
                       )}
-                    </td>
-                    <td className="px-3"><TermRibbon ticks={r.ribbon} /></td>
-                    <td className="tabular truncate px-3 text-label">
-                      {r.lastActivity ? (
-                        <Tip label={formatUSDate(r.lastActivity)}>
-                          <span>{relative(r.lastActivity, today)}</span>
-                        </Tip>
+                      {c.sortable ? (
+                        <button onClick={() => onSort(c.key as AccountSortKey)} className={cx('inline-flex items-center gap-1 rounded-sm hover:text-link', c.align === 'right' && 'flex-row-reverse')}>
+                          {c.label}
+                          {active && (sort.dir === 'asc' ? <ArrowUp aria-hidden className="size-3.5" /> : <ArrowDown aria-hidden className="size-3.5" />)}
+                        </button>
+                      ) : c.key === 'ribbon' ? (
+                        <RibbonAxis label={c.label} />
                       ) : (
-                        <span className="text-muted">—</span>
+                        c.label
                       )}
-                    </td>
-                  </tr>
-                )
-              })}
-          </tbody>
-        </table>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {state.status === 'loading' && !state.loaded && <SkeletonRows cols={cols.length} />}
+              {showRows &&
+                result.rows.map((r) => {
+                  return (
+                    <tr
+                      key={r.id}
+                      onClick={(e) => !(e.target as HTMLElement).closest('a,button,[tabindex]') && navigate(`/accounts/${r.id}`)}
+                      className={cx(rowH, 'cursor-pointer border-b border-fill text-base transition-colors duration-100 hover:bg-recessed')}
+                    >
+                      <td className="sticky left-0 z-10 bg-inherit px-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {canBulk && <input type="checkbox" aria-label={`Select ${r.name}`} checked={selected.has(r.id)} onChange={() => setSelected((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n })} className="size-4 shrink-0 accent-primary" />}
+                          {r.kind === 'Household' ? <Home aria-label="Household" className="size-4 shrink-0 text-muted" strokeWidth={1.75} /> : <Building2 aria-label="Business" className="size-4 shrink-0 text-muted" strokeWidth={1.75} />}
+                          <Tip label={r.name}>
+                            <Link to={`/accounts/${r.id}`} className="max-w-[72%] flex-none truncate font-medium text-strong hover:text-link hover:underline">
+                              {r.name}
+                            </Link>
+                          </Tip>
+                          <span className="min-w-0 truncate text-sm text-muted">
+                            {r.contactName ?? 'No contact'}
+                            {agencyScope && ` · ${r.officeName}`}
+                          </span>
+                        </div>
+                      </td>
+                      {show('status') && <td className="px-3"><StatusCell status={r.status} /></td>}
+                      {show('producerName') && <td className="truncate px-3 text-ink">{r.producerName}</td>}
+                      {show('accountManagerName') && <td className="truncate px-3 text-ink">{r.accountManagerName}</td>}
+                      {show('activePolicyCount') && <td className="tabular px-3 text-right">{r.activePolicyCount || <span className="text-muted">—</span>}</td>}
+                      {show('annualPremium') && <td className="tabular px-3 text-right">{r.annualPremium ? usd(r.annualPremium) : <span className="text-muted">—</span>}</td>}
+                      {show('nextExpiration') && (
+                        <td className="px-3">
+                          {r.nextExpiration ? <Due tone={dueTone(daysBetween(today, r.nextExpiration))}>{formatUSDate(r.nextExpiration)}</Due> : <span className="text-muted">—</span>}
+                        </td>
+                      )}
+                      {show('ribbon') && <td className="px-3"><TermRibbon ticks={r.ribbon} /></td>}
+                      {show('lastActivity') && <td className="tabular truncate px-3 text-label">
+                        {r.lastActivity ? (
+                          <Tip label={formatUSDate(r.lastActivity)}>
+                            <span>{relative(r.lastActivity, today)}</span>
+                          </Tip>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>}
+                    </tr>
+                  )
+                })}
+            </tbody>
+          </table>
+        )}
         {state.status === 'error' && <ErrorState what="accounts" refId={state.refId!} onRetry={() => setAttempt((n) => n + 1)} />}
         {showEmpty &&
           (isFiltered ? (
             <EmptyState icon={SearchX} title="No accounts match these filters" body="Try a different search, or clear the filters to see every account in your scope." action={<Button onClick={() => { setDraft(''); set({ q: null, ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])) }) }}>Clear filters</Button>} />
           ) : (
-            <EmptyState icon={Users} title={emptyCopy[0]} body={emptyCopy[1]} action={<Button variant="primary" onClick={() => toast('Creating Accounts arrives with US-ACC-002.')}><Plus aria-hidden className="size-4" /> New account</Button>} />
+            <EmptyState icon={Users} title={emptyCopy[0]} body={emptyCopy[1]} action={<Button variant="primary" onClick={() => toast('Creating Accounts arrives with US-ACC-002.')}><Plus aria-hidden className="size-4" strokeWidth={1.75} /> New account</Button>} />
           ))}
       </div>
 
-      {showRows && result.total > 0 && (
-        <div className="tabular flex items-center justify-between rounded-b-md border-t border-fill bg-surface px-3 py-2 text-sm text-label shadow-ring">
-          <span className="flex items-center gap-4">
-            <span>
-              {((result.page - 1) * result.pageSize + 1).toLocaleString('en-US')}–{Math.min(result.page * result.pageSize, result.total).toLocaleString('en-US')} of {result.total.toLocaleString('en-US')}
-            </span>
-            <label className="flex items-center gap-1.5">
-              Rows per page
-              <select value={pageSize} onChange={(e) => set({ size: e.target.value === '50' ? null : e.target.value })} className="h-8 rounded-md bg-surface px-1.5 text-sm text-ink shadow-control">
-                {PAGE_SIZES.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </label>
-          </span>
-          <span className="flex gap-2">
-            <Button size="sm" disabled={result.page <= 1} onClick={() => set({ page: String(result.page - 1) }, false)}>Previous</Button>
-            <Button size="sm" disabled={result.page >= result.pageCount} onClick={() => set({ page: String(result.page + 1) }, false)}>Next</Button>
-          </span>
-        </div>
-      )}
+      {showRows && result.total > 0 && <TablePagination page={result.page} pageSize={result.pageSize} total={result.total} />}
     </div>
   )
 }

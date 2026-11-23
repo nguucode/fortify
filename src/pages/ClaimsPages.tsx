@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { AlertTriangle, MoreHorizontal, Pencil, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, MoreHorizontal, Pencil, Plus, ShieldAlert } from 'lucide-react'
 import { followUps } from '@/domain/claimFollowUp'
 import { useApp } from '@/app/store'
 import { dateOf, offsetOfDate, usd, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import type { Claim, ClaimStatus } from '@/domain/types'
-import { Confirm, DataTable, Field, inputCls, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, AttentionCallout, type Column } from '@/components/patterns'
+import { Confirm, DataTable, Field, inputCls, KeyValue, PageTitle, Panel, RecordHeader, PrimaryCell, ViewTabs, useView, AttentionCallout, type Column, type FilterDef } from '@/components/patterns'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { Button, cx, Due, Tip } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { useToast } from '@/components/ui/toast'
@@ -28,7 +28,7 @@ export function ClaimsPage() {
   const { data, user } = useApp()
   const { account, carrierName } = useLookups()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const view = useView(VIEWS)
   const [reporting, setReporting] = useState(false)
   const scoped = new Map(visibleAccounts(user, data.accounts).map((a) => [a.id, a]))
@@ -37,31 +37,44 @@ export function ClaimsPage() {
   const fl = { status: params.get('status'), loss: params.get('loss'), carrier: params.get('carrier'), office: params.get('office') }
   const pol = (c: Claim) => data.policies.find((p) => p.id === c.policyId)
   const rows = all.filter(inView[view]).filter((c) => (!fl.status || c.status === fl.status) && (!fl.loss || c.lossType === fl.loss) && (!fl.carrier || pol(c)?.carrierId === fl.carrier) && (!fl.office || scoped.get(c.accountId)!.officeId === fl.office)).sort((a, b) => b.lossOffset - a.lossOffset)
-  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }) }
+  const filters: FilterDef[] = [
+    { k: 'status', label: 'Status', opts: STEPS.map((x) => [x, x]) },
+    { k: 'loss', label: 'Loss type', opts: Object.keys(FORM).map((x) => [x, x]) },
+    { k: 'carrier', label: 'Carrier', opts: data.carriers.map((c): [string, string] => [c.id, c.name]) },
+    ...(user.role === 'principal' || user.role === 'admin' ? [{ k: 'office', label: 'Office', opts: data.offices.map((o): [string, string] => [o.id, o.name]) }] : []),
+  ]
   const cols: Column<Claim>[] = [
-    { key: 'id', label: 'Claim', width: 200, render: (c) => <span className="flex min-w-0 flex-col leading-tight"><Link to={`/claims/${c.id}`} className="font-mono text-sm text-link hover:underline">{c.id}</Link><span className="truncate text-sm text-muted">{account(c.accountId)?.name}</span></span>, csv: (c) => c.id },
+    { key: 'id', label: 'Claim', render: (c) => <PrimaryCell mono={c.id} name={account(c.accountId)?.name ?? '—'} to={`/claims/${c.id}`} token={c.lossType} />, csv: (c) => c.id },
     { key: 'loss', label: 'Loss type', width: 170, render: (c) => <span>{c.lossType} <span className="text-sm text-muted">{FORM[c.lossType]}</span></span>, csv: (c) => c.lossType },
     { key: 'date', label: 'Date of loss', width: 110, sort: (a, b) => a.lossOffset - b.lossOffset, render: (c) => dateOf(c.lossOffset) },
     { key: 'policy', label: 'Policy', width: 220, render: (c) => <span className="flex min-w-0 flex-col leading-tight"><span className="truncate font-mono text-sm">{pol(c)?.policyNumber ?? '—'}</span><span className="truncate text-sm text-muted">{pol(c) ? carrierName(pol(c)!.carrierId) : ''}</span></span>, csv: (c) => pol(c)?.policyNumber ?? '' },
     { key: 'num', label: 'Carrier claim #', width: 150, render: (c) => c.carrierClaimNumber ? <span className="font-mono text-sm">{c.carrierClaimNumber}</span> : <span className="text-muted">—</span>, csv: (c) => c.carrierClaimNumber ?? '' },
     { key: 'adj', label: 'Adjuster', width: 140, render: (c) => c.adjuster?.name ?? <span className="text-muted">—</span>, csv: (c) => c.adjuster?.name ?? '' },
     { key: 'status', label: 'Status', width: 170, render: (c) => <StatusCell status={c.status} reason={c.status === 'Closed' && c.outcome ? c.outcome : undefined} />, csv: statusText },
-    { key: 'days', label: 'Days open', width: 90, align: 'right', mobile: true, sort: (a, b) => daysOpen(a) - daysOpen(b), render: (c) => { const fu = followUps(c, data, new Date()); return fu.length ? <Tip label={fu[0].text}><span tabIndex={0} className="inline-flex items-center gap-1 font-medium text-warning-text"><AlertTriangle aria-hidden className="size-3.5" />{daysOpen(c)}</span></Tip> : daysOpen(c) } },
+    { key: 'days', label: 'Days open', width: 90, align: 'right', mobile: true, sort: (a, b) => daysOpen(a) - daysOpen(b), render: (c) => { const fu = followUps(c, data, new Date()); return fu.length ? <Tip label={fu[0].text}><span tabIndex={0}><Due tone="overdue">{daysOpen(c)}</Due></span></Tip> : daysOpen(c) } },
     { key: 'office', label: 'Office', width: 100, render: (c) => data.offices.find((o) => o.id === scoped.get(c.accountId)!.officeId)?.name ?? '' },
   ]
   const open = rows.filter((c) => c.status !== 'Closed')
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <PageTitle title="Claims" description="Claims your agency reported. The carrier’s adjuster handles each claim; Fortify tracks it." actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setReporting(true)}>+ Report a claim</Button>} />
+      <PageTitle title="Claims" description="Claims your agency reported. The carrier’s adjuster handles each claim; Fortify tracks it." />
       <div className="mt-4"><ClaimFollowUps claims={all} /></div>
       <ViewTabs views={VIEWS} counts={Object.fromEntries(VIEWS.map((v) => [v, all.filter(inView[v]).length]))} />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {([['status', 'Status', STEPS.map((x) => [x, x])], ['loss', 'Loss type', Object.keys(FORM).map((x) => [x, x])], ['carrier', 'Carrier', data.carriers.map((c) => [c.id, c.name])], ...(user.role === 'principal' || user.role === 'admin' ? [['office', 'Office', data.offices.map((o) => [o.id, o.name])]] : [])] as [string, string, string[][]][]).map(([k, l, o]) => (
-          <select key={k} aria-label={l} value={params.get(k) ?? ''} onChange={(e) => setP(k, e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">{l}</option>{o.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
-        ))}
-      </div>
-      <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {rows.length} claims · {open.filter((c) => !c.carrierClaimNumber).length} open without a carrier claim #</p>
-      <DataTable rows={rows} columns={cols} minWidth={1300} listId="claims" exportName="claims" onRowClick={(c) => navigate(`/claims/${c.id}`)} empty={<EmptyState icon={ShieldAlert} title="No claims in this view" body="Claims start from a Claim report request." />} />
+      <DataTable
+        className="mt-4"
+        filters={filters}
+        search={{ label: 'Search claims', placeholder: 'Search claim, Account, or carrier', match: (c, q) => [c.id, c.carrierClaimNumber, account(c.accountId)?.name, pol(c) && carrierName(pol(c)!.carrierId)].some((x) => x?.toLowerCase().includes(q)) }}
+        actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setReporting(true)}><Plus aria-hidden className="size-4" strokeWidth={1.75} /> Report a claim</Button>}
+        meta={<>Showing {rows.length} claims · {open.filter((c) => !c.carrierClaimNumber).length} open without a carrier claim #</>}
+        rows={rows}
+        columns={cols}
+        minWidth={1300}
+        pageSize={50}
+        listId="claims"
+        exportName="claims"
+        onRowClick={(c) => navigate(`/claims/${c.id}`)}
+        empty={<EmptyState icon={ShieldAlert} title="No claims in this view" body="Claims start from a Claim report request." />}
+      />
       {reporting && <ServiceRequestSheet type="Claim report" onClose={() => setReporting(false)} />}
     </div>
   )
@@ -108,7 +121,7 @@ export function ClaimPage() {
         actions={
           canEdit && (
             <span className="flex gap-2">
-              {followUps(c, data, new Date()).length > 0 && !data.tasks.some((t) => t.status === 'Open' && t.linked?.kind === 'claim' && t.linked.id === c.id) && <Tip label={followUps(c, data, new Date())[0].text}><Button onClick={() => followUpTask(c)}><AlertTriangle aria-hidden className="size-4 text-warning-text" />Create follow-up task</Button></Tip>}
+              {followUps(c, data, new Date()).length > 0 && !data.tasks.some((t) => t.status === 'Open' && t.linked?.kind === 'claim' && t.linked.id === c.id) && <Tip label={followUps(c, data, new Date())[0].text}><Button onClick={() => followUpTask(c)}><AlertTriangle aria-hidden className="size-4 text-warning-text" strokeWidth={1.75} />Create follow-up task</Button></Tip>}
               {c.status === 'Reported' && <Button variant="primary" onClick={() => setDialog('submit')}>Submit to carrier</Button>}
               {c.status === 'Submitted to carrier' && <Button variant="primary" onClick={() => setDialog('number')}>Add claim #</Button>}
               {c.status === 'Claim # assigned' && <Button onClick={() => setDialog('number')}>Add adjuster</Button>}
@@ -118,7 +131,7 @@ export function ClaimPage() {
               )}
               {c.status === 'Reported' && (
                 <Menu.Root>
-                  <Menu.Trigger aria-label="More actions" className="grid size-9 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed"><MoreHorizontal className="size-4" /></Menu.Trigger>
+                  <Menu.Trigger aria-label="More actions" className="grid size-9 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed"><MoreHorizontal aria-hidden className="size-4" strokeWidth={1.75} /></Menu.Trigger>
                   <Menu.Portal><Menu.Content align="end" sideOffset={4} className={menuContent}><Menu.Item className={menuItem} onSelect={() => setDialog('withdraw')}>Withdraw</Menu.Item></Menu.Content></Menu.Portal>
                 </Menu.Root>
               )}
@@ -157,10 +170,10 @@ export function ClaimPage() {
             </Panel>
           </div>
           <div className="flex flex-col gap-4">
-            <Panel title="Carrier" actions={canEdit && c.carrierClaimNumber && <button aria-label="Edit claim number" onClick={() => setDialog('number')} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed"><Pencil className="size-4" /></button>}>
+            <Panel title="Carrier" actions={canEdit && c.carrierClaimNumber && <button aria-label="Edit claim number" onClick={() => setDialog('number')} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed"><Pencil aria-hidden className="size-4" strokeWidth={1.75} /></button>}>
               <KeyValue items={[['Carrier', carrier], ['Claim #', c.carrierClaimNumber ?? 'Not assigned yet'], ['Submitted', c.submittedOffset != null ? `${dateOf(c.submittedOffset)} · ${c.submittedVia}` : null]]} />
             </Panel>
-            <Panel title="Adjuster" actions={canEdit && c.adjuster && <button aria-label="Edit adjuster" onClick={() => setDialog('number')} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed"><Pencil className="size-4" /></button>}>
+            <Panel title="Adjuster" actions={canEdit && c.adjuster && <button aria-label="Edit adjuster" onClick={() => setDialog('number')} className="grid size-8 place-items-center rounded-md text-muted hover:bg-recessed"><Pencil aria-hidden className="size-4" strokeWidth={1.75} /></button>}>
               {c.adjuster ? (
                 <>
                   <KeyValue items={[['Name', c.adjuster.name], ['Type', c.adjuster.type ?? null], ['Phone', c.adjuster.phone ?? null], ['Email', c.adjuster.email ?? null], ['Assigned', c.adjuster.assignedOffset != null ? dateOf(c.adjuster.assignedOffset) : null]]} />

@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { AlertTriangle, Paperclip } from 'lucide-react'
+import { Paperclip } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, offsetOfDate, usd, useMutate } from '@/app/hooks'
 import { visibleAccounts } from '@/domain/access'
 import type { Line, ServiceRequest, ServiceType } from '@/domain/types'
 import { Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
-import { Button, cx } from '@/components/ui/primitives'
+import { Button, Callout, cx } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
 
 export const SR_TYPES: ServiceType[] = ['Policy change', 'Certificate request', 'Claim report', 'ID card / evidence', 'Billing question', 'Cancellation request', 'General']
@@ -230,7 +230,7 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
               </span>
             </Field>
             <span className="flex flex-wrap gap-x-4">{check('additionalInsured', 'Additional insured')}{check('waiver', 'Waiver of subrogation')}{check('primaryNonContrib', 'Primary & noncontributory')}</span>
-            {special && <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring"><AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" /> Needs review: a Principal approves additional insured, waiver, or primary & noncontributory wording before the certificate is issued.</p>}
+            {special && <Callout tone="warning">Needs review: a Principal approves additional insured, waiver, or primary & noncontributory wording before the certificate is issued.</Callout>}
             <Field label="Description of operations"><textarea maxLength={500} className={cx(inputCls, 'h-20 py-2')} value={String(d.operations ?? '')} onChange={(e) => set('operations', e.target.value)} placeholder="Re: Job #2291, roofing at 1400 Westheimer Rd" /></Field>
           </>
         )}
@@ -242,7 +242,7 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
               <Field label="Time of loss (optional)"><input type="time" className={inputCls} value={String(d.lossTime ?? '')} onChange={(e) => set('lossTime', e.target.value)} /></Field>
             </div>
             {term && lossOff != null && (lossOff < term.effectiveOffset || lossOff > term.expirationOffset) && (
-              <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring"><AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" /> Date of loss {dateOf(lossOff)} is outside the selected term ({dateOf(term.effectiveOffset)} – {dateOf(term.expirationOffset)}). Check which policy was in force.</p>
+              <Callout tone="warning">Date of loss {dateOf(lossOff)} is outside the selected term ({dateOf(term.effectiveOffset)} – {dateOf(term.expirationOffset)}). Check which policy was in force.</Callout>
             )}
             <Field label="Reported by">
               <select className={inputCls} value={String(d.reportedBy ?? '')} onChange={(e) => set('reportedBy', e.target.value)}>
@@ -266,7 +266,7 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
               <>
                 {sel('cause', 'Cause', CAUSES)}
                 {d.cause === 'Hurricane' && policy?.dwelling?.hurricanePct != null && <p className="rounded-md bg-recessed px-3 py-2 text-sm text-ink">Hurricane deductible: {policy.dwelling.hurricanePct}% of dwelling = {usd((policy.dwelling.coverageA * policy.dwelling.hurricanePct) / 100)}</p>}
-                {d.cause === 'Sinkhole' && account?.state === 'FL' && lossOff != null && lossOff < -730 && <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring"><AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" /> Florida sinkhole claims must be reported within 2 years of the loss.</p>}
+                {d.cause === 'Sinkhole' && account?.state === 'FL' && lossOff != null && lossOff < -730 && <Callout tone="warning">Florida sinkhole claims must be reported within 2 years of the loss.</Callout>}
               </>
             )}
             <div className="grid grid-cols-3 gap-3">
@@ -318,7 +318,7 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
                 {d.noticeReceived === true && (
                   <>
                     <Field label="Cancellation effective date" error={err('notice')}><input type="date" className={inputCls} value={String(d.cancelEffective ?? '')} onChange={(e) => set('cancelEffective', e.target.value)} /></Field>
-                    <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring"><AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" /> Nonpayment notices move fast. Confirm the payment date with the carrier today.</p>
+                    <Callout tone="warning">Nonpayment notices move fast. Confirm the payment date with the carrier today.</Callout>
                   </>
                 )}
               </>
@@ -341,7 +341,7 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
             )}
             {sel('signed', 'Signed cancellation request received?', ['No', 'Yes'], { error: err('cancelSigned') })}
             {d.reason !== 'Rewrite at this agency' && check('retention', 'Ask the Producer to try to keep this policy')}
-            {!!policy?.interests?.length && <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring"><AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" /> This policy has {policy.interests.length} additional interest{policy.interests.length === 1 ? '' : 's'} ({policy.interests.map((x) => x.name).join(', ')}). The carrier notifies them; confirm payoff or replacement coverage.</p>}
+            {!!policy?.interests?.length && <Callout tone="warning">This policy has {policy.interests.length} additional interest{policy.interests.length === 1 ? '' : 's'} ({policy.interests.map((x) => x.name).join(', ')}). The carrier notifies them; confirm payoff or replacement coverage.</Callout>}
             <p className="text-sm text-muted">The term’s status changes when the AMS syncs the cancellation.</p>
           </>
         )}
@@ -369,7 +369,7 @@ export function ServiceRequestSheet({ onClose, accountId: presetAccount, policyI
         )}
         <div>
           <input ref={fileInput} type="file" multiple hidden onChange={(e) => { setFiles([...files, ...[...(e.target.files ?? [])].map((f) => ({ name: f.name, size: f.size }))]); e.target.value = '' }} />
-          <Button size="sm" onClick={() => fileInput.current?.click()}><Paperclip aria-hidden className="size-4" /> Attach files</Button>
+          <Button size="sm" onClick={() => fileInput.current?.click()}><Paperclip aria-hidden className="size-4" strokeWidth={1.75} /> Attach files</Button>
           {files.length > 0 && <ul className="mt-2 text-sm text-label">{files.map((f, i) => <li key={i} className="flex justify-between"><span className="truncate">{f.name}</span><button onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-link hover:underline">Remove</button></li>)}</ul>}
         </div>
       </div>

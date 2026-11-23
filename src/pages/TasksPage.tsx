@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { CheckCircle2, ListChecks } from 'lucide-react'
+import { CheckCircle2, ListChecks, Plus } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, offsetOfDate, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
@@ -8,9 +8,11 @@ import { bulkSummary } from '@/app/bulk'
 import { formatUSDate, resolveOffset } from '@/mock/dates'
 import { useToast } from '@/components/ui/toast'
 import type { Task } from '@/domain/types'
-import { BulkPickDialog, Confirm, DataTable, Field, inputCls, PageTitle, ViewTabs, useView, type Column } from '@/components/patterns'
-import { Button, cx } from '@/components/ui/primitives'
+import { BulkPickDialog, Confirm, DataTable, Field, inputCls, PageTitle, ViewTabs, useView, type Column, type FilterDef } from '@/components/patterns'
+import { Button, controlCls, cx, Due } from '@/components/ui/primitives'
+import { dueTone } from '@/domain/urgency'
 import { EmptyState } from '@/components/ui/states'
+import { StatusCell } from '@/components/ui/status'
 import { fmtTime, TaskSheet, useCompleteTask } from './TaskSheet'
 
 const VIEWS = ['My open', 'Due today', 'Overdue']
@@ -74,7 +76,7 @@ export function TasksPage() {
         t.status === 'Open' ? (
           <input type="checkbox" aria-label={`Complete ${t.title}`} disabled={user.role === 'admin'} onChange={() => complete(t)} className="size-4 accent-primary" />
         ) : t.status === 'Done' ? (
-          <CheckCircle2 aria-label="Done" className="size-4 text-success" />
+          <CheckCircle2 aria-label="Done" className="size-4 text-success" strokeWidth={1.75} />
         ) : (
           <span className="text-sm text-muted">—</span>
         ),
@@ -100,9 +102,9 @@ export function TasksPage() {
       render: (t) => {
         if (t.status !== 'Open') return <span className="tabular">{t.doneOffset != null ? dateOf(t.doneOffset) : '—'}</span>
         return (
-          <span className={cx('tabular', t.dueOffset < 0 && 'font-medium text-danger-text')}>
+          <Due tone={dueTone(t.dueOffset, 0)}>
             {t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : t.dueOffset === 0 ? `Today${t.dueTime ? ` ${fmtTime(t.dueTime)}` : ''}` : dateOf(t.dueOffset)}
-          </span>
+          </Due>
         )
       },
       csv: (t) => dateOf(t.dueOffset),
@@ -111,46 +113,39 @@ export function TasksPage() {
     { key: 'linked', label: 'Linked to', width: 160, render: (t) => linkedLabel(t) ?? <span className="text-muted">—</span>, csv: (t) => linkedLabel(t) ?? '' },
     { key: 'assignee', label: 'Assignee', width: 160, render: (t) => userName(t.assigneeId) },
     { key: 'source', label: 'Source', width: 140, render: (t) => t.source },
-    { key: 'priority', label: 'Priority', width: 100, render: (t) => (t.priority === 'High' ? <span className="font-medium text-danger-text">High</span> : 'Normal'), csv: (t) => t.priority },
+    { key: 'priority', label: 'Priority', width: 100, render: (t) => <StatusCell status={t.priority} />, csv: (t) => t.priority },
+  ]
+  const filters: FilterDef[] = [
+    ...(user.role !== 'producer'
+      ? [{ k: 'assignee', label: 'Assignee', empty: 'Me', opts: [user.role === 'account-manager' ? ['office', 'My office'] : ['everyone', 'Everyone'], ...assignable.filter((u) => u.id !== user.id).map((u) => [u.id, u.name])] as [string, string][] }]
+      : []),
+    { k: 'status', label: 'Status', empty: false, opts: [['', 'Open'], ['Done', 'Done'], ['Canceled', 'Canceled']] },
+    { k: 'due', label: 'Due', empty: 'Any due date', opts: [['7', 'Next 7 days'], ['range', 'Custom range…']] },
+    ...(accountFilter ? [{ k: 'account', label: 'Account', opts: [[accountFilter, account(accountFilter)?.name ?? accountFilter]] as [string, string][] }] : []),
   ]
 
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <PageTitle title="Tasks" description="Calls, emails, meetings, and follow-ups. Due dates drive Today and the calendar." actions={user.role !== 'admin' && <Button variant="primary" onClick={() => set('task', 'new')}>New task</Button>} />
+      <PageTitle title="Tasks" description="Calls, emails, meetings, and follow-ups. Due dates drive Today and the calendar." />
       {status === 'Open' && <ViewTabs views={VIEWS} counts={counts} />}
-      <div className={cx('flex flex-wrap items-center gap-2', status === 'Open' ? 'mt-4' : 'mt-6')}>
-        {user.role !== 'producer' && (
-          <select aria-label="Assignee" value={assignee} onChange={(e) => set('assignee', e.target.value === user.id ? null : e.target.value)} className="h-9 rounded-md bg-surface px-2 text-base shadow-control">
-            <option value={user.id}>Me</option>
-            {user.role === 'account-manager' ? <option value="office">My office</option> : <option value="everyone">Everyone</option>}
-            {assignable.filter((u) => u.id !== user.id).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        )}
-        <select aria-label="Status" value={status} onChange={(e) => set('status', e.target.value === 'Open' ? null : e.target.value)} className="h-9 rounded-md bg-surface px-2 text-base shadow-control">
-          <option>Open</option>
-          <option>Done</option>
-          <option>Canceled</option>
-        </select>
-        <select aria-label="Due" value={dueFilter} onChange={(e) => set('due', e.target.value || null)} className="h-9 rounded-md bg-surface px-2 text-base shadow-control">
-          <option value="">Any due date</option>
-          <option value="7">Next 7 days</option>
-          <option value="range">Custom range…</option>
-        </select>
-        {dueFilter === 'range' && (
-          <>
-            <input type="date" aria-label="From" value={from ?? ''} onChange={(e) => set('from', e.target.value || null)} className="h-9 rounded-md bg-surface px-2 text-base shadow-control" />
-            <input type="date" aria-label="To" value={to ?? ''} onChange={(e) => set('to', e.target.value || null)} className="h-9 rounded-md bg-surface px-2 text-base shadow-control" />
-          </>
-        )}
-        {accountFilter && (
-          <button onClick={() => set('account', null)} className="h-9 rounded-md bg-surface px-2.5 text-sm text-ink shadow-ring hover:bg-recessed">Account: {account(accountFilter)?.name} ×</button>
-        )}
-      </div>
-      <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {rows.length} tasks</p>
       <DataTable
+        className="mt-4"
+        toolbar={
+          dueFilter === 'range' && (
+            <>
+              <input type="date" aria-label="From" value={from ?? ''} onChange={(e) => set('from', e.target.value || null)} className={controlCls()} />
+              <input type="date" aria-label="To" value={to ?? ''} onChange={(e) => set('to', e.target.value || null)} className={controlCls()} />
+            </>
+          )
+        }
+        search={{ label: 'Search tasks', placeholder: 'Search title or Account', match: (t, q) => t.title.toLowerCase().includes(q) || (account(t.accountId)?.name ?? '').toLowerCase().includes(q) }}
+        filters={filters}
+        actions={user.role !== 'admin' && <Button variant="primary" onClick={() => set('task', 'new')}><Plus aria-hidden className="size-4" strokeWidth={1.75} /> New task</Button>}
+        meta={<>Showing {rows.length} tasks</>}
         rows={rows}
         columns={cols}
         minWidth={1100}
+        pageSize={50}
         listId="tasks"
         exportName="tasks"
         bulkActions={status === 'Open' && user.role !== 'admin' ? (['complete', 'due', 'assign', 'cancel'] as const).map((k) => ({ label: { complete: 'Complete', due: 'Change due date', assign: 'Reassign', cancel: 'Cancel' }[k], run: (ids: string[]) => setBulk({ kind: k, ids }) })) : undefined}

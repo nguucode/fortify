@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import * as Popover from '@radix-ui/react-popover'
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { AlertTriangle, AtSign, Check, ChevronDown, CircleCheck, CircleSlash, FileText, Image, Inbox, Mail, MessageSquare, Paperclip, Phone, Search, X } from 'lucide-react'
+import { AlertTriangle, AtSign, Check, ChevronDown, CircleCheck, CircleSlash, FileText, Image, Inbox, Mail, MessageSquare, Paperclip, Phone, Plus, X } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, useMutate } from '@/app/hooks'
 import { mergeValues } from '@/app/merge'
@@ -11,7 +11,7 @@ import { smsSegments } from '@/domain/templates'
 import { outsideTextingWindow } from '@/domain/sms'
 import type { CallOutcome, Channel, Conversation, Dataset, Message, User } from '@/domain/types'
 import { Confirm, Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { Avatar, Button, Callout, CountPill, cx, SearchField, Select, Tip } from '@/components/ui/primitives'
 import { EmptyState } from '@/components/ui/states'
 import { useToast } from '@/components/ui/toast'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
@@ -25,7 +25,6 @@ const TABS: [Tab, string][] = [['all', 'All'], ['email', 'Email'], ['sms', 'SMS'
 const SCOPE_LABEL: Record<Scope, string> = { me: 'Assigned to me', book: 'My Book', office: 'My Office', unmatched: 'Unmatched', all: 'All' }
 const ICON: Record<Channel, typeof Mail> = { email: Mail, sms: MessageSquare, call: Phone }
 const PAGE = 50
-const count99 = (n: number) => (n > 99 ? '99+' : String(n))
 const drafts = new Map<string, Draft>()
 type Draft = { to: string[]; cc: string[]; subject: string; body: string; attachments: string[] }
 
@@ -122,14 +121,15 @@ export function InboxPage() {
 
   return (
     <div className="flex h-full min-h-0 max-md:flex-col">
+      <h1 className="sr-only">Inbox</h1>
       <section aria-label="Conversations" className={cx('flex w-[400px] shrink-0 flex-col border-r border-line max-md:w-full', selectedId && 'max-md:hidden')}>
-        <div role="tablist" aria-label="Channel" className="flex gap-1 border-b border-line px-3 pt-3">
+        <div role="tablist" aria-label="Channel" className="flex gap-1 overflow-x-auto border-b border-line px-3 pt-3">
           {TABS.map(([k, l]) => {
             const n = k === 'mentions' ? mentionUnread : unread(k)
             return (
-              <button key={k} role="tab" aria-selected={tab === k} onClick={() => setP({ tab: k === 'all' ? null : k, c: null })} className={cx('-mb-px flex h-9 items-center gap-1.5 border-b-2 px-2 text-base', tab === k ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>
+              <button key={k} role="tab" aria-selected={tab === k} onClick={() => setP({ tab: k === 'all' ? null : k, c: null })} className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', tab === k ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>
                 {l}
-                {n > 0 && <span className="tabular rounded-full bg-fill px-1.5 text-xs leading-5 text-label">{count99(n)}</span>}
+                {n > 0 && <CountPill n={n} max={99} />}
               </button>
             )
           })}
@@ -142,14 +142,11 @@ export function InboxPage() {
               <BulkBar ids={checked} onClear={() => setChecked([])} onDone={() => markDone(checked)} />
             ) : (
               <div className="flex flex-col gap-2 border-b border-line px-3 py-2.5">
-                <div className="relative">
-                  <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" />
-                  <input type="search" aria-label="Search messages" placeholder="Search messages" value={q} onChange={(e) => setP({ q: e.target.value || null })} className={cx(inputCls, 'pl-8')} />
-                </div>
+                <SearchField label="Search messages" placeholder="Search messages" value={q} onChange={(v) => setP({ q: v || null })} className="w-full!" />
                 <div className="flex items-center gap-2">
                   <PickMenu label={SCOPE_LABEL[scope]} items={scopesFor(user).map((s) => [s, SCOPE_LABEL[s]])} value={scope} onPick={(v) => setP({ scope: v === 'me' ? null : v, c: null })} />
                   <PickMenu label={status} items={[['Open', 'Open'], ['Done', 'Done']]} value={status} onPick={(v) => setP({ status: v === 'Open' ? null : v, c: null })} />
-                  <Button size="sm" className="ml-auto" onClick={() => setLogCall(true)}><Phone aria-hidden className="size-3.5" />Log a call</Button>
+                  <Button className="ml-auto" onClick={() => setLogCall(true)}><Phone aria-hidden className="size-4" strokeWidth={1.75} />Log a call</Button>
                 </div>
               </div>
             )}
@@ -181,7 +178,7 @@ export function InboxPage() {
       <section aria-label="Reading pane" className={cx('flex min-w-0 flex-1 flex-col', !selectedId && 'max-md:hidden')}>
         <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-line px-4">
           {selectedId ? <button className="text-sm text-link md:hidden" onClick={() => setP({ c: null }, false)}>← Conversations</button> : <span />}
-          <Button variant="primary" size="sm" className="ml-auto" onClick={() => setNewEmail(true)}>+ New email</Button>
+          <Button variant="primary" size="sm" className="ml-auto" onClick={() => setNewEmail(true)}><Plus aria-hidden className="size-4" strokeWidth={1.75} />New email</Button>
         </div>
         {!selectedId ? (
           <EmptyState icon={Inbox} title="Select a conversation." body="J and K move through the list." />
@@ -203,7 +200,7 @@ function PickMenu<T extends string>({ label, items, value, onPick }: { label: st
   return (
     <Menu.Root>
       <Menu.Trigger asChild>
-        <Button size="sm">{label}<ChevronDown aria-hidden className="size-3.5" /></Button>
+        <Button>{label}<ChevronDown aria-hidden className="size-4 text-muted" strokeWidth={1.75} /></Button>
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Content align="start" sideOffset={4} className={menuContent}>
@@ -233,7 +230,7 @@ function ConversationRow({ c, name, account, snippet, selected, unread, checked,
       <input type="checkbox" aria-label={`Select conversation with ${name}`} checked={checked} onChange={(e) => onCheck(e.target.checked)} className="size-4 shrink-0 accent-[var(--color-strong)]" />
       <button onClick={onOpen} aria-current={selected ? 'true' : undefined} className="flex min-w-0 flex-1 items-center gap-2 text-left">
         <span aria-hidden className={cx('size-2 shrink-0 rounded-full', unread ? 'bg-primary' : 'bg-transparent')} />
-        <Icon aria-label={c.channel === 'call' ? 'Call' : c.channel === 'sms' ? 'SMS' : 'Email'} className="size-4 shrink-0 text-label" />
+        <Icon aria-label={c.channel === 'call' ? 'Call' : c.channel === 'sms' ? 'SMS' : 'Email'} className="size-4 shrink-0 text-label" strokeWidth={1.75} />
         <span className="flex min-w-0 flex-1 flex-col leading-tight">
           <span className="flex items-baseline gap-2">
             <span title={name} className={cx('truncate text-base', unread ? 'font-semibold text-strong' : 'text-ink')}>{name}</span>
@@ -255,7 +252,7 @@ function NoAccess({ c }: { c: Conversation }) {
   const am = data.users.find((u) => u.id === a?.accountManagerId)
   return (
     <div className="px-6 pt-10">
-      <h2 className="text-lg font-semibold text-strong">You don’t have access to this conversation</h2>
+      <h2 className="text-lg font-medium text-strong">You don’t have access to this conversation</h2>
       <p className="mt-1 text-base text-label">It belongs to an Account outside your scope.{am && ` Ask ${am.name}, its Account Manager, to share it.`}</p>
       <Button className="mt-3" onClick={() => toast('Access requested (demo)', 'success')}>Request access</Button>
     </div>
@@ -307,7 +304,7 @@ function AssignMenu({ ids, disabled }: { ids: string[]; disabled?: boolean }) {
             const ok = allowed(u)
             return (
               <Menu.Item key={u.id} disabled={!ok} title={ok ? undefined : 'Only Principals and Admins can assign outside the Account’s team.'} onSelect={() => mutate((s) => s.assignConversations(ids, u.id, user.id), `Assigned to ${u.name}`)} className={cx(menuItem, 'data-[disabled]:text-muted')}>
-                <span aria-hidden className="inline-flex size-5 items-center justify-center rounded-full bg-fill text-[10px] font-medium text-label">{u.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}</span>
+                <Avatar name={u.name} />
                 <span className="truncate">{u.name}</span>
                 <span className="ml-auto pl-3 text-sm text-muted">{ROLE[u.role]}</span>
               </Menu.Item>
@@ -354,7 +351,7 @@ function ReadingPane({ c, onDone, onLogCall }: { c: Conversation; onDone: () => 
       <header className="border-b border-line px-6 pt-4 pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold text-strong" title={title}>{title}</h1>
+            <h2 className="truncate text-lg font-medium text-strong" title={title}>{title}</h2>
             <p className="mt-0.5 truncate text-sm text-muted">
               {participants.slice(0, 3).join(', ')}{participants.length > 3 && ` +${participants.length - 3}`}
               {account && <> · <Link to={`/accounts/${account.id}`} className="text-link underline">{account.name}</Link></>}
@@ -417,25 +414,25 @@ function UnmatchedBanner({ c, onLead }: { c: Conversation; onLead: () => void })
   const lead = data.leads.find((l) => l.id === c.leadId)
   if (contact && contact.accountIds.length > 1)
     return (
-      <div className="mt-3 rounded-md bg-surface px-3 py-2.5 shadow-ring">
-        <p className="flex items-center gap-2 text-base"><AlertTriangle aria-hidden className="size-4 text-warning-text" />Which Account is this about?</p>
+      <Callout tone="warning" className="mt-3">
+        <p>Which Account is this about?</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {contact.accountIds.map((id) => {
             const a = data.accounts.find((x) => x.id === id)
             return a && <Button key={id} size="sm" onClick={() => mutate((s) => s.linkConversation(c.id, { accountId: id, contactId: contact.id, saveAddress: false }, user.id), `Linked to ${a.name}`)}>{a.name}</Button>
           })}
         </div>
-      </div>
+      </Callout>
     )
   return (
-    <div className="mt-3 rounded-md bg-surface px-3 py-2.5 shadow-ring">
-      <p className="flex items-center gap-2 text-base"><AlertTriangle aria-hidden className="size-4 text-warning-text" /><span>Unmatched: {lead ? <>matches Lead {lead.name}, not an Account</> : <>no Contact has {c.address}</>}</span></p>
+    <Callout tone="warning" className="mt-3">
+      <p>Unmatched: {lead ? <>matches Lead {lead.name}, not an Account</> : <>no Contact has {c.address}</>}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <LinkPicker c={c} primary />
         {!lead && <Button size="sm" onClick={onLead}>Create Lead</Button>}
         <Button size="sm" onClick={() => mutate((s) => s.setConversationStatus([c.id], 'Done', 'Not about an Account'), 'Marked done: not about an Account')}>Not about an Account</Button>
       </div>
-    </div>
+    </Callout>
   )
 }
 
@@ -467,7 +464,7 @@ function LinkPicker({ c, primary, label = 'Link to Account' }: { c: Conversation
     <Popover.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset() }}>
       <Popover.Trigger asChild><Button size="sm" variant={primary ? 'primary' : 'secondary'}>{label}</Button></Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={6} className="z-50 w-[480px] max-w-[calc(100vw-32px)] rounded-lg bg-surface p-3 shadow-pop">
+        <Popover.Content align="start" sideOffset={6} className="z-50 w-[480px] max-w-[calc(100vw-32px)] rounded-md bg-surface p-3 shadow-pop">
           {!a ? (
             <>
               <input autoFocus aria-label="Search Accounts" placeholder="Account name, policy number, phone, or email" value={q} onChange={(e) => setQ(e.target.value)} className={inputCls} />
@@ -522,10 +519,10 @@ function RelatedPicker({ c }: { c: Conversation }) {
   ].filter(([, id]) => !c.related.some((r) => r.id === id))
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
-      <select aria-label="Add a related record" value="" onChange={(e) => { const o = opts.find(([, id]) => id === e.target.value); if (o) mutate((s) => s.addConversationRelated(c.id, { kind: o[0], id: o[1] }, `${o[2]} linked by ${user.name}`)) }} className="h-8 max-w-72 rounded-md bg-surface px-2 text-sm shadow-control">
+      <Select size="sm" aria-label="Add a related record" value="" onChange={(e) => { const o = opts.find(([, id]) => id === e.target.value); if (o) mutate((s) => s.addConversationRelated(c.id, { kind: o[0], id: o[1] }, `${o[2]} linked by ${user.name}`)) }} className="max-w-72">
         <option value="">Related record…</option>
         {opts.map(([, id, l]) => <option key={id} value={id}>{l}</option>)}
-      </select>
+      </Select>
       <LinkPicker c={c} label="Change Account" />
     </div>
   )
@@ -541,7 +538,7 @@ function ConsentBar({ contactId }: { contactId: string }) {
   const [Icon, tone, text] = consent.state === 'Opted in' ? [CircleCheck, 'text-success-text', `Opted in · ${consent.source ?? 'Recorded'}${consent.offset != null ? `, ${dateOf(consent.offset)}` : ''}${by ? ` by ${by}` : ''}`] : consent.state === 'Opted out' ? [CircleSlash, 'text-danger-text', `Opted out · ${consent.source ?? 'Recorded'}${consent.offset != null ? ` on ${dateOf(consent.offset)}` : ''}`] : [AlertTriangle, 'text-warning-text', 'No SMS consent recorded']
   return (
     <p className="mt-3 flex h-9 items-center gap-2 rounded-md bg-surface px-3 text-sm shadow-ring">
-      <Icon aria-hidden className={cx('size-4', tone)} /><span className={tone}>{text}</span>
+      <Icon aria-hidden className={cx('size-4', tone)} strokeWidth={1.75} /><span className={tone}>{text}</span>
       {shared.length > 0 && <span className="ml-auto text-muted">Shared number · {[c.name, ...shared.map((s) => s.name)].join(', ')}</span>}
     </p>
   )
@@ -596,7 +593,7 @@ function EmailMessage({ m, linked }: { m: Message; linked: string | null }) {
         <time dateTime={m.at} className="tabular shrink-0 text-sm text-muted">{new Date(m.at).toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</time>
       </header>
       <p className="text-sm text-muted">To {m.to.join(', ')}{cc.length > 0 && <> · Cc {cc.slice(0, 3).join(', ')}{cc.length > 3 && ` +${cc.length - 3}`}</>}</p>
-      <div className="mt-2 max-w-[72ch] text-base leading-[21px] break-words whitespace-pre-wrap">{main}</div>
+      <div className="mt-2 max-w-[72ch] text-base break-words whitespace-pre-wrap">{main}</div>
       {rest && (quoted ? <div className="mt-2 max-w-[72ch] border-l-2 border-fill pl-3 text-sm whitespace-pre-wrap text-label">{rest}</div> : <button className="mt-1 text-sm text-link underline" onClick={() => setQuoted(true)}>Show quoted text</button>)}
       {m.attachments && <div className="mt-2 flex flex-col items-start">{m.attachments.map((a) => <Attachment key={a.name} {...a} />)}</div>}
       {linked && <p className="mt-2 text-sm text-muted"><Link to={`/accounts/${linked}?tab=activity`} className="underline hover:text-strong">Logged to Activity</Link></p>}
@@ -625,9 +622,9 @@ function SmsThread({ msgs }: { msgs: Message[] }) {
             ) : (
               <div key={m.id} className={cx('flex max-w-[70%] flex-col gap-0.5', m.kind === 'out' ? 'items-end self-end' : 'items-start self-start')}>
                 {m.attachments?.length ? (
-                  <button onClick={() => toast('File preview isn’t available in the demo.', 'info')} className="flex h-20 w-40 flex-col items-center justify-center gap-1 rounded-xl bg-recessed text-sm text-label shadow-ring"><Image aria-hidden className="size-5" />Image · {m.attachments.length} attachment</button>
+                  <button onClick={() => toast('File preview isn’t available in the demo.', 'info')} className="flex h-20 w-40 flex-col items-center justify-center gap-1 rounded-lg bg-recessed text-sm text-label shadow-ring"><Image aria-hidden className="size-5" strokeWidth={1.75} />Image · {m.attachments.length} attachment</button>
                 ) : (
-                  <p className={cx('rounded-xl px-3 py-2 text-base break-words whitespace-pre-wrap', m.kind === 'out' ? 'bg-surface shadow-ring' : 'bg-recessed')}>{m.body}</p>
+                  <p className={cx('rounded-lg px-3 py-2 text-base break-words whitespace-pre-wrap', m.kind === 'out' ? 'bg-surface shadow-ring' : 'bg-recessed')}>{m.body}</p>
                 )}
                 <span className="tabular text-xs text-muted">{new Date(m.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}{m.kind === 'out' && ' · Sent (simulated)'}</span>
               </div>
@@ -666,7 +663,7 @@ function CallEntry({ msgs, c }: { msgs: Message[]; c: Conversation }) {
             <div className="flex gap-2"><Button size="sm" variant="primary" onClick={() => mutate((s) => s.editCallNotes(m.id, notes, user.id), 'Notes saved').then(() => setEdit(false))}>Save</Button><Button size="sm" onClick={() => { setNotes(m.body); setEdit(false) }}>Cancel</Button></div>
           </div>
         ) : (
-          <p className="mt-1 text-base leading-[21px] whitespace-pre-wrap">{m.body || <span className="text-muted">No notes</span>}</p>
+          <p className="mt-1 text-base whitespace-pre-wrap">{m.body || <span className="text-muted">No notes</span>}</p>
         )}
       </div>
       {c.accountId && <p className="mt-3 text-sm text-muted"><Link to={`/accounts/${c.accountId}?tab=activity`} className="underline hover:text-strong">Logged to Activity</Link></p>}
@@ -714,16 +711,16 @@ function EmailComposer({ c, initial, onClose, onSent, accountId: acctOverride, c
     }
   }
   return (
-    <div className="rounded-lg bg-surface shadow-ring">
+    <div className="rounded-md bg-surface shadow-ring">
       <fieldset disabled={busy} className="flex flex-col divide-y divide-fill">
         <Row label="From"><span className="text-base text-label">{user.email}</span></Row>
         <Row label="To"><RecipientInput value={d.to} onChange={(to) => set({ to })} accountId={accountId} /></Row>
         <Row label="Cc"><RecipientInput value={d.cc} onChange={(cc) => set({ cc })} accountId={accountId} /></Row>
         <Row label="Subject"><input aria-label="Subject" className="h-9 w-full bg-transparent text-base outline-none" value={d.subject} onChange={(e) => set({ subject: e.target.value })} /></Row>
         <div className="px-3 py-2">
-          <textarea aria-label="Body" className="h-40 w-full resize-y bg-transparent text-base leading-[21px] outline-none" value={d.body} maxLength={20000} onChange={(e) => set({ body: e.target.value })} />
+          <textarea aria-label="Body" className="h-40 w-full resize-y bg-transparent text-base outline-none" value={d.body} maxLength={20000} onChange={(e) => set({ body: e.target.value })} />
           {d.body.length > 18000 && <p className="tabular text-right text-xs text-muted">{d.body.length.toLocaleString('en-US')} / 20,000</p>}
-          {missing.length > 0 && <p className="text-sm text-danger-text">Unresolved: {missing.map((t) => <mark key={t} className="mr-1 rounded bg-danger-tint px-1 text-ink">{t}</mark>)}</p>}
+          {missing.length > 0 && <p className="text-sm text-danger-text">Unresolved: {missing.map((t) => <mark key={t} className="mr-1 rounded-sm bg-danger-tint px-1 text-ink">{t}</mark>)}</p>}
           {d.attachments.length > 0 && (
             <ul className="mt-1 flex flex-wrap gap-1.5">{d.attachments.map((id) => <li key={id} className="inline-flex h-6 items-center gap-1 rounded-md bg-fill px-2 text-xs"><Paperclip aria-hidden className="size-3" />{docs.find((x) => x.id === id)?.name}<button aria-label="Remove attachment" onClick={() => set({ attachments: d.attachments.filter((x) => x !== id) })}><X aria-hidden className="size-3" /></button></li>)}</ul>
           )}
@@ -732,14 +729,14 @@ function EmailComposer({ c, initial, onClose, onSent, accountId: acctOverride, c
       <p className="px-3 pt-2 text-sm text-muted">Demo: emails are saved to Activity, not sent.</p>
       {err && <p role="alert" className="px-3 pt-1 text-sm text-danger-text">{err}</p>}
       <div className="flex flex-wrap items-center gap-2 p-3">
-        <select aria-label="Template" value="" disabled={busy} onChange={(e) => { const t = templates.find((x) => x.id === e.target.value); if (!t) return; const v = mergeValues(data, accountId, contactId, user); set({ subject: fillTemplate(t.subject ?? d.subject, v), body: `${fillTemplate(t.body, v)}${d.body.trim() && d.body.trim() !== initial.body.trim() ? `\n\n${d.body.trim()}` : ''}` }) }} className="h-8 max-w-52 rounded-md bg-surface px-2 text-sm shadow-control">
+        <Select size="sm" aria-label="Template" value="" disabled={busy} onChange={(e) => { const t = templates.find((x) => x.id === e.target.value); if (!t) return; const v = mergeValues(data, accountId, contactId, user); set({ subject: fillTemplate(t.subject ?? d.subject, v), body: `${fillTemplate(t.body, v)}${d.body.trim() && d.body.trim() !== initial.body.trim() ? `\n\n${d.body.trim()}` : ''}` }) }} className="max-w-52">
           <option value="">{templates.length ? 'Template…' : 'No templates yet. Admins add them in Settings.'}</option>
           {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-        <select aria-label="Attach from Documents" value="" disabled={busy || !docs.length} onChange={(e) => e.target.value && set({ attachments: [...new Set([...d.attachments, e.target.value])] })} className="h-8 max-w-52 rounded-md bg-surface px-2 text-sm shadow-control">
+        </Select>
+        <Select size="sm" aria-label="Attach from Documents" value="" disabled={busy || !docs.length} onChange={(e) => e.target.value && set({ attachments: [...new Set([...d.attachments, e.target.value])] })} className="max-w-52">
           <option value="">{docs.length ? 'Attach from Documents…' : 'No Documents on this Account'}</option>
           {docs.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-        </select>
+        </Select>
         <Button size="sm" className="ml-auto" disabled={busy} onClick={() => (dirty ? setDiscard(true) : (drafts.delete(key), onClose()))}>Discard</Button>
         <Button size="sm" variant="primary" disabled={busy} onClick={send}>{busy ? 'Sending…' : 'Send'}</Button>
       </div>
@@ -837,10 +834,10 @@ function SmsComposer({ c }: { c: Conversation }) {
       <textarea aria-label={`Text ${who}`} placeholder={`Text ${who}`} rows={Math.min(6, Math.max(2, text.split('\n').length))} maxLength={918} value={text} onChange={(e) => setText(e.target.value)} disabled={busy} className={cx(inputCls, 'h-auto resize-none py-2')} />
       {failed && <p role="alert" className="mt-1 text-sm text-danger-text">Not sent. <button className="underline" onClick={() => send(true, true)}>Retry</button></p>}
       <div className="mt-2 flex items-center gap-2">
-        <select aria-label="SMS template" value="" onChange={(e) => { const t = templates.find((x) => x.id === e.target.value); if (t) setText(fillTemplate(t.body, mergeValues(data, c.accountId, c.contactId, user)).slice(0, 918)) }} className="h-8 max-w-52 rounded-md bg-surface px-2 text-sm shadow-control">
+        <Select size="sm" aria-label="SMS template" value="" onChange={(e) => { const t = templates.find((x) => x.id === e.target.value); if (t) setText(fillTemplate(t.body, mergeValues(data, c.accountId, c.contactId, user)).slice(0, 918)) }} className="max-w-52">
           <option value="">{templates.length ? 'Template…' : 'No templates yet'}</option>
           {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+        </Select>
         <span className={cx('tabular text-sm', text.length >= 800 ? 'font-medium text-warning-text' : 'text-muted')}>{text.length} / {cap} · {segs} segment{segs === 1 ? '' : 's'}</span>
         <span className="text-sm text-muted max-lg:hidden">Demo: texts are saved to Activity, not sent.</span>
         <Button variant="primary" size="sm" className="ml-auto" disabled={busy || !text.trim()} onClick={() => send()}>{busy ? 'Sending…' : 'Send'}</Button>
@@ -944,7 +941,7 @@ function LogCallSheet({ onClose, preset }: { onClose: () => void; preset?: { acc
         </Field>
         <label className="flex items-center gap-2 text-base"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />Create follow-up Task</label>
         {follow && <Field label="Follow-up due (5:00 PM)"><input type="date" className={inputCls} value={followDate} onChange={(e) => setFollowDate(e.target.value)} /></Field>}
-        {err && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
+        {err && <Callout tone="danger">{err}</Callout>}
       </fieldset>
     </Sheet>
   )
@@ -962,7 +959,7 @@ function MentionsList() {
   const rows = unreadOnly ? unread : all
   const markAll = () => mutate((s) => s.markMentionsRead(unread.map((a) => a.id), user.id), 'All mentions marked read')
   const when = (o: number) => (o === 0 ? 'Today' : o === -1 ? 'Yesterday' : dateOf(o))
-  const highlight = (text: string) => text.split(new RegExp(`(@${user.name})`)).map((p, i) => (p === `@${user.name}` ? <mark key={i} className="rounded bg-fill px-0.5 font-medium text-strong">{p}</mark> : p))
+  const highlight = (text: string) => text.split(new RegExp(`(@${user.name})`)).map((p, i) => (p === `@${user.name}` ? <mark key={i} className="rounded-sm bg-fill px-0.5 font-medium text-strong">{p}</mark> : p))
   return (
     <>
       <div className="flex items-center gap-3 border-b border-line px-3 py-2.5">
@@ -985,10 +982,10 @@ function MentionsList() {
             <li key={a.id} className="border-b border-fill">
               {ok ? (
                 <button onClick={() => { mutate((s) => s.markMentionsRead([a.id], user.id)); navigate(`/accounts/${a.accountId}?tab=activity#${a.id}`) }} className="flex min-h-16 w-full items-center gap-2 px-3 py-2 text-left hover:bg-recessed">
-                  <span aria-hidden className={cx('size-2 shrink-0 rounded-full', isUnread ? 'bg-primary' : 'bg-transparent')} /><AtSign aria-hidden className="size-4 shrink-0 text-label" />{body}
+                  <span aria-hidden className={cx('size-2 shrink-0 rounded-full', isUnread ? 'bg-primary' : 'bg-transparent')} /><AtSign aria-hidden className="size-4 shrink-0 text-label" strokeWidth={1.75} />{body}
                 </button>
               ) : (
-                <div className="flex min-h-16 items-center gap-2 px-3 py-2"><span className="size-2" /><AtSign aria-hidden className="size-4 shrink-0 text-muted" />{body}</div>
+                <div className="flex min-h-16 items-center gap-2 px-3 py-2"><span className="size-2" /><AtSign aria-hidden className="size-4 shrink-0 text-muted" strokeWidth={1.75} />{body}</div>
               )}
             </li>
           )

@@ -1,3 +1,4 @@
+import { ProgressLine } from '@/components/ui/primitives'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Command } from 'cmdk'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -123,14 +124,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               returnFocus.current.focus()
             }
           }}
-          className="fixed top-24 left-1/2 z-50 w-[640px] max-w-[calc(100vw-32px)] -translate-x-1/2 overflow-hidden rounded-xl bg-surface shadow-pop"
+          className="fixed top-24 left-1/2 z-50 w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 overflow-hidden rounded-lg bg-surface shadow-pop"
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Command label="Search" shouldFilter={false}>
             <div className="relative flex items-center border-b border-fill">
               <Search aria-hidden className="ml-4 size-4 text-muted" strokeWidth={1.75} />
               <Command.Input value={query} onValueChange={setQuery} autoFocus placeholder="Search accounts, people, policy numbers, phones" className="h-12 w-full px-3 text-lg outline-none" />
-              {pending && <span aria-hidden className="absolute inset-x-0 -bottom-px h-0.5 animate-pulse bg-primary" />}
+              {pending && <ProgressLine className="absolute inset-x-0 -bottom-px" />}
             </div>
             <Command.List className="max-h-[420px] overflow-y-auto p-1.5">
               {!searching ? (

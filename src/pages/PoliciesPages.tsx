@@ -1,14 +1,15 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { AlertTriangle, FileText, MoreHorizontal, RefreshCw, Search } from 'lucide-react'
+import { AlertTriangle, FileText, MoreHorizontal, RefreshCw } from 'lucide-react'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
 import { useApp, useDemoControls } from '@/app/store'
 import { dateOf, usd, useLookups } from '@/app/hooks'
 import { canSeeAccount, canSeeCommission, visibleAccounts } from '@/domain/access'
 import type { InsuredItem, Policy, Term, UsState } from '@/domain/types'
-import { DataTable, Gate, KeyValue, PageTitle, Panel, Sheet, SheetCancel, RecordHeader, TabBar, ViewTabs, useTab, useView, type Column } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { DataTable, Gate, KeyValue, mini, PageTitle, Panel, Sheet, SheetCancel, RecordHeader, TabBar, ViewTabs, useTab, useView, type Column } from '@/components/patterns'
+import { Button, Callout, cx, Due, RateChange, SearchField, SubHeading, Tip } from '@/components/ui/primitives'
+import { dueTone } from '@/domain/urgency'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { NewServiceRequestSheet } from './ServicePages'
@@ -26,7 +27,7 @@ export function currentTerm(terms: Term[], policyId: string): Term | undefined {
 /** US-POL-004: synced data is labelled; Won Terms say "Awaiting AMS" until the sync matches them. */
 export function AmsBadge({ term }: { term?: Term }) {
   const { amsState } = useAms()
-  if (term?.source === 'fortify-won') return <span className="rounded-full bg-warning-tint px-2 text-xs leading-5 font-medium text-warning-text shadow-ring">Awaiting AMS</span>
+  if (term?.source === 'fortify-won') return <span className="inline-flex items-center gap-1.5 text-sm"><span aria-hidden className="size-2 rounded-full bg-warning" /> Awaiting AMS</span>
   return (
     <Tip label="Policy data is read-only here; the AMS is the system of record. Changes go through a Service Request.">
       <span tabIndex={0} className="inline-flex items-center gap-1 text-sm text-muted">
@@ -75,16 +76,12 @@ export function PoliciesPage() {
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle title="Policies" description="Read-only view of policies synced from the AMS. Request changes through Service." />
       <ViewTabs views={VIEWS} counts={counts} />
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <label className="relative w-80 max-sm:w-full">
-          <span className="sr-only">Search policies</span>
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search policy number or Account" className="h-9 w-full rounded-md bg-surface pr-3 pl-8 text-base shadow-control outline-none focus-visible:outline-2 focus-visible:outline-primary" />
-        </label>
-        <AmsBadge />
-      </div>
-      <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {Math.min(list.length, 100)} of {list.length} policies</p>
-      <DataTable rows={list.slice(0, 100)} columns={cols} minWidth={1100} listId="policies" exportName="policies" onRowClick={(r) => navigate(`/policies/${r.id}`)} empty={<EmptyState icon={FileText} title="No policies in this view" body="Policies appear here once the AMS syncs them." />} />
+      <DataTable
+        className="mt-4"
+        toolbar={<SearchField value={q} onChange={setQ} placeholder="Search policy number or Account" label="Search policies" />}
+        actions={<AmsBadge />}
+        meta={`Showing ${list.length} policies`}
+        pageSize={50} rows={list} columns={cols} minWidth={1100} listId="policies" exportName="policies" onRowClick={(r) => navigate(`/policies/${r.id}`)} empty={<EmptyState icon={FileText} title="No policies in this view" body="Policies appear here once the AMS syncs them." />} />
     </div>
   )
 }
@@ -119,7 +116,7 @@ export function PolicyPage() {
   const requestFor = (what: string) => setChange(what)
   const rowMenu = (what: string) => (
     <Menu.Root>
-      <Menu.Trigger aria-label={`Actions for ${what}`} className="grid size-7 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong"><MoreHorizontal className="size-4" /></Menu.Trigger>
+      <Menu.Trigger aria-label={`Actions for ${what}`} className="grid size-7 place-items-center rounded-md text-muted hover:bg-recessed hover:text-strong"><MoreHorizontal aria-hidden className="size-4" strokeWidth={1.75} /></Menu.Trigger>
       <Menu.Portal>
         <Menu.Content align="end" sideOffset={4} className={menuContent}>
           <Menu.Item disabled={user.role === 'admin'} className={menuItem} onSelect={() => requestFor(what)}>Request a change to this item</Menu.Item>
@@ -146,9 +143,9 @@ export function PolicyPage() {
         actions={user.role !== 'admin' && <Button variant="primary" onClick={() => setChange('')}>Request a change</Button>}
       />
       {replacedBy && (
-        <div className="border-b border-line bg-recessed px-8 py-2.5 text-base text-ink max-sm:px-4">
+        <Callout tone="info" bleed>
           Replaced by <Link to={`/policies/${replacedBy.id}`} className="font-medium text-link underline">{replacedBy.policyNumber}</Link> · {carrierName(replacedBy.carrierId)}{replacedByTerm ? ` · effective ${dateOf(replacedByTerm.effectiveOffset)}` : ''}
-        </div>
+        </Callout>
       )}
       <div className="px-8 pt-3 max-sm:px-4">
         <TabBar tabs={tabs} />
@@ -224,9 +221,9 @@ export function PolicyPage() {
 function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
   return (
     <div className="-mx-4 overflow-x-auto px-4">
-      <table className="tabular w-full min-w-[640px] border-collapse text-left">
-        <thead><tr className="h-10 border-b border-fill">{head.map((h, i) => <th key={i} className="px-2 text-base font-semibold whitespace-nowrap text-strong">{h}</th>)}</tr></thead>
-        <tbody>{rows.map((r, i) => <tr key={i} className="h-10 border-b border-fill last:border-0">{r.map((c, j) => <td key={j} className={cx('px-2', j === 0 && 'sticky left-0 bg-surface')}>{c}</td>)}</tr>)}</tbody>
+      <table className={cx(mini.table, 'tabular min-w-[640px]')}>
+        <thead className={mini.head}><tr>{head.map((h, i) => <th key={i} className={mini.th}>{h}</th>)}</tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={i} className={mini.tr}>{r.map((c, j) => <td key={j} className={cx(mini.td, j === 0 && 'sticky left-0 bg-surface')}>{c}</td>)}</tr>)}</tbody>
       </table>
     </div>
   )
@@ -265,7 +262,7 @@ function TermsTable({ policy, terms }: { policy: Policy; terms: Term[] }) {
             dateOf(t.effectiveOffset),
             dateOf(t.expirationOffset),
             usd(t.premium),
-            pct == null ? <span key="c" className="text-muted">—</span> : <span key="c" className={cx(pct >= 0.15 ? 'text-danger-text' : pct <= -0.05 ? 'text-success-text' : '')}>{pct >= 0.15 ? '↑ ' : pct <= -0.05 ? '↓ ' : ''}{pct > 0 ? '+' : pct < 0 ? '−' : ''}{Math.abs(pct * 100).toFixed(1)}%</span>,
+            <RateChange key="c" pct={pct} />,
             <span key="s" className="inline-flex items-center gap-2"><StatusCell status={t.status} />{t.pendingCancellation && <span className="text-sm font-medium text-warning-text">Pending cancellation</span>}</span>,
             source(t, i),
           ]
@@ -345,8 +342,8 @@ function InsuredItems({ policy: p, items, state, rowMenu }: { policy: Policy; it
                   {(() => {
                     const validUntil = dw.windMit.inspectedOffset + 5 * 365
                     return (
-                      <p className={cx('text-base', validUntil < 0 ? 'font-medium text-warning-text' : validUntil <= 90 ? 'text-warning-text' : 'text-ink')}>
-                        Wind mitigation · OIR-B1-1802 · inspected {dateOf(dw.windMit.inspectedOffset)} · {validUntil < 0 ? 'expired' : 'valid until'} {dateOf(validUntil)}
+                      <p className="text-base text-ink">
+                        Wind mitigation · OIR-B1-1802 · inspected {dateOf(dw.windMit.inspectedOffset)} · <Due tone={dueTone(validUntil, 90)}>{validUntil < 0 ? 'expired' : 'valid until'} {dateOf(validUntil)}</Due>
                       </p>
                     )
                   })()}
@@ -430,18 +427,18 @@ function TermDrawer({ policy, terms, index, onClose }: { policy: Policy; terms: 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} title={`Term ${index + 1} · ${dateOf(t.effectiveOffset)}–${dateOf(t.expirationOffset)}`} description={`${policy.policyNumber} · ${policy.line}`} footer={<SheetCancel>Close</SheetCancel>}>
       <KeyValue items={[['Status', <StatusCell key="s" status={t.status} />], ['Premium', usd(t.premium)], ['Source', t.source === 'fortify-won' ? 'Won in Fortify' : 'AMS']]} />
-      <h3 className="mt-5 mb-1 text-base font-semibold text-strong">Coverage</h3>
+      <SubHeading className="mt-5 mb-1">Coverage</SubHeading>
       <KeyValue items={cov} />
       <p className="mt-1 text-sm text-muted">Coverage shown is the policy’s current schedule from the AMS.</p>
-      <h3 className="mt-5 mb-1 text-base font-semibold text-strong">Insured items · {items.length}</h3>
+      <SubHeading className="mt-5 mb-1">Insured items · {items.length}</SubHeading>
       {items.length ? <ul className="text-base">{items.slice(0, 12).map((x) => <li key={x.id}>{label(x)}</li>)}{items.length > 12 && <li className="text-muted">+{items.length - 12} more</li>}</ul> : <p className="text-base text-muted">No insured items synced.</p>}
       {current && current.id !== t.id && (
         <div className="mt-5">
           {!compare ? <button className="text-base text-link underline" onClick={() => setCompare(true)}>Compare with current term</button> : (
-            <table className="tabular w-full border-collapse text-left text-base">
-              <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong"><th>Item</th><th>Term {index + 1}</th><th>Current</th></tr></thead>
+            <table className={cx(mini.table, 'tabular')}>
+              <thead className={mini.head}><tr><th className={mini.th}>Item</th><th className={mini.th}>Term {index + 1}</th><th className={mini.th}>Current</th></tr></thead>
               <tbody>
-                {([['Effective', dateOf(t.effectiveOffset), dateOf(current.effectiveOffset)], ['Expiration', dateOf(t.expirationOffset), dateOf(current.expirationOffset)], ['Premium', usd(t.premium), `${usd(current.premium)} (${current.premium >= t.premium ? '+' : '−'}${Math.abs(((current.premium - t.premium) / t.premium) * 100).toFixed(1)}%)`]] as string[][]).map(([k, a, b]) => <tr key={k} className="h-9 border-b border-fill last:border-0"><td className="text-label">{k}</td><td>{a}</td><td>{b}</td></tr>)}
+                {([['Effective', dateOf(t.effectiveOffset), dateOf(current.effectiveOffset)], ['Expiration', dateOf(t.expirationOffset), dateOf(current.expirationOffset)], ['Premium', usd(t.premium), <span key="p">{usd(current.premium)} (<RateChange pct={(current.premium - t.premium) / t.premium} />)</span>]] as [string, ReactNode, ReactNode][]).map(([k, a, b]) => <tr key={k} className={mini.tr}><td className={cx(mini.td, 'text-label')}>{k}</td><td className={mini.td}>{a}</td><td className={mini.td}>{b}</td></tr>)}
               </tbody>
             </table>
           )}

@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { AlertTriangle } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { offsetOfDate, useLookups, useMutate } from '@/app/hooks'
 import { findMatches } from '@/domain/rules'
 import { autoMap, IMPORT_FIELDS, parseCsv, reviewRows, type ImportField } from '@/domain/leadImport'
 import type { Lead, LeadSource, Line, UsState } from '@/domain/types'
-import { Confirm, Field, inputCls, Sheet, SheetCancel } from '@/components/patterns'
-import { Button, cx } from '@/components/ui/primitives'
+import { Confirm, Field, inputCls, mini, Sheet, SheetCancel } from '@/components/patterns'
+import { Button, Callout, cx, Segmented, Select } from '@/components/ui/primitives'
 import { formatPhone } from './AccountSheets'
 import { useToast } from '@/components/ui/toast'
 
@@ -95,14 +94,8 @@ export function LeadSheet({ lead, prefill, onClose, onSaved }: { lead?: Lead; pr
   return (
     <Sheet open onOpenChange={(v) => !v && onClose()} title={lead ? `Edit ${lead.name}` : 'Add lead'} busy={busy} footer={<><SheetCancel disabled={busy} /><Button variant="primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : lead ? 'Save changes' : 'Add lead'}</Button></>}>
       <div className="flex flex-col gap-4">
-        {failed && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{failed}</p>}
-        <div role="radiogroup" aria-label="Type" className="inline-flex w-fit rounded-md bg-recessed p-0.5">
-          {(['Household', 'Business'] as const).map((k) => (
-            <button key={k} role="radio" aria-checked={kind === k} disabled={!!lead} onClick={() => { setKind(k); setLines([]) }} className={cx('h-8 rounded-[5px] px-3 text-sm', kind === k ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label')}>
-              {k === 'Household' ? 'Personal' : 'Commercial'}
-            </button>
-          ))}
-        </div>
+        {failed && <Callout tone="danger">{failed}</Callout>}
+        <Segmented size="sm" label="Type" className="self-start" value={kind} onChange={(k) => { setKind(k); setLines([]) }} options={[{ value: 'Household', label: 'Personal', disabled: !!lead }, { value: 'Business', label: 'Commercial', disabled: !!lead }]} />
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name"><input value={first} onChange={(e) => setFirst(e.target.value)} className={inputCls} /></Field>
           <Field label={kind === 'Household' ? 'Last name' : 'Last name (optional)'} error={kind === 'Household' ? err('name') : undefined}><input value={last} onChange={(e) => setLast(e.target.value)} className={inputCls} /></Field>
@@ -111,10 +104,9 @@ export function LeadSheet({ lead, prefill, onClose, onSaved }: { lead?: Lead; pr
           <Field label="Email"><input value={email} onChange={(e) => setEmail(e.target.value.trim())} inputMode="email" className={inputCls} /></Field>
         </div>
         {dup && (
-          <p className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring">
-            <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-text" />
+          <Callout tone="warning">
             <span>An open lead already uses this {dup.phone.replace(/\D/g, '') === phone.replace(/\D/g, '') ? 'phone' : 'email'}: <Link to={`/leads/${dup.id}`} onClick={onClose} className="text-link underline">{code(dup.id)} {dup.name}</Link> (assigned to {userName(dup.assigneeId)})</span>
-          </p>
+          </Callout>
         )}
         <Field label="Street"><input value={street} onChange={(e) => setStreet(e.target.value)} className={inputCls} /></Field>
         <div className="grid grid-cols-[1fr_72px_100px] gap-3">
@@ -203,10 +195,12 @@ export function AssignLeadsDialog({ leadIds, handOff, onClose }: { leadIds: stri
         </select>
       </Field>
       {missing.length > 0 && (
-        <label className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring">
-          <input type="checkbox" checked={anyway} onChange={(e) => setAnyway(e.target.checked)} className="mt-0.5 size-4 accent-primary" />
-          <span>{target?.name} has no active {missing.join(' or ')} license. They can work the lead but not quote it.</span>
-        </label>
+        <Callout tone="warning">
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={anyway} onChange={(e) => setAnyway(e.target.checked)} className="mt-0.5 size-4 accent-primary" />
+            <span>{target?.name} has no active {missing.join(' or ')} license. They can work the lead but not quote it.</span>
+          </label>
+        </Callout>
       )}
       {handOff && <Field label="Note (optional)"><textarea value={note} onChange={(e) => setNote(e.target.value)} className={cx(inputCls, 'h-20 py-2')} /></Field>}
     </Confirm>
@@ -235,16 +229,17 @@ export function LogAttemptDialog({ lead, onClose, onWrongNumber }: { lead: Lead;
         if (outcome === 'Wrong number') onWrongNumber()
       }}
     >
-      <div role="radiogroup" aria-label="Channel" className="inline-flex w-fit rounded-md bg-recessed p-0.5">
-        {(['Call', 'Email', 'SMS'] as const).map((c) => {
+      <Segmented
+        size="sm"
+        label="Channel"
+        className="self-start"
+        value={channel}
+        onChange={(c) => { setChannel(c); setOutcome(c === 'Call' ? 'Reached' : 'Sent') }}
+        options={(['Call', 'Email', 'SMS'] as const).map((c) => {
           const blocked = c === 'SMS' && !lead.smsConsent
-          return (
-            <button key={c} role="radio" aria-checked={channel === c} disabled={blocked} title={blocked ? 'No SMS consent recorded for this lead' : undefined} onClick={() => { setChannel(c); setOutcome(c === 'Call' ? 'Reached' : 'Sent') }} className={cx('h-8 rounded-[5px] px-3 text-sm disabled:text-label disabled:line-through', channel === c ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label')}>
-              {c}
-            </button>
-          )
+          return { value: c, label: c, disabled: blocked, title: blocked ? 'No SMS consent recorded for this lead' : undefined }
         })}
-      </div>
+      />
       {!lead.smsConsent && <p className="-mt-1 text-sm text-label">No SMS consent recorded for this lead.</p>}
       <Field label="Outcome"><select value={outcome} onChange={(e) => setOutcome(e.target.value)} className={inputCls}>{outcomes.map((o) => <option key={o}>{o}</option>)}</select></Field>
       <Field label="Note (optional)"><input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} /></Field>
@@ -389,7 +384,7 @@ export function ImportLeadsDialog({ onClose, onDone }: { onClose: () => void; on
     : <><Button onClick={() => setStep('map')}>Back</Button><Button variant="primary" disabled={busy || !toImport.length} onClick={run}>{busy ? 'Importing…' : `Import ${toImport.length.toLocaleString('en-US')} leads`}</Button></>
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} title="Import a lead list" description={step === 'file' ? 'Step 1 of 3 · File' : step === 'map' ? 'Step 2 of 3 · Map columns' : 'Step 3 of 3 · Review'} busy={busy} footer={footer}>
-      {err && <p role="alert" className="mb-3 rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
+      {err && <Callout tone="danger" className="mb-3">{err}</Callout>}
       {step === 'file' && (
         <div className="flex flex-col gap-3">
           <Field label="List name"><input className={inputCls} placeholder="Q4 Homeowners TX" value={listName} onChange={(e) => setListName(e.target.value)} /></Field>
@@ -408,18 +403,18 @@ export function ImportLeadsDialog({ onClose, onDone }: { onClose: () => void; on
             {grid[0].map((h, i) => (
               <li key={i} className="grid grid-cols-2 items-center gap-3">
                 <span className="truncate text-base font-medium" title={h}>{h}</span>
-                <select aria-label={`Map ${h}`} className={cx(inputCls, 'h-8')} value={map[i] ?? ''} onChange={(e) => setMap(map.map((m, j) => (j === i ? ((e.target.value || null) as ImportField | null) : m)))}>
+                <Select size="sm" aria-label={`Map ${h}`} className="w-full" value={map[i] ?? ''} onChange={(e) => setMap(map.map((m, j) => (j === i ? ((e.target.value || null) as ImportField | null) : m)))}>
                   <option value="">Ignore</option>
                   {IMPORT_FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
+                </Select>
               </li>
             ))}
           </ul>
           {missing.length > 0 && <p className="text-sm font-medium text-danger-text">Map {missing.join(', ')} to continue.</p>}
           <div className="overflow-x-auto rounded-md shadow-ring">
-            <table className="w-full min-w-[480px] border-collapse text-left text-sm">
-              <thead><tr className="h-8 border-b border-fill">{grid[0].map((_, i) => <th key={i} className="px-2 font-semibold">{map[i] ?? <span className="text-muted">ignored</span>}</th>)}</tr></thead>
-              <tbody>{grid.slice(1, 21).map((r, i) => <tr key={i} className="h-8 border-b border-fill last:border-0">{r.map((c, j) => <td key={j} className="max-w-40 truncate px-2">{c}</td>)}</tr>)}</tbody>
+            <table className={cx(mini.table, 'min-w-[480px]')}>
+              <thead><tr className={mini.head}>{grid[0].map((_, i) => <th key={i} className={mini.th}>{map[i] ?? <span className="text-muted">ignored</span>}</th>)}</tr></thead>
+              <tbody>{grid.slice(1, 21).map((r, i) => <tr key={i} className={mini.tr}>{r.map((c, j) => <td key={j} className={cx(mini.td, 'max-w-40 truncate')}>{c}</td>)}</tr>)}</tbody>
             </table>
           </div>
           <p className="text-sm text-muted">Preview of the first 20 rows.</p>

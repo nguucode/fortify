@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-15T14:45:52+00:00",
+  "generatedAt": "2026-11-23T12:17:27+00:00",
   "title": "Design System: Fortify",
   "extensions": {
     "colorMeta": {
@@ -244,6 +244,36 @@
           "oklch(95% 0.017 163.2)"
         ]
       },
+      "success-text": {
+        "role": "status",
+        "displayName": "Success Text",
+        "canonical": "oklch(43.2% 0.095 166.9)",
+        "tonalRamp": [
+          "oklch(15% 0.038 166.9)",
+          "oklch(25% 0.057 166.9)",
+          "oklch(38% 0.081 166.9)",
+          "oklch(50% 0.095 166.9)",
+          "oklch(62% 0.086 166.9)",
+          "oklch(75% 0.057 166.9)",
+          "oklch(87% 0.028 166.9)",
+          "oklch(95% 0.011 166.9)"
+        ]
+      },
+      "success-tint": {
+        "role": "status",
+        "displayName": "Success Tint",
+        "canonical": "oklch(96.2% 0.043 156.7 / 0.57)",
+        "tonalRamp": [
+          "oklch(15% 0.017 156.7)",
+          "oklch(25% 0.026 156.7)",
+          "oklch(38% 0.037 156.7)",
+          "oklch(50% 0.043 156.7)",
+          "oklch(62% 0.039 156.7)",
+          "oklch(75% 0.026 156.7)",
+          "oklch(87% 0.013 156.7)",
+          "oklch(95% 0.005 156.7)"
+        ]
+      },
       "danger": {
         "role": "status",
         "displayName": "Danger",
@@ -257,6 +287,36 @@
           "oklch(75% 0.142 25.3)",
           "oklch(87% 0.071 25.3)",
           "oklch(95% 0.028 25.3)"
+        ]
+      },
+      "danger-text": {
+        "role": "status",
+        "displayName": "Danger Text",
+        "canonical": "oklch(50.5% 0.213 27.5)",
+        "tonalRamp": [
+          "oklch(15% 0.085 27.5)",
+          "oklch(25% 0.128 27.5)",
+          "oklch(38% 0.181 27.5)",
+          "oklch(50% 0.213 27.5)",
+          "oklch(62% 0.192 27.5)",
+          "oklch(75% 0.128 27.5)",
+          "oklch(87% 0.064 27.5)",
+          "oklch(95% 0.026 27.5)"
+        ]
+      },
+      "danger-tint": {
+        "role": "status",
+        "displayName": "Danger Tint",
+        "canonical": "oklch(93.6% 0.032 17.7 / 0.42)",
+        "tonalRamp": [
+          "oklch(15% 0.013 17.7)",
+          "oklch(25% 0.019 17.7)",
+          "oklch(38% 0.027 17.7)",
+          "oklch(50% 0.032 17.7)",
+          "oklch(62% 0.029 17.7)",
+          "oklch(75% 0.019 17.7)",
+          "oklch(87% 0.01 17.7)",
+          "oklch(95% 0.004 17.7)"
         ]
       },
       "warning": {
@@ -289,6 +349,21 @@
           "oklch(95% 0.016 57.5)"
         ]
       },
+      "warning-tint": {
+        "role": "status",
+        "displayName": "Warning Tint",
+        "canonical": "oklch(93.1% 0.107 94.6 / 0.2)",
+        "tonalRamp": [
+          "oklch(15% 0.043 94.6)",
+          "oklch(25% 0.064 94.6)",
+          "oklch(38% 0.091 94.6)",
+          "oklch(50% 0.107 94.6)",
+          "oklch(62% 0.096 94.6)",
+          "oklch(75% 0.064 94.6)",
+          "oklch(87% 0.032 94.6)",
+          "oklch(95% 0.013 94.6)"
+        ]
+      },
       "info": {
         "role": "status",
         "displayName": "Info",
@@ -303,6 +378,36 @@
           "oklch(87% 0.064 259.8)",
           "oklch(95% 0.026 259.8)"
         ]
+      },
+      "info-text": {
+        "role": "status",
+        "displayName": "Info Text",
+        "canonical": "oklch(42.4% 0.199 265.6)",
+        "tonalRamp": [
+          "oklch(15% 0.08 265.6)",
+          "oklch(25% 0.119 265.6)",
+          "oklch(38% 0.169 265.6)",
+          "oklch(50% 0.199 265.6)",
+          "oklch(62% 0.179 265.6)",
+          "oklch(75% 0.119 265.6)",
+          "oklch(87% 0.06 265.6)",
+          "oklch(95% 0.024 265.6)"
+        ]
+      },
+      "info-tint": {
+        "role": "status",
+        "displayName": "Info Tint",
+        "canonical": "oklch(93.2% 0.032 255.6 / 0.45)",
+        "tonalRamp": [
+          "oklch(15% 0.013 255.6)",
+          "oklch(25% 0.019 255.6)",
+          "oklch(38% 0.027 255.6)",
+          "oklch(50% 0.032 255.6)",
+          "oklch(62% 0.029 255.6)",
+          "oklch(75% 0.019 255.6)",
+          "oklch(87% 0.01 255.6)",
+          "oklch(95% 0.004 255.6)"
+        ]
       }
     },
     "typographyMeta": {
@@ -310,41 +415,45 @@
         "displayName": "Page Title",
         "purpose": "The page H1 only."
       },
+      "metric": {
+        "displayName": "Metric",
+        "purpose": "One number per stat cell (Today pipeline strip, Product overview); tabular. Never a heading."
+      },
       "section": {
         "displayName": "Section",
         "purpose": "Empty/error state titles, palette input."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Default for cells, buttons, nav, descriptions; 500 for names and button labels."
+        "purpose": "Default for cells, buttons, nav, descriptions; 500 for primary-column names and button labels."
       },
       "table-header": {
         "displayName": "Table Header",
-        "purpose": "Column headers."
+        "purpose": "Column headers, SubHeading, board column titles."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Status labels, meta line, tooltips, filter chips, secondary tokens."
+        "purpose": "Status labels, meta line, tooltips, filter chips, segmented items, secondary tokens."
       },
       "caption": {
         "displayName": "Caption",
-        "purpose": "Nav group labels, count pills, kbd hints."
+        "purpose": "Nav group labels, count pills, badges, avatar initials, kbd hints."
       },
       "mono": {
         "displayName": "Mono",
-        "purpose": "Reference IDs only."
+        "purpose": "Reference IDs only (CERT-0131, SR-10439)."
       }
     },
     "shadows": [
       {
         "name": "ring",
         "value": "0 0 0 1px var(--color-line)",
-        "purpose": "Edge for every resting surface."
+        "purpose": "Every resting surface: table container, secondary buttons, filter chips, board cards, callouts, active nav item, selected segmented item, global search entry."
       },
       {
         "name": "control",
         "value": "0 0 0 1px var(--color-line-control)",
-        "purpose": "Form control edges (WCAG 1.4.11); hover on the global search entry."
+        "purpose": "Form controls (search, selects, toggle off-state), pressed toggle buttons; hover on the global search entry and avatar (WCAG 1.4.11)."
       },
       {
         "name": "pop",
@@ -366,7 +475,7 @@
       {
         "name": "state",
         "value": "150ms",
-        "purpose": "Buttons, nav, tabs, toggles, rail width."
+        "purpose": "Buttons, nav, tabs, segmented items, toggles, board cards, rail width."
       },
       {
         "name": "intent-delay",
@@ -396,33 +505,43 @@
       "gutter": "32px",
       "row": "40px",
       "control": "36px",
-      "ribbonWidth": "120px"
+      "ribbonWidth": "120px",
+      "searchField": "320px",
+      "primaryColumnMin": "280px",
+      "rowCompact": "32px",
+      "controlSmall": "32px",
+      "filterChip": "28px",
+      "pageSizes": [
+        25,
+        50,
+        100
+      ]
     }
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one blue action per toolbar, far right.",
-      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg> New account</button>",
-      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border:0; border-radius:8px; background:var(--color-primary, oklch(57.72% 0.2324 260)); color:#fff; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; font-weight:500; transition:background-color 150ms; cursor:pointer; } .ds-btn-primary:hover { background:var(--color-primary-hover, oklch(48.8% 0.243 264.4)); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
+      "description": "Primary (one blue per toolbar, far right), secondary, ghost, danger (destructive confirm only) and toggle (secondary + aria-pressed).",
+      "html": "<div class=\"ds-row\"><button class=\"ds-btn ds-pri\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg> New account</button> <button class=\"ds-btn ds-sec\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 3H2l8 9.46V19l4 2v-8.54L22 3z\"/></svg> Filters</button> <button class=\"ds-btn ds-ghost\" aria-label=\"Notifications\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\"/><path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\"/></svg></button> <button class=\"ds-btn ds-sec\" aria-pressed=\"true\">Assigned to me <span class=\"ds-pill\">12</span></button> <button class=\"ds-btn ds-dgr\">Delete</button> <button class=\"ds-btn ds-sec\" disabled>Export</button></div>",
+      "css": ".ds-row { display:flex; flex-wrap:wrap; gap:8px; } .ds-btn { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border:0; border-radius:8px; font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; font-weight:500; white-space:nowrap; cursor:pointer; transition:background-color 150ms, color 150ms; } .ds-btn:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; } .ds-btn:disabled { opacity:.5; cursor:not-allowed; } .ds-sec { background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-sec:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-pill { display:inline-flex; align-items:center; height:20px; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; } .ds-pri { background:var(--color-primary, oklch(57.72% 0.2324 260)); color:#fff; } .ds-pri:hover { background:var(--color-primary-hover, oklch(48.8% 0.243 264.4)); } .ds-ghost { background:transparent; color:var(--color-label, oklch(43.9% 0 0)); padding:0 10px; } .ds-ghost:hover { background:var(--color-recessed, oklch(96.5% 0 0)); color:var(--color-strong, oklch(14.5% 0 0)); } .ds-sec[aria-pressed=true] { background:var(--color-recessed, oklch(96.5% 0 0)); color:var(--color-strong, oklch(14.5% 0 0)); box-shadow:0 0 0 1px var(--color-line-control, oklch(14.5% 0 0 / 0.45)); } .ds-dgr { background:var(--color-danger, oklch(63.7% 0.237 25.3)); color:#fff; } .ds-dgr:hover { background:var(--color-danger-text, oklch(50.5% 0.213 27.5)); }"
     },
     {
-      "name": "Secondary Button",
-      "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "White ringed toolbar button with a leading icon.",
-      "html": "<button class=\"ds-btn-secondary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 3H2l8 9.46V19l4 2v-8.54L22 3z\"/></svg> Filters</button>",
-      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; font-weight:500; transition:background-color 150ms; cursor:pointer; } .ds-btn-secondary:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
+      "name": "Count Pill",
+      "kind": "chip",
+      "refersTo": "count-pill",
+      "description": "CountPill: counts only; 20px, fill, 12/500 tabular. On a tint it turns white with ink text.",
+      "html": "<span class=\"ds-pill\">206</span> <span class=\"ds-pill\">99+</span> <span class=\"ds-pill ds-on-tint\">3</span>",
+      "css": ".ds-pill { display:inline-flex; align-items:center; height:20px; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; } .ds-on-tint { background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); }"
     },
     {
-      "name": "Toolbar Search",
-      "kind": "input",
-      "refersTo": "input-search",
-      "description": "36px search field with the 0.45 control line.",
-      "html": "<label class=\"ds-search\"><span class=\"ds-search-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg></span><input class=\"ds-search-input\" placeholder=\"Search accounts\"></label>",
-      "css": ".ds-search { position:relative; display:block; width:320px; } .ds-search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--color-muted, oklch(55.6% 0 0)); display:flex; pointer-events:none; } .ds-search-input { width:100%; height:36px; padding:0 12px 0 32px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line-control, oklch(14.5% 0 0 / 0.45)); font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; caret-color:var(--color-primary, oklch(57.72% 0.2324 260)); outline:none; box-sizing:border-box; } .ds-search-input::placeholder { color:var(--color-muted, oklch(55.6% 0 0)); opacity:1; } .ds-search-input:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Badge: the same neutral pill for words (Sample data, Read only, Primary, Next, Demo, AI). Never a status, never colored.",
+      "html": "<span class=\"ds-pill\">Sample data</span> <span class=\"ds-pill\">Read only</span> <span class=\"ds-pill\">AI</span>",
+      "css": ".ds-pill { display:inline-flex; gap:4px; align-items:center; height:20px; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; }"
     },
     {
       "name": "Status Cell",
@@ -433,12 +552,132 @@
       "css": ".ds-status { display:inline-flex; align-items:center; gap:6px; margin-right:16px; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:13px; line-height:18px; color:var(--color-ink, oklch(20.5% 0 0)); } .ds-status-dot { width:8px; height:8px; border-radius:9999px; } .ds-ok { background:var(--color-success, oklch(59.6% 0.145 163.2)); } .ds-warn { background:var(--color-warning, oklch(73.9% 0.177 58.2)); } .ds-bad { background:var(--color-danger, oklch(63.7% 0.237 25.3)); }"
     },
     {
-      "name": "Count Pill",
+      "name": "Avatar",
+      "kind": "custom",
+      "refersTo": "avatar",
+      "description": "Initials on a fill circle, 12/500 label; 24px in rows and timelines, 28px for the top-bar account menu.",
+      "html": "<span class=\"ds-av\" title=\"Ima Barton\">IB</span> <span class=\"ds-av ds-av-md\" title=\"Loraine Beatty\">LB</span>",
+      "css": ".ds-av { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:12px; font-weight:500; } .ds-av-md { width:28px; height:28px; }"
+    },
+    {
+      "name": "Segmented",
+      "kind": "toggle",
+      "refersTo": "segmented",
+      "description": "Recessed 8px track, 2px padding, 4px-radius items; selected is white with a ring, 13/500 strong. 36px in toolbars, 32px in panels. Radiogroup.",
+      "html": "<div class=\"ds-seg\" role=\"radiogroup\" aria-label=\"View\"><button role=\"radio\" aria-checked=\"true\" class=\"ds-seg-i ds-on\">Board</button><button role=\"radio\" aria-checked=\"false\" class=\"ds-seg-i\">List</button></div>",
+      "css": ".ds-seg { display:inline-flex; padding:2px; border-radius:8px; background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-seg-i { height:32px; padding:0 10px; border:0; border-radius:4px; background:transparent; color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:13px; cursor:pointer; transition:color 150ms, background-color 150ms; } .ds-seg-i:hover { color:var(--color-strong, oklch(14.5% 0 0)); } .ds-on { background:var(--color-surface, #fff); color:var(--color-strong, oklch(14.5% 0 0)); font-weight:500; box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-seg-i:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; }"
+    },
+    {
+      "name": "Callout",
+      "kind": "custom",
+      "refersTo": "callout-warning",
+      "description": "Inline message: status tint, ring, 8px radius, 8/12 padding, 16px tone icon, 14px ink text, one trailing action. Danger is role alert; bleed is the full-width banner.",
+      "html": "<div class=\"ds-callout\"><svg class=\"ds-ci\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4M12 17h.01\"/></svg><div class=\"ds-cb\">3 renewals are inside 30 days and have no quote.</div><a class=\"ds-ca\" href=\"#\">Review</a></div> <div class=\"ds-callout ds-cd\" role=\"alert\"><div class=\"ds-cb\">Couldn't save: effective date is after expiration.</div></div>",
+      "css": ".ds-callout { display:flex; align-items:flex-start; gap:8px; max-width:560px; padding:8px 12px; border-radius:8px; background:var(--color-warning-tint, oklch(93.1% 0.107 94.6 / 0.2)); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; line-height:21px; margin-bottom:8px; } .ds-ci { flex:none; margin-top:2px; color:var(--color-warning-text, oklch(55% 0.13 57.5)); } .ds-cb { flex:1; min-width:0; } .ds-ca { color:var(--color-link, oklch(42.4% 0.199 265.6)); font-weight:500; text-decoration:none; } .ds-ca:hover { text-decoration:underline; } .ds-cd { background:var(--color-danger-tint, oklch(93.6% 0.032 17.7 / 0.42)); }"
+    },
+    {
+      "name": "Due",
+      "kind": "custom",
+      "refersTo": "due",
+      "description": "Urgency for every date and SLA (dueTone): overdue is Danger Text 500, inside the window (30 days default) is Warning Text 500, both with a 14px clock; otherwise ink.",
+      "html": "<span class=\"ds-due ds-over\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 6v6l4 2\"/></svg> May 2, 2026</span> <span class=\"ds-due ds-soon\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 6v6l4 2\"/></svg> Dec 4, 2026</span> <span class=\"ds-due\">Mar 18, 2027</span>",
+      "css": ".ds-due { display:inline-flex; align-items:center; gap:4px; margin-right:16px; color:var(--color-ink, oklch(20.5% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap; } .ds-over { color:var(--color-danger-text, oklch(50.5% 0.213 27.5)); font-weight:500; } .ds-soon { color:var(--color-warning-text, oklch(55% 0.13 57.5)); font-weight:500; }"
+    },
+    {
+      "name": "Rate Change",
+      "kind": "custom",
+      "refersTo": "rate-change",
+      "description": "Premium change as a signed tabular percent: +10% or more Danger Text, −5% or less Success Text, between is ink. No arrows; null is a muted dash.",
+      "html": "<span class=\"ds-rc ds-up\">+12.4%</span> <span class=\"ds-rc\">+3.0%</span> <span class=\"ds-rc ds-down\">−6.2%</span> <span class=\"ds-rc ds-none\">—</span>",
+      "css": ".ds-rc { margin-right:16px; color:var(--color-ink, oklch(20.5% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; font-variant-numeric:tabular-nums; } .ds-up { color:var(--color-danger-text, oklch(50.5% 0.213 27.5)); font-weight:500; } .ds-down { color:var(--color-success-text, oklch(43.2% 0.095 166.9)); font-weight:500; } .ds-none { color:var(--color-muted, oklch(55.6% 0 0)); }"
+    },
+    {
+      "name": "Progress Line",
+      "kind": "custom",
+      "refersTo": "progress-line",
+      "description": "The one progress indicator: a solid 2px Action Blue line (table refetch, AMS sync, palette search). No pulsing bars.",
+      "html": "<div class=\"ds-pl-wrap\"><span class=\"ds-pl\" aria-hidden=\"true\"></span></div>",
+      "css": ".ds-pl-wrap { width:320px; background:var(--color-fill, oklch(92.2% 0 0)); } .ds-pl { display:block; height:2px; width:100%; background:var(--color-primary, oklch(57.72% 0.2324 260)); }"
+    },
+    {
+      "name": "Sub Heading",
+      "kind": "custom",
+      "refersTo": "sub-heading",
+      "description": "SubHeading: 14/600 strong for sub-sections inside panels, sheets and records. Panel and state titles use Section (16/500).",
+      "html": "<h3 class=\"ds-sh\">Coverages</h3><h2 class=\"ds-sec-t\">Nothing due this week</h2>",
+      "css": ".ds-sh { margin:0 0 8px; color:var(--color-strong, oklch(14.5% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; line-height:21px; font-weight:600; } .ds-sec-t { margin:0; color:var(--color-strong, oklch(14.5% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:16px; line-height:24px; font-weight:500; }"
+    },
+    {
+      "name": "Filter Chip",
       "kind": "chip",
-      "refersTo": "count-pill",
-      "description": "The only pill: counts and the Sample data badge.",
-      "html": "<span class=\"ds-pill\">206</span> <span class=\"ds-pill\">Sample data</span>",
-      "css": ".ds-pill { display:inline-block; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:12px; line-height:20px; font-weight:500; font-variant-numeric:tabular-nums; }"
+      "refersTo": "filter-chip",
+      "description": "Applied filter: 28px, white with ring, 8px radius, 13px text, 20px remove button; then a Clear all link.",
+      "html": "<span class=\"ds-chip\">Status is Open<button class=\"ds-chip-x\" aria-label=\"Remove Status is Open\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button></span> <button class=\"ds-clear\">Clear all</button>",
+      "css": ".ds-chip { display:inline-flex; align-items:center; gap:4px; height:28px; padding:0 4px 0 10px; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:13px; } .ds-chip-x { display:grid; place-items:center; width:20px; height:20px; border:0; border-radius:4px; background:transparent; color:var(--color-muted, oklch(55.6% 0 0)); cursor:pointer; } .ds-chip-x:hover { background:var(--color-recessed, oklch(96.5% 0 0)); color:var(--color-strong, oklch(14.5% 0 0)); } .ds-clear { border:0; background:none; color:var(--color-link, oklch(42.4% 0.199 265.6)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:13px; font-weight:500; cursor:pointer; } .ds-clear:hover { text-decoration:underline; }"
+    },
+    {
+      "name": "Search Field and Select",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "SearchField (320px, leading 16px muted icon) and Select share the control recipe: 36px, 8px radius, white, 0.45 control line, 14px; 32px small only in footers and dense rows.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg></span><input class=\"ds-input\" type=\"search\" placeholder=\"Search accounts\" aria-label=\"Search accounts\"></label> <select class=\"ds-select\" aria-label=\"Status\"><option>Any status</option><option>Client</option></select>",
+      "css": ".ds-field { position:relative; display:block; width:320px; } .ds-field-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--color-muted, oklch(55.6% 0 0)); display:flex; pointer-events:none; } .ds-input, .ds-select { height:36px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line-control, oklch(14.5% 0 0 / 0.45)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; outline:none; box-sizing:border-box; } .ds-input { width:100%; padding:0 12px 0 32px; caret-color:var(--color-primary, oklch(57.72% 0.2324 260)); } .ds-select { padding:0 10px; } .ds-input::placeholder { color:var(--color-muted, oklch(55.6% 0 0)); opacity:1; } .ds-input:focus-visible, .ds-select:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; }"
+    },
+    {
+      "name": "List Toolbar",
+      "kind": "custom",
+      "refersTo": "list-toolbar",
+      "description": "One toolbar per list: search, Filters (count pill), view controls, Display, Export; a flexible gap; secondary then the one primary action far right. 36px controls, 8px gaps.",
+      "html": "<div class=\"ds-tb\"><label class=\"ds-field\"><span class=\"ds-field-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg></span><input class=\"ds-input\" type=\"search\" placeholder=\"Search accounts\" aria-label=\"Search accounts\"></label><button class=\"ds-btn ds-sec\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 3H2l8 9.46V19l4 2v-8.54L22 3z\"/></svg> Filters <span class=\"ds-pill\">2</span></button><button class=\"ds-btn ds-sec\">Display</button><button class=\"ds-btn ds-sec\">Export</button><span class=\"ds-tb-gap\"></span><button class=\"ds-btn ds-pri\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg> New account</button></div>",
+      "css": ".ds-tb { display:flex; flex-wrap:wrap; align-items:center; gap:8px; width:900px; } .ds-tb-gap { flex:1; } .ds-field { position:relative; display:block; width:320px; } .ds-field-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--color-muted, oklch(55.6% 0 0)); display:flex; pointer-events:none; } .ds-input, .ds-select { height:36px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line-control, oklch(14.5% 0 0 / 0.45)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; outline:none; box-sizing:border-box; } .ds-input { width:100%; padding:0 12px 0 32px; caret-color:var(--color-primary, oklch(57.72% 0.2324 260)); } .ds-select { padding:0 10px; } .ds-input::placeholder { color:var(--color-muted, oklch(55.6% 0 0)); opacity:1; } .ds-input:focus-visible, .ds-select:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; } .ds-btn { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border:0; border-radius:8px; font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; font-weight:500; white-space:nowrap; cursor:pointer; transition:background-color 150ms, color 150ms; } .ds-btn:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; } .ds-btn:disabled { opacity:.5; cursor:not-allowed; } .ds-sec { background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-sec:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-pill { display:inline-flex; align-items:center; height:20px; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; } .ds-pri { background:var(--color-primary, oklch(57.72% 0.2324 260)); color:#fff; } .ds-pri:hover { background:var(--color-primary-hover, oklch(48.8% 0.243 264.4)); }"
+    },
+    {
+      "name": "Filter Menu",
+      "kind": "menu",
+      "refersTo": "filter-menu",
+      "description": "Filters popover: 288px, white, Pop shadow, 16px padding, 12px gaps; each filter a 13/500 label over a URL-bound Select. Filters never sit inline as bare selects.",
+      "html": "<div class=\"ds-fm\"><label class=\"ds-fm-f\"><span>Status</span><select class=\"ds-select\"><option>Any</option><option>Client</option></select></label><label class=\"ds-fm-f\"><span>Line</span><select class=\"ds-select\"><option>Any</option><option>Personal</option></select></label></div>",
+      "css": ".ds-fm { display:flex; flex-direction:column; gap:12px; width:288px; padding:16px; border-radius:8px; background:var(--color-surface, #fff); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)), 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); box-sizing:border-box; } .ds-fm-f { display:flex; flex-direction:column; gap:4px; } .ds-fm-f span { color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:13px; font-weight:500; } .ds-field { position:relative; display:block; width:320px; } .ds-field-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--color-muted, oklch(55.6% 0 0)); display:flex; pointer-events:none; } .ds-input, .ds-select { height:36px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line-control, oklch(14.5% 0 0 / 0.45)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; outline:none; box-sizing:border-box; } .ds-input { width:100%; padding:0 12px 0 32px; caret-color:var(--color-primary, oklch(57.72% 0.2324 260)); } .ds-select { padding:0 10px; } .ds-input::placeholder { color:var(--color-muted, oklch(55.6% 0 0)); opacity:1; } .ds-input:focus-visible, .ds-select:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; }"
+    },
+    {
+      "name": "Data Table",
+      "kind": "card",
+      "refersTo": "table-row",
+      "description": "Ring container (top corners when the footer closes it), 40px header (14/600 strong) and rows (32px compact), fill dividers, Well Grey hover, tabular right-aligned numbers, sticky primary column at least 280px. Built-in search, Display, pagination.",
+      "html": "<div class=\"ds-table\"><table><thead><tr><th class=\"ds-p\">Account</th><th>Status</th><th>Renewal</th><th class=\"ds-num\">Premium change</th><th class=\"ds-num\">Annual premium</th></tr></thead><tbody><tr><td class=\"ds-p\"><span class=\"ds-name\">Barton Household</span> <span class=\"ds-token\">Ima Barton</span></td><td><span class=\"ds-dot\"></span>Client</td><td class=\"ds-soon\">Dec 4, 2026</td><td class=\"ds-num ds-up\">+12.4%</td><td class=\"ds-num\">$15,840</td></tr><tr><td class=\"ds-p\"><span class=\"ds-name\">Beatty Household</span> <span class=\"ds-token\">Loraine Beatty · Houston TX</span></td><td><span class=\"ds-dot ds-dot-b\"></span>Prospect</td><td>Mar 18, 2027</td><td class=\"ds-num ds-empty\">—</td><td class=\"ds-num ds-empty\">—</td></tr></tbody></table></div>",
+      "css": ".ds-table { max-width:100%; overflow-x:auto; background:var(--color-surface, #fff); border-radius:8px 8px 0 0; box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-table table { min-width:760px; width:100%; border-collapse:collapse; text-align:left; font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; color:var(--color-ink, oklch(20.5% 0 0)); } .ds-table th { height:40px; padding:0 12px; font-weight:600; color:var(--color-strong, oklch(14.5% 0 0)); white-space:nowrap; border-bottom:1px solid var(--color-fill, oklch(92.2% 0 0)); } .ds-table td { height:40px; padding:0 12px; white-space:nowrap; border-bottom:1px solid var(--color-fill, oklch(92.2% 0 0)); } .ds-table tbody tr { background:var(--color-surface, #fff); transition:background-color 100ms; cursor:pointer; } .ds-table tbody tr:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-p { position:sticky; left:0; min-width:280px; background:inherit; } .ds-table thead .ds-p { background:var(--color-surface, #fff); } .ds-num { text-align:right; font-variant-numeric:tabular-nums; } .ds-name { font-weight:500; color:var(--color-strong, oklch(14.5% 0 0)); } .ds-token, .ds-empty { font-size:13px; color:var(--color-muted, oklch(55.6% 0 0)); } .ds-soon { color:var(--color-warning-text, oklch(55% 0.13 57.5)); font-weight:500; font-variant-numeric:tabular-nums; } .ds-up { color:var(--color-danger-text, oklch(50.5% 0.213 27.5)); font-weight:500; } .ds-dot { display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; background:var(--color-success, oklch(59.6% 0.145 163.2)); } .ds-dot-b { background:var(--color-info, oklch(62.3% 0.214 259.8)); }"
+    },
+    {
+      "name": "Primary Cell",
+      "kind": "custom",
+      "refersTo": "primary-cell",
+      "description": "One line, never stacked: optional 16px muted kind icon, optional mono reference ID, the name (14/500 strong, link on hover, truncated), then a muted 13px token.",
+      "html": "<div class=\"ds-pc\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"/><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4\"/></svg><span class=\"ds-mono\">CERT-0131</span><a class=\"ds-pc-n\" href=\"#\">Barton Household</a><span class=\"ds-pc-t\">Ima Barton · Houston</span></div>",
+      "css": ".ds-pc { display:flex; align-items:center; gap:8px; width:420px; min-width:0; font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; } .ds-pc svg { flex:none; color:var(--color-muted, oklch(55.6% 0 0)); } .ds-mono { flex:none; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; color:var(--color-label, oklch(43.9% 0 0)); letter-spacing:0; } .ds-pc-n { flex:none; max-width:72%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; color:var(--color-strong, oklch(14.5% 0 0)); text-decoration:none; } .ds-pc-n:hover { color:var(--color-link, oklch(42.4% 0.199 265.6)); text-decoration:underline; } .ds-pc-t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--color-muted, oklch(55.6% 0 0)); }"
+    },
+    {
+      "name": "Board Column",
+      "kind": "card",
+      "refersTo": "board-column",
+      "description": "Recessed 8px well with 8px padding; 14/600 title, count pill, optional muted figure right; white ringed cards (12px padding, Well Grey hover, never Pop). At most 50 cards.",
+      "html": "<section class=\"ds-bc\" aria-label=\"Quoting\"><h2 class=\"ds-bc-h\">Quoting <span class=\"ds-pill\">7</span><span class=\"ds-bc-f\">$48,210</span></h2><ol class=\"ds-bc-l\"><li><button class=\"ds-card\"><span class=\"ds-name\">Barton Household</span><br><span class=\"ds-token\">Auto · $3,120</span></button></li><li><button class=\"ds-card\"><span class=\"ds-name\">Okafor LLC</span><br><span class=\"ds-token\">BOP · $9,400</span></button></li></ol></section>",
+      "css": ".ds-bc { display:flex; flex-direction:column; width:280px; padding:8px; border-radius:8px; background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-bc-h { display:flex; align-items:center; gap:8px; margin:0; padding:0 6px 8px; color:var(--color-strong, oklch(14.5% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; font-weight:600; } .ds-bc-f { margin-left:auto; color:var(--color-label, oklch(43.9% 0 0)); font-size:13px; font-weight:400; font-variant-numeric:tabular-nums; } .ds-pill { display:inline-flex; align-items:center; height:20px; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; } .ds-bc-l { display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none; } .ds-card { width:100%; padding:12px; border:0; border-radius:8px; background:var(--color-surface, #fff); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); text-align:left; font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; color:var(--color-ink, oklch(20.5% 0 0)); cursor:pointer; transition:background-color 150ms; } .ds-card:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-card:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; } .ds-name { font-weight:500; color:var(--color-strong, oklch(14.5% 0 0)); } .ds-token { font-size:13px; color:var(--color-muted, oklch(55.6% 0 0)); }"
+    },
+    {
+      "name": "Table Pagination",
+      "kind": "custom",
+      "refersTo": "table-pagination",
+      "description": "Shared footer closing the table: white, ring, fill top divider, 13px label tabular; range, rows per page 25/50/100 (32px select), Previous/Next small buttons.",
+      "html": "<div class=\"ds-tp\"><span class=\"ds-tp-l\"><span>51–100 of 206</span><label>Rows per page <select class=\"ds-select ds-sm\"><option>25</option><option selected>50</option><option>100</option></select></label></span><span class=\"ds-tp-r\"><button class=\"ds-btn ds-sec ds-sm\">Previous</button><button class=\"ds-btn ds-sec ds-sm\">Next</button></span></div>",
+      "css": ".ds-tp { display:flex; align-items:center; justify-content:space-between; width:720px; padding:8px 12px; border-top:1px solid var(--color-fill, oklch(92.2% 0 0)); border-radius:0 0 8px 8px; background:var(--color-surface, #fff); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:13px; font-variant-numeric:tabular-nums; box-sizing:border-box; } .ds-tp-l { display:flex; align-items:center; gap:16px; } .ds-tp-l label { display:flex; align-items:center; gap:6px; } .ds-tp-r { display:flex; gap:8px; } .ds-field { position:relative; display:block; width:320px; } .ds-field-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--color-muted, oklch(55.6% 0 0)); display:flex; pointer-events:none; } .ds-input, .ds-select { height:36px; border:0; border-radius:8px; background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line-control, oklch(14.5% 0 0 / 0.45)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; outline:none; box-sizing:border-box; } .ds-input { width:100%; padding:0 12px 0 32px; caret-color:var(--color-primary, oklch(57.72% 0.2324 260)); } .ds-select { padding:0 10px; } .ds-input::placeholder { color:var(--color-muted, oklch(55.6% 0 0)); opacity:1; } .ds-input:focus-visible, .ds-select:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; } .ds-btn { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border:0; border-radius:8px; font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; font-weight:500; white-space:nowrap; cursor:pointer; transition:background-color 150ms, color 150ms; } .ds-btn:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; } .ds-btn:disabled { opacity:.5; cursor:not-allowed; } .ds-sec { background:var(--color-surface, #fff); color:var(--color-ink, oklch(20.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-sec:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-sm { height:32px; padding:0 10px; font-size:13px; }"
+    },
+    {
+      "name": "View Tabs and Tab Bar",
+      "kind": "tabs",
+      "refersTo": "view-tabs",
+      "description": "ViewTabs (saved views, ?view or ?saved) and TabBar (sections) share one look: 14px, count pills, 2px strong underline and 500 on the active tab, never blue; 1px line under the strip.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"Saved views\"><button class=\"ds-tab\" aria-current=\"page\">All accounts <span class=\"ds-pill\">206</span></button><button class=\"ds-tab\">My book <span class=\"ds-pill\">48</span></button><button class=\"ds-tab\">Renewing soon <span class=\"ds-pill\">12</span></button></nav>",
+      "css": ".ds-tabs { display:flex; gap:4px; border-bottom:1px solid var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-tab { display:flex; align-items:center; gap:8px; margin-bottom:-1px; padding:8px 10px; border:0; border-bottom:2px solid transparent; background:none; color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:14px; white-space:nowrap; cursor:pointer; transition:color 150ms; } .ds-tab:hover { color:var(--color-strong, oklch(14.5% 0 0)); } .ds-tab[aria-current=page] { border-bottom-color:var(--color-strong, oklch(14.5% 0 0)); color:var(--color-strong, oklch(14.5% 0 0)); font-weight:500; } .ds-tab:focus-visible { outline:2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset:2px; } .ds-pill { display:inline-flex; align-items:center; height:20px; padding:0 6px; border-radius:9999px; background:var(--color-fill, oklch(92.2% 0 0)); color:var(--color-label, oklch(43.9% 0 0)); font-family:'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing:-0.16px; font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; }"
     },
     {
       "name": "Sidebar Nav",
@@ -447,14 +686,6 @@
       "description": "32px items; active is white with a ring, never blue.",
       "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"/><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4\"/></svg><span>Today</span></a><a class=\"ds-nav-item ds-active\" href=\"#\" aria-current=\"page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"/><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4\"/></svg><span>Accounts</span></a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"/><path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4\"/></svg><span>Policies</span></a></nav>",
       "css": ".ds-nav { display:flex; flex-direction:column; gap:2px; width:224px; padding:12px 8px; background:var(--color-canvas, oklch(98.75% 0 0)); } .ds-nav-item { display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; border-radius:8px; color:var(--color-label, oklch(43.9% 0 0)); text-decoration:none; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; font-weight:500; transition:background-color 150ms, color 150ms; } .ds-nav-item svg { opacity:.6; } .ds-nav-item:hover { background:var(--color-recessed, oklch(96.5% 0 0)); color:var(--color-strong, oklch(14.5% 0 0)); } .ds-nav-item:hover svg, .ds-active svg { opacity:1; } .ds-active, .ds-active:hover { background:var(--color-surface, #fff); color:var(--color-strong, oklch(14.5% 0 0)); box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); } .ds-nav-item:focus-visible { outline: 2px solid var(--color-primary, oklch(57.72% 0.2324 260)); outline-offset: 2px; }"
-    },
-    {
-      "name": "Data Table Row",
-      "kind": "card",
-      "refersTo": "table-row",
-      "description": "40px header and rows, fill dividers, recessed hover, tabular numbers.",
-      "html": "<div class=\"ds-table\"><table><thead><tr><th>Account</th><th>Status</th><th class=\"ds-num\">Annual premium</th></tr></thead><tbody><tr><td><span class=\"ds-name\">Barton Household</span> <span class=\"ds-token\">Ima Barton</span></td><td><span class=\"ds-dot\"></span>Client</td><td class=\"ds-num\">$15,840</td></tr><tr><td><span class=\"ds-name\">Beatty Household</span> <span class=\"ds-token\">Loraine Beatty · Houston TX</span></td><td><span class=\"ds-dot ds-dot-b\"></span>Prospect</td><td class=\"ds-num ds-empty\">—</td></tr></tbody></table></div>",
-      "css": ".ds-table { background:var(--color-surface, #fff); border-radius:8px 8px 0 0; box-shadow:0 0 0 1px var(--color-line, oklch(14.5% 0 0 / 0.1)); overflow:hidden; } .ds-table table { width:560px; border-collapse:collapse; text-align:left; font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.16px; font-size:14px; color:var(--color-ink, oklch(20.5% 0 0)); } .ds-table th { height:40px; padding:0 12px; font-weight:600; color:var(--color-strong, oklch(14.5% 0 0)); border-bottom:1px solid var(--color-fill, oklch(92.2% 0 0)); } .ds-table td { height:40px; padding:0 12px; border-bottom:1px solid var(--color-fill, oklch(92.2% 0 0)); } .ds-table tbody tr { transition:background-color 100ms; cursor:pointer; } .ds-table tbody tr:hover { background:var(--color-recessed, oklch(96.5% 0 0)); } .ds-num { text-align:right; font-variant-numeric:tabular-nums; } .ds-name { font-weight:500; color:var(--color-strong, oklch(14.5% 0 0)); } .ds-token, .ds-empty { font-size:13px; color:var(--color-muted, oklch(55.6% 0 0)); } .ds-dot { display:inline-block; width:8px; height:8px; border-radius:9999px; margin-right:6px; background:var(--color-success, oklch(59.6% 0.145 163.2)); } .ds-dot-b { background:oklch(54.6% 0.245 262.9); }"
     },
     {
       "name": "Term Ribbon",
@@ -474,17 +705,23 @@
       "Inter Variable throughout, 14px base, -0.16px tracking, weights 400/500/600 only.",
       "40px rows, 36px controls, 8px radius.",
       "Status as dot plus label; pills only for counts and plan-like badges.",
+      "One urgency rule for every date, and one toolbar for every list.",
       "The Term ribbon as the signature data glyph."
     ],
     "rules": [
       {
         "name": "The One Blue Rule",
-        "body": "Action Blue is the only accent. It appears on the primary action, focus, links, selection, ribbon ticks and the logomark; nowhere else. Active tabs and active nav use strong neutrals, not blue.",
+        "body": "Action Blue is the only accent. It appears on the primary action, focus, links, selection, progress lines, unread dots, the first chart series, ribbon ticks and the logomark; nowhere else. Active tabs and active nav use strong neutrals, not blue.",
         "section": "colors"
       },
       {
         "name": "The State-Only Color Rule",
-        "body": "Status hues appear only where they encode state (pipeline stage, policy status, renewal risk) and always beside a text label or icon.",
+        "body": "Status hues appear only where they encode state (pipeline stage, policy status, renewal risk, urgency) and always beside a text label or icon. Status text tokens carry words and icons; status tints are Callout backgrounds only, with ink text on top.",
+        "section": "colors"
+      },
+      {
+        "name": "The Urgency Rule",
+        "body": "One rule for every date, deadline and SLA counter (dueTone, rendered by Due): past due or breached is Danger Text at 500; due today or inside its window (30 days unless the domain sets one, such as the X-date quote window) is Warning Text at 500; both carry a 14px clock. Nothing else gets an urgency color.",
         "section": "colors"
       },
       {
@@ -494,8 +731,13 @@
       },
       {
         "name": "The Tabular Numbers Rule",
-        "body": "Counts, money, dates and the meta line use tabular figures; numeric columns align right.",
+        "body": "Counts, money, dates, rate changes and the meta line use tabular figures; numeric columns align right.",
         "section": "typography"
+      },
+      {
+        "name": "The One Toolbar Rule",
+        "body": "Every list uses the same toolbar row (ListToolbar, built into DataTable): search (320px), Filters (a popover of URL-bound selects with a count pill), view controls (Segmented), Display, Export; a flexible gap; then secondary actions and the one primary action at the far right. All 36px. Filters never sit inline as bare selects; create actions live in the toolbar, not the page header.",
+        "section": "layout"
       },
       {
         "name": "The No-Airy-Table Rule",
@@ -513,6 +755,11 @@
         "section": "elevation"
       },
       {
+        "name": "The Premium Change Rule",
+        "body": "A premium change (RateChange) is a signed tabular percent: +10% or more is Danger Text, −5% or less is Success Text, anything between is ink. No arrows.",
+        "section": "components"
+      },
+      {
         "name": "The One Glyph Rule",
         "body": "The ribbon is the only expressive element on a list surface. It stays a data glyph: no labels inside it, no color outside blue, warning and neutrals.",
         "section": "components"
@@ -523,6 +770,7 @@
       "Do give surfaces a 1px ring at 0.1 alpha, and form controls the 0.45 control line.",
       "Do keep rows at 40px and controls at 36px with an 8px radius; 12px only for the global search entry and large panels.",
       "Do show status as a dot plus a 13px label, and keep pills for counts and plan-like badges.",
+      "Do build list pages from PageTitle, ViewTabs and DataTable (toolbar, filters, actions, meta), and messages from Callout; never hand-roll them.",
       "Do use tabular figures and right alignment for numbers, and a muted \"—\" for empty cells.",
       "Do keep rows in place on refetch with the 2px progress line; show skeletons only on first load after 150ms.",
       "Do carry Office as a \"Contact · Office\" token for agency-scope roles rather than adding a column."
@@ -533,7 +781,9 @@
       "Don't put CSS borders on cards, tables, controls or popovers; borders are for shell dividers and row dividers only.",
       "Don't use gradients, glass, or shadows outside the Ring, Control and Pop recipes.",
       "Don't use weights other than 400, 500 and 600, or a second display face.",
-      "Don't pad tables to look airy, or add entrance animations."
+      "Don't pad tables to look airy, or add entrance animations.",
+      "Don't use arbitrary radii, font sizes, line heights or tracking (rounded-[5px], text-[10px]); stay on the scales above.",
+      "Don't lift a resting card with the Pop shadow on hover; hover fills Well Grey."
     ]
   }
 }

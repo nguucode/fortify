@@ -7,7 +7,8 @@ import { usd } from '@/app/hooks'
 import { useApp } from '@/app/store'
 import { useLookups } from '@/app/hooks'
 import type { Task } from '@/domain/types'
-import { Button, cx } from '@/components/ui/primitives'
+import { Button, cx, Segmented, Select } from '@/components/ui/primitives'
+import { PageTitle } from '@/components/patterns'
 import { fmtTime, TaskSheet, useCompleteTask } from './TaskSheet'
 
 const START = 7 * 60 // 7:00 AM
@@ -107,11 +108,12 @@ export function CalendarPage() {
       <Popover.Root key={t.id}>
         <Popover.Trigger
           onPointerDown={(e) => e.stopPropagation()}
-          className={cx('absolute inset-x-1 overflow-hidden rounded-md px-1.5 py-0.5 text-left text-xs shadow-ring', done ? 'bg-recessed text-label' : 'bg-surface text-ink hover:shadow-pop', t.type === 'Meeting' && !done && 'border-l-2 border-strong')}
+          className={cx('absolute inset-x-1 overflow-hidden rounded-md px-1.5 py-0.5 text-left text-xs shadow-ring transition-colors duration-150', done ? 'bg-recessed text-label' : 'bg-surface text-ink hover:bg-recessed')}
           style={{ top, height }}
         >
           <span className="flex items-center gap-1 font-medium">
             {done && <Check aria-label="Done" className="size-3 shrink-0" />}
+            {t.type === 'Meeting' && !done && <span aria-hidden className="size-2 shrink-0 rounded-full bg-strong" />}
             <span className="truncate">{t.title}</span>
           </span>
           <span className="block truncate text-label">{fmtTime(t.dueTime!)}</span>
@@ -141,7 +143,7 @@ export function CalendarPage() {
   }
   const chip = (t: Task) => (
     <Popover.Root key={t.id}>
-      <Popover.Trigger className={cx('flex min-h-6 w-full min-w-0 items-center gap-1 rounded-sm px-1.5 text-left text-xs shadow-ring', t.status === 'Done' ? 'bg-recessed text-label' : 'bg-surface text-ink hover:shadow-pop')}>
+      <Popover.Trigger className={cx('flex min-h-6 w-full min-w-0 items-center gap-1 rounded-sm px-1.5 text-left text-xs shadow-ring', t.status === 'Done' ? 'bg-recessed text-label' : 'bg-surface text-ink hover:bg-recessed')}>
         {t.status === 'Done' && <Check aria-label="Done" className="size-3 shrink-0" />}
         <span className="truncate">{t.title}</span>
       </Popover.Trigger>
@@ -153,20 +155,20 @@ export function CalendarPage() {
   const nowMin = now.getHours() * 60 + now.getMinutes()
   return (
     <div className="flex h-full flex-col px-8 pt-6 pb-6 max-sm:px-4">
-      <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-title font-semibold text-strong">Calendar</h1>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageTitle title="Calendar" description={`${title}${who !== user.id ? ` · ${userName(who)}` : ''}`} />
+        <div className="flex flex-wrap items-center gap-2">
           {user.role !== 'producer' && (
             <label className="flex items-center gap-2 text-sm text-label">
               Calendar for
-              <select value={who} onChange={(e) => set({ for: e.target.value === user.id ? null : e.target.value })} className="h-8 rounded-md bg-surface px-2 text-sm text-ink shadow-control">
+              <Select value={who} onChange={(e) => set({ for: e.target.value === user.id ? null : e.target.value })}>
                 {forOptions.map((u) => <option key={u.id} value={u.id}>{u.id === user.id ? 'Me' : u.name}</option>)}
-              </select>
+              </Select>
             </label>
           )}
           {view === 'month' && (
             <Popover.Root>
-              <Popover.Trigger asChild><Button size="sm">Show<ChevronDown aria-hidden className="size-3.5" /></Button></Popover.Trigger>
+              <Popover.Trigger asChild><Button>Show<ChevronDown aria-hidden className="size-3.5" /></Button></Popover.Trigger>
               <Popover.Portal>
                 <Popover.Content align="end" sideOffset={4} className="z-50 w-56 rounded-md bg-surface p-2 shadow-pop">
                   <label className="flex h-8 items-center gap-2 px-1 text-base"><input type="checkbox" checked={overlays.ren} onChange={() => toggleOverlay('ren')} />Renewal expirations</label>
@@ -175,21 +177,14 @@ export function CalendarPage() {
               </Popover.Portal>
             </Popover.Root>
           )}
-          <div role="group" aria-label="View" className="inline-flex rounded-md bg-recessed p-0.5">
-            {(['day', 'week', 'month'] as const).map((v) => (
-              <button key={v} aria-pressed={view === v} onClick={() => set({ view: v === 'week' ? null : v })} className={cx('h-7 rounded-[5px] px-2.5 text-sm capitalize', view === v ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>
-                {v}
-              </button>
-            ))}
-          </div>
-          <Button size="sm" onClick={() => set({ date: null })}>Today</Button>
+          <Segmented label="View" value={view} onChange={(v) => set({ view: v === 'week' ? null : v })} options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]} />
+          <Button onClick={() => set({ date: null })}>Today</Button>
           <span className="flex">
-            <button aria-label="Previous" onClick={() => step(-1)} className="grid size-8 place-items-center rounded-md text-label hover:bg-recessed"><ChevronLeft className="size-4" /></button>
-            <button aria-label="Next" onClick={() => step(1)} className="grid size-8 place-items-center rounded-md text-label hover:bg-recessed"><ChevronRight className="size-4" /></button>
+            <button aria-label="Previous" onClick={() => step(-1)} className="grid size-9 place-items-center rounded-md text-label hover:bg-recessed"><ChevronLeft className="size-4" strokeWidth={1.75} /></button>
+            <button aria-label="Next" onClick={() => step(1)} className="grid size-9 place-items-center rounded-md text-label hover:bg-recessed"><ChevronRight className="size-4" strokeWidth={1.75} /></button>
           </span>
         </div>
-      </header>
-      <p className="mt-1 text-base text-muted">{title}{who !== user.id ? ` · ${userName(who)}` : ''}</p>
+      </div>
 
       {view === 'month' ? (
         <div className="mt-4 grid flex-1 grid-cols-7 overflow-hidden rounded-md bg-surface shadow-ring">
@@ -250,7 +245,7 @@ export function CalendarPage() {
                     />
                   )
                 })}
-                {offsetOf(d) === today && nowMin >= START && nowMin <= END && <span aria-hidden className="pointer-events-none absolute inset-x-0 z-10 h-px bg-danger" style={{ top: ((nowMin - START) / SLOT) * ROW }} />}
+                {offsetOf(d) === today && nowMin >= START && nowMin <= END && <span aria-hidden className="pointer-events-none absolute inset-x-0 z-10 h-px bg-strong" style={{ top: ((nowMin - START) / SLOT) * ROW }} />}
                 {onDay(d).filter((t) => t.dueTime && mins(t.dueTime) < END).map(block)}
               </div>
             ))}
@@ -262,16 +257,16 @@ export function CalendarPage() {
   )
 }
 
-/** Overlays read as reference marks, not work: no fill, dashed rule, never completable or draggable. */
+/** Overlays read as reference marks, not work: no fill, a hollow ring, never completable or draggable. */
 function KeyDates({ items }: { items: { key: string; text: string; to: string }[] }) {
   if (!items.length) return null
-  const row = (x: { key: string; text: string; to: string }) => <Link key={x.key} to={x.to} title={x.text} className="block min-h-6 truncate border-l-2 border-dashed border-label pl-1.5 text-xs leading-6 text-label hover:text-strong hover:underline">{x.text}</Link>
+  const row = (x: { key: string; text: string; to: string }) => <Link key={x.key} to={x.to} title={x.text} className="flex min-h-6 items-center gap-1.5 text-xs text-label hover:text-strong hover:underline"><span aria-hidden className="size-2 shrink-0 rounded-full ring-1 ring-label ring-inset" /><span className="truncate">{x.text}</span></Link>
   return (
     <div className="mt-1 flex flex-col">
       {items.slice(0, 2).map(row)}
       {items.length > 2 && (
         <Popover.Root>
-          <Popover.Trigger className="min-h-6 pl-2 text-left text-xs text-link hover:underline">+{items.length - 2} key dates</Popover.Trigger>
+          <Popover.Trigger className="min-h-6 pl-3.5 text-left text-xs text-link hover:underline">+{items.length - 2} key dates</Popover.Trigger>
           <Popover.Portal><Popover.Content sideOffset={4} className="z-50 max-h-80 w-72 overflow-y-auto rounded-md bg-surface p-2 shadow-pop">{items.map(row)}</Popover.Content></Popover.Portal>
         </Popover.Root>
       )}

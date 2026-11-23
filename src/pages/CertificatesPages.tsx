@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { AlertTriangle, Clock, FileBadge } from 'lucide-react'
+import { FileBadge, Plus } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { dateOf, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, visibleAccounts } from '@/domain/access'
 import { businessHoursBetween } from '@/domain/sla'
 import type { Account, Certificate, CertMarks, Holder, Policy, Term } from '@/domain/types'
-import { Confirm, DataTable, Field, Gate, inputCls, PageTitle, Panel, RecordHeader, Sheet, SheetCancel, type Column } from '@/components/patterns'
-import { Button, cx } from '@/components/ui/primitives'
+import { Confirm, DataTable, Field, Gate, inputCls, mini, PageTitle, Panel, PrimaryCell, RecordHeader, Sheet, SheetCancel, useView, ViewTabs, type Column, type FilterDef } from '@/components/patterns'
+import { Badge, Button, Callout, cx, Due, FilterChip, Select, SubHeading } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { useToast } from '@/components/ui/toast'
@@ -32,7 +32,7 @@ export function dueForReissue(c: Certificate, policies: Policy[], terms: Term[])
 
 function Flags({ c }: { c: Certificate }) {
   const f = flagsOf(c)
-  return f.length ? <span className="flex gap-1">{f.map((x) => <span key={x} className="rounded-sm bg-fill px-1.5 text-xs leading-5 font-medium text-label">{x}</span>)}</span> : <span className="text-muted">—</span>
+  return f.length ? <span className="flex gap-1">{f.map((x) => <Badge key={x}>{x}</Badge>)}</span> : <span className="text-muted">—</span>
 }
 
 /** US-CRT-008 */
@@ -40,9 +40,9 @@ export function CertificatesPage() {
   const { data, user } = useApp()
   const { account, userName } = useLookups()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [reissue, setReissue] = useState<Certificate[] | null>(null)
-  const view = params.get('view') === 'needs-review' ? 'Needs review' : 'All'
+  const view = useView(['All', 'Needs review'])
   const scoped = new Map(visibleAccounts(user, data.accounts).map((a) => [a.id, a]))
   const all = (data.certificates ?? []).filter((c) => scoped.has(c.accountId))
   const now = new Date()
@@ -54,10 +54,8 @@ export function CertificatesPage() {
     .sort((a, b) => (view === 'Needs review' ? ageH(b) - ageH(a) : b.createdOffset - a.createdOffset))
   const due = all.filter((c) => dueForReissue(c, data.policies, data.terms))
   const holder = (id: string) => data.holders?.find((h) => h.id === id)
-  const setP = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }) }
   const cols: Column<Certificate>[] = [
-    { key: 'id', label: 'ID', width: 120, render: (c) => <Link to={`/certificates/${c.id}${c.status === 'Needs review' && user.role === 'principal' ? '?mode=review' : ''}`} className="font-mono text-sm text-link hover:underline">{c.id}</Link>, csv: (c) => c.id },
-    { key: 'holder', label: 'Holder', render: (c) => <span className="flex min-w-0 flex-col leading-tight"><span className="truncate font-medium text-strong">{holder(c.holderId)?.name}</span><span className="truncate text-sm text-muted">{account(c.accountId)?.name}</span></span>, csv: (c) => holder(c.holderId)?.name ?? '' },
+    { key: 'id', label: 'Certificate', render: (c) => <PrimaryCell mono={c.id} name={holder(c.holderId)?.name ?? '—'} to={`/certificates/${c.id}${c.status === 'Needs review' && user.role === 'principal' ? '?mode=review' : ''}`} token={account(c.accountId)?.name} />, csv: (c) => `${c.id} · ${holder(c.holderId)?.name ?? ''}` },
     { key: 'policies', label: 'Policies', width: 150, render: (c) => c.policyIds.map((p) => ABBR[data.policies.find((x) => x.id === p)?.line ?? ''] ?? '').join(' · ') },
     { key: 'flags', label: 'Flags', width: 140, render: (c) => <Flags c={c} />, csv: (c) => flagsOf(c).join(' ') },
     { key: 'status', label: 'Status', width: 140, render: (c) => <StatusCell status={c.status} />, csv: (c) => c.status },
@@ -71,40 +69,29 @@ export function CertificatesPage() {
       render: (c) => {
         if (c.status !== 'Needs review' && c.status !== 'Requested') return <span className="text-muted">—</span>
         const h = ageH(c)
-        return <span className={cx('inline-flex items-center gap-1', h > 9 ? 'font-medium text-danger-text' : h > 4 ? 'font-medium text-warning-text' : '')}>{h > 4 && <Clock aria-hidden className="size-3.5" />}{h >= 9 ? `${Math.floor(h / 9)}d` : `${Math.round(h)}h`}</span>
+        return <Due tone={h > 9 ? 'overdue' : h > 4 ? 'soon' : null}>{h >= 9 ? `${Math.floor(h / 9)}d` : `${Math.round(h)}h`}</Due>
       },
       csv: (c) => Math.round(ageH(c)),
     },
     { key: 'am', label: 'Account Manager', width: 150, render: (c) => userName(scoped.get(c.accountId)!.accountManagerId) },
   ]
   const nr = all.filter((c) => c.status === 'Needs review').length
+  const filters: FilterDef[] = [
+    { k: 'status', label: 'Status', opts: ['Requested', 'Needs review', 'Issued', 'Re-issued', 'Replaced'].map((x) => [x, x]) },
+    { k: 'flag', label: 'Flag', opts: ['AI', 'WVD', 'P&NC'].map((x) => [x, x]) },
+    ...(user.role === 'principal' || user.role === 'admin' ? [{ k: 'office', label: 'Office', opts: data.offices.map((o): [string, string] => [o.id, o.name]) }] : []),
+    { k: 'am', label: 'Account Manager', opts: data.users.filter((u) => u.role === 'account-manager').map((u): [string, string] => [u.id, u.name]) },
+  ]
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
       <PageTitle title="Certificates" description="Certificates start from a Certificate request in Service." />
       {due.length > 0 && (
-        <p className="mt-4 flex flex-wrap items-center gap-2 rounded-md bg-surface px-4 py-2.5 text-base shadow-ring">
-          <span className="flex-1">{due.length} certificate{due.length === 1 ? '' : 's'} cite policies that renew soon.</span>
-          <Button size="sm" onClick={() => setReissue(due)}>Review re-issue</Button>
-        </p>
+        <Callout tone="warning" className="mt-4" action={<Button size="sm" onClick={() => setReissue(due)}>Review re-issue</Button>}>
+          {due.length} certificate{due.length === 1 ? '' : 's'} cite policies that renew soon.
+        </Callout>
       )}
-      <nav aria-label="Saved views" className="mt-6 flex gap-1 border-b border-line">
-        {(['All', 'Needs review'] as const).map((v) => (
-          <button key={v} aria-current={v === view ? 'page' : undefined} onClick={() => setP('view', v === 'All' ? null : 'needs-review')} className={cx('-mb-px border-b-2 px-2.5 py-2 text-base', v === view ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>
-            {v} <span className="tabular ml-1 rounded-full bg-fill px-1.5 text-xs text-label">{v === 'All' ? all.length : nr}</span>
-          </button>
-        ))}
-      </nav>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {([['status', 'Status', ['Requested', 'Needs review', 'Issued', 'Re-issued', 'Replaced']], ['flag', 'Flag', ['AI', 'WVD', 'P&NC']]] as [string, string, string[]][]).map(([k, l, o]) => (
-          <select key={k} aria-label={l} value={params.get(k) ?? ''} onChange={(e) => setP(k, e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">{l}</option>{o.map((x) => <option key={x}>{x}</option>)}</select>
-        ))}
-        {(user.role === 'principal' || user.role === 'admin') && (
-          <select aria-label="Office" value={params.get('office') ?? ''} onChange={(e) => setP('office', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">Office</option>{data.offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>
-        )}
-        <select aria-label="Account Manager" value={params.get('am') ?? ''} onChange={(e) => setP('am', e.target.value || null)} className="h-8 rounded-md bg-surface px-2 text-sm shadow-control"><option value="">Account Manager</option>{data.users.filter((u) => u.role === 'account-manager').map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
-      </div>
-      <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {rows.length} of {all.length} certificates · {nr} need review</p>
-      <DataTable rows={rows} columns={cols} minWidth={1100} listId="certificates" exportName="certificates" onRowClick={(c) => navigate(`/certificates/${c.id}${c.status === 'Needs review' && user.role === 'principal' ? '?mode=review' : ''}`)} empty={<EmptyState icon={FileBadge} title="No certificates in this view" body="Certificates start from a Certificate request in Service." />} />
+      <ViewTabs views={['All', 'Needs review']} counts={{ All: all.length, 'Needs review': nr }} />
+      <DataTable className="mt-4" pageSize={50} filters={filters} search={{ label: 'Search certificates', placeholder: 'Search certificate, holder or Account', match: (c, q) => [c.id, holder(c.holderId)?.name, account(c.accountId)?.name].some((x) => x?.toLowerCase().includes(q)) }} meta={<>Showing {rows.length} of {all.length} certificates · {nr} need review</>} rows={rows} columns={cols} minWidth={1100} listId="certificates" exportName="certificates" onRowClick={(c) => navigate(`/certificates/${c.id}${c.status === 'Needs review' && user.role === 'principal' ? '?mode=review' : ''}`)} empty={<EmptyState icon={FileBadge} title="No certificates in this view" body="Certificates start from a Certificate request in Service." />} />
       {reissue && <ReissueDialog certs={reissue} onClose={() => setReissue(null)} />}
     </div>
   )
@@ -168,25 +155,25 @@ export function CertificatePage() {
           </span>
         }
       />
-      {pending && <p className="border-b border-line bg-warning-tint px-8 py-2.5 text-base text-ink max-sm:px-4">Policy {pending.p.policyNumber} is {pending.t?.status === 'Canceled' ? 'canceled' : 'pending cancellation'}. Do not re-issue until it is resolved.</p>}
+      {pending && <Callout tone="warning" bleed>Policy {pending.p.policyNumber} is {pending.t?.status === 'Canceled' ? 'canceled' : 'pending cancellation'}. Do not re-issue until it is resolved.</Callout>}
       {c.returnNote && c.status === 'Requested' && <p className="border-b border-line bg-recessed px-8 py-2.5 text-base text-ink max-sm:px-4">Returned: {c.returnNote}</p>}
       <div className="grid grid-cols-[1fr_380px] gap-4 px-8 pt-5 max-lg:grid-cols-1 max-sm:px-4">
         <div className="flex min-w-0 flex-col gap-4">
           <Panel title="Coverage">
             <div className="overflow-x-auto">
-              <table className="tabular w-full min-w-[640px] border-collapse text-left">
-                <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong"><th className="px-2">Line</th><th className="px-2">Carrier</th><th className="px-2">Policy</th><th className="px-2">Term</th><th className="px-2">Status</th><th className="px-2">Marks</th></tr></thead>
+              <table className={cx(mini.table, 'tabular min-w-[640px]')}>
+                <thead className={mini.head}><tr><th className={mini.th}>Line</th><th className={mini.th}>Carrier</th><th className={mini.th}>Policy</th><th className={mini.th}>Term</th><th className={mini.th}>Status</th><th className={mini.th}>Marks</th></tr></thead>
                 <tbody>
                   {terms.map(({ p, t }) => {
                     const m = c.marks?.[p.id]
                     return (
-                      <tr key={p.id} className="h-10 border-b border-fill last:border-0">
-                        <td className="px-2">{p.line}</td>
-                        <td className="px-2">{carrierName(p.carrierId)}</td>
-                        <td className="px-2 font-mono text-sm"><Link to={`/policies/${p.id}`} className="text-link hover:underline">{p.policyNumber}</Link></td>
-                        <td className="px-2">{t ? `${dateOf(t.effectiveOffset)} – ${dateOf(t.expirationOffset)}` : '—'}</td>
-                        <td className="px-2"><StatusCell status={t?.status} /></td>
-                        <td className="px-2 text-sm">{m ? [m.ai && 'AI', m.wvd && 'WVD', m.pnc && 'P&NC'].filter(Boolean).join(' · ') || '—' : <Flags c={c} />}</td>
+                      <tr key={p.id} className={mini.tr}>
+                        <td className={mini.td}>{p.line}</td>
+                        <td className={mini.td}>{carrierName(p.carrierId)}</td>
+                        <td className={cx(mini.td, 'font-mono text-sm')}><Link to={`/policies/${p.id}`} className="text-link hover:underline">{p.policyNumber}</Link></td>
+                        <td className={mini.td}>{t ? `${dateOf(t.effectiveOffset)} – ${dateOf(t.expirationOffset)}` : '—'}</td>
+                        <td className={mini.td}><StatusCell status={t?.status} /></td>
+                        <td className={cx(mini.td, 'text-sm')}>{m ? [m.ai && 'AI', m.wvd && 'WVD', m.pnc && 'P&NC'].filter(Boolean).join(' · ') || '—' : <Flags c={c} />}</td>
                       </tr>
                     )
                   })}
@@ -257,9 +244,9 @@ function IssueSheet({ cert, account, onClose, reissue }: { cert: Certificate; ac
       <div className="flex flex-col gap-4">
         {reissue && holder?.addressChangedOffset != null && cert.issuedOffset != null && holder.addressChangedOffset >= cert.issuedOffset && <p className="rounded-md bg-recessed px-3 py-2 text-base">Holder address changed on {dateOf(holder.addressChangedOffset)}. The re-issue uses the new address.</p>}
         {reissue && addedFlags && <p className="text-sm text-label">You added a flag the original didn’t have, so this goes to Principal review.</p>}
-        {err && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
+        {err && <Callout tone="danger">{err}</Callout>}
         <section>
-          <h3 className="mb-2 text-base font-semibold text-strong">Policies</h3>
+          <SubHeading className="mb-2">Policies</SubHeading>
           <ul className="flex flex-col gap-2">
             {live.map((p) => {
               const t = currentTerm(data.terms, p.id)!
@@ -286,7 +273,7 @@ function IssueSheet({ cert, account, onClose, reissue }: { cert: Certificate; ac
         </section>
         {pending.length > 0 && <label className="flex items-center gap-2 text-base"><input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="size-4 accent-primary" /> I understand</label>}
         <Field label="Delivery" hint="Mock email; nothing is sent."><input className={inputCls} value={delivery} onChange={(e) => setDelivery(e.target.value)} /></Field>
-        {anyMark && <p className="rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring">Marks need a Principal’s review before the certificate is issued{user.role === 'principal' ? '. You can’t approve your own.' : '.'}</p>}
+        {anyMark && <Callout tone="warning">Marks need a Principal’s review before the certificate is issued{user.role === 'principal' ? '. You can’t approve your own.' : '.'}</Callout>}
         <div aria-hidden className="origin-top-left scale-[0.42] [width:238%]"><AcordBody cert={{ ...cert, marks, additionalInsured: Object.values(marks).some((m) => m.ai), waiver: Object.values(marks).some((m) => m.wvd), primaryNonContrib: Object.values(marks).some((m) => m.pnc), policyIds: Object.keys(marks) }} /></div>
       </div>
     </Sheet>
@@ -369,8 +356,8 @@ function AcordBody({ cert }: { cert: Certificate }) {
   const rows: [string, string[]][] = [['Commercial general liability', ['GL', 'BOP']], ['Automobile liability', ['Commercial auto']], ['Umbrella / excess', ['Commercial umbrella']], ["Workers compensation and employers' liability", ['WC']]]
   const box = 'border border-strong/40 p-2'
   return (
-    <div className="relative bg-white p-4 font-sans text-xs text-strong">
-      {!issued && <span aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center text-3xl font-semibold tracking-widest text-danger/25 [transform:rotate(-24deg)]">DRAFT · NOT ISSUED</span>}
+    <div className="relative bg-surface p-4 font-sans text-xs text-strong">
+      {!issued && <span aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center text-title font-semibold text-danger/25 [transform:rotate(-24deg)]">DRAFT · NOT ISSUED</span>}
       <p className="text-center text-sm font-semibold">CERTIFICATE OF LIABILITY INSURANCE</p>
       <div className="mt-2 grid grid-cols-2">
         <div className={box}><p className="font-semibold">DATE</p><p>{issued && cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString('en-US') : '—'}</p></div>
@@ -445,12 +432,12 @@ export function ReissueDialog({ certs, onClose }: { certs: Certificate[]; onClos
                 <span className="font-mono text-sm">{c.id}</span> · {h?.name} <Flags c={c} />
               </label>
               {!picked[c.id] && (
-                <select aria-label="Reason" value={skip[c.id] ?? ''} onChange={(e) => setSkip({ ...skip, [c.id]: e.target.value })} className="mt-1 ml-6 h-8 rounded-md bg-surface px-2 text-sm shadow-control">
+                <Select size="sm" aria-label="Reason" value={skip[c.id] ?? ''} onChange={(e) => setSkip({ ...skip, [c.id]: e.target.value })} className="mt-1 ml-6">
                   <option value="">Don’t re-issue because…</option>
                   <option>Project ended</option>
                   <option>Holder no longer needs it</option>
                   <option>Other</option>
-                </select>
+                </Select>
               )}
             </li>
           )
@@ -484,9 +471,9 @@ export function HolderDrawer({ accountId, holder, onClose, onSaved }: { accountI
       }
     >
       <div className="flex flex-col gap-3">
-        {err && <p role="alert" className="rounded-md bg-danger-tint px-3 py-2 text-base text-ink shadow-ring">{err}</p>}
+        {err && <Callout tone="danger">{err}</Callout>}
         <Field label="Name"><input className={inputCls} value={h.name} onChange={(e) => set('name', e.target.value)} /></Field>
-        {dup && <p className="flex items-center gap-2 rounded-md bg-warning-tint px-3 py-2 text-sm text-ink shadow-ring"><AlertTriangle aria-hidden className="size-4 text-warning-text" /> A holder with this name and ZIP already exists. <button onClick={() => { onSaved?.(dup.id); onClose() }} className="text-link underline">Use existing</button></p>}
+        {dup && <Callout tone="warning" action={<Button size="sm" onClick={() => { onSaved?.(dup.id); onClose() }}>Use existing</Button>}>A holder with this name and ZIP already exists.</Callout>}
         <Field label="Address line 1"><input className={inputCls} value={h.address} onChange={(e) => set('address', e.target.value)} /></Field>
         <div className="grid grid-cols-[1fr_72px_110px] gap-3">
           <Field label="City"><input className={inputCls} value={h.city} onChange={(e) => set('city', e.target.value)} /></Field>
@@ -520,7 +507,7 @@ export function AccountCertificates({ account, sub }: { account: Account; sub: '
     const visible = holders.filter((h) => showInactive || h.status !== 'Inactive')
     const lastIssued = (hid: string) => Math.max(-99999, ...issuedFor(hid).map((c) => c.issuedOffset ?? -99999))
     return (
-      <Panel title="Holders" actions={<Gate allowed={canManage} reason="Only Account Managers and Principals can manage Holders."><Button size="sm" onClick={() => setHolderSheet('new')}>+ Add holder</Button></Gate>}>
+      <Panel title="Holders" actions={<Gate allowed={canManage} reason="Only Account Managers and Principals can manage Holders."><Button size="sm" onClick={() => setHolderSheet('new')}><Plus aria-hidden className="size-4" strokeWidth={1.75} /> Add holder</Button></Gate>}>
         <div className="mb-2 flex items-center gap-3 text-sm text-label">
           <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="size-4 accent-primary" /> Show inactive</label>
           <span>Showing {holders.filter((h) => h.status !== 'Inactive').length} active holders{showInactive ? '' : ` · ${holders.filter((h) => h.status === 'Inactive').length} inactive hidden`}</span>
@@ -552,8 +539,8 @@ export function AccountCertificates({ account, sub }: { account: Account; sub: '
   return (
     <Panel title="Certificates">
       <p className="mb-3 text-sm text-label">Certificates start from a Certificate request. <Link to={`/service?new=certificate&account=${account.id}`} className="text-link underline">New service request</Link></p>
-      {due.length > 0 && <p className="mb-3 flex items-center gap-2 rounded-md bg-surface px-3 py-2 text-base shadow-ring"><span className="flex-1">{due.length} certificate{due.length === 1 ? '' : 's'} cite policies that renew soon.</span><Button size="sm" onClick={() => setReissue(due)}>Review re-issue</Button></p>}
-      {holderFilter && <button onClick={() => { const n = new URLSearchParams(params); n.delete('holder'); setParams(n, { replace: true }) }} className="mb-2 h-7 rounded-md bg-surface px-2.5 text-sm shadow-ring">Holder: {holders.find((h) => h.id === holderFilter)?.name} ×</button>}
+      {due.length > 0 && <Callout tone="warning" className="mb-3" action={<Button size="sm" onClick={() => setReissue(due)}>Review re-issue</Button>}>{due.length} certificate{due.length === 1 ? '' : 's'} cite policies that renew soon.</Callout>}
+      {holderFilter && <div className="mb-2"><FilterChip label={`Holder is ${holders.find((h) => h.id === holderFilter)?.name}`} onRemove={() => { const n = new URLSearchParams(params); n.delete('holder'); setParams(n, { replace: true }) }} /></div>}
       <ul className="divide-y divide-fill">
         {rows.map((c) => {
           const expiring = (c.status === 'Issued' || c.status === 'Re-issued') && c.policyIds.map((pid) => currentTerm(data.terms, pid)).find((t) => t && t.expirationOffset <= 30)

@@ -9,7 +9,9 @@ import { closeRatio, retention, wonPremium } from '@/domain/metrics'
 import { businessHoursBetween } from '@/domain/sla'
 import type { Certificate, Task } from '@/domain/types'
 import { LineChart } from '@/components/charts'
-import { CountPill, cx, Tip } from '@/components/ui/primitives'
+import { Badge, CountPill, cx, Due, RateChange, Segmented, SubHeading, Tip } from '@/components/ui/primitives'
+import { mini } from '@/components/patterns'
+import { dueTone } from '@/domain/urgency'
 import { StatusCell } from '@/components/ui/status'
 import { fmtTime, TaskSheet, useCompleteTask } from './TaskSheet'
 import { changePct, useRisk } from './RenewalsPages'
@@ -28,11 +30,7 @@ export function Widget({ title, count, to, figures, children, toolbar }: { title
     </section>
   )
 }
-const Seg = <T extends string>({ value, options, onChange, label }: { value: T; options: T[]; onChange: (v: T) => void; label: string }) => (
-  <div role="group" aria-label={label} className="inline-flex rounded-md bg-recessed p-0.5">
-    {options.map((o) => <button key={o} aria-pressed={value === o} onClick={() => onChange(o)} className={cx('h-7 rounded-[5px] px-2.5 text-sm', value === o ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:text-strong')}>{o}</button>)}
-  </div>
-)
+const opts = <T extends string>(...vs: T[]) => vs.map((v) => ({ value: v, label: v }))
 const monthBounds = () => {
   const d = new Date()
   const first = -(d.getDate() - 1)
@@ -71,7 +69,7 @@ export function UpcomingXDates() {
                   </span>
                   <span className="tabular text-right text-sm">{dateOf(x.xDateOffset)}<span className="block text-muted">{inDays(x.xDateOffset)}</span></span>
                   <span className="flex items-center gap-2">
-                    {x.xDateOffset <= w && <Tip label={`Quote window open.${task ? ` A Task was created on ${dateOf(task.dueOffset)}.` : ''}`}><Info aria-label="Quote window open" className="size-4 text-link" /></Tip>}
+                    {x.xDateOffset <= w && <Tip label={`Quote window open.${task ? ` A Task was created on ${dateOf(task.dueOffset)}.` : ''}`}><Info aria-label="Quote window open" className="size-4 text-link" strokeWidth={1.75} /></Tip>}
                     <StatusCell status={x.interestLevel === 'High' ? 'High' : x.interestLevel === 'Low' ? 'Low' : 'Medium'} />
                   </span>
                 </button>
@@ -101,7 +99,7 @@ export function GoalPacing() {
   const wonOpps = mine.filter((o) => o.stage === 'Won' && o.type !== 'Remarket' && (o.closedOffset ?? -9999) >= b.first)
   const commission = wonOpps.reduce((n, o) => n + commissionFor(o, data.quotes, data.carriers).producer, 0)
   return (
-    <Widget title="Goal pacing" toolbar={<Seg label="Period" value={period} options={['Month', 'Year to date']} onChange={setPeriod} />}>
+    <Widget title="Goal pacing" toolbar={<Segmented size="sm" label="Period" value={period} options={opts('Month', 'Year to date')} onChange={setPeriod} />}>
       <div className="px-4 pb-4">
         <p className="text-sm text-muted">Set by your Principal</p>
         <dl className="tabular mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-base">
@@ -145,7 +143,7 @@ export function MyDay() {
                 <button onClick={() => go(t)} className="block max-w-full truncate text-left text-base text-strong hover:underline">{t.title}</button>
                 <span className="block truncate text-sm text-muted">{account(t.accountId)?.name} · {t.source === 'Manual' ? t.type : t.source}</span>
               </span>
-              <span className={cx('tabular shrink-0 text-sm', t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-label')}>{t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : t.dueTime ? `Due ${fmtTime(t.dueTime)}` : 'Due today'}</span>
+              <Due tone={t.dueOffset < 0 ? 'overdue' : null} className={cx('shrink-0 text-sm', t.dueOffset >= 0 && 'text-label')}>{t.dueOffset < 0 ? `Overdue ${-t.dueOffset}d` : t.dueTime ? `Due ${fmtTime(t.dueTime)}` : 'Due today'}</Due>
             </li>
           ))}
         </ul>
@@ -153,7 +151,7 @@ export function MyDay() {
         <p className="px-4 pb-3 text-base text-muted">Nothing due today.</p>
       )}
       <div className="flex items-center justify-between border-t border-fill px-4 pt-3 pb-1">
-        <h3 className="text-sm font-semibold text-label">Meetings</h3>
+        <SubHeading>Meetings</SubHeading>
         <Link to={`/calendar?view=day`} className="text-sm text-link hover:underline">View all</Link>
       </div>
       {meetings.length ? (
@@ -165,7 +163,7 @@ export function MyDay() {
                 <button onClick={() => setOpen(m)} className={cx('flex w-full items-center gap-2 px-4 py-1.5 text-left text-base hover:bg-recessed', past && 'text-muted')}>
                   <span className="tabular w-20 shrink-0 text-sm">{m.dueTime ? fmtTime(m.dueTime) : ''}</span>
                   <span className="min-w-0 flex-1 truncate">{m.title} · {account(m.accountId)?.name}</span>
-                  {m === nextMeeting && <span className="rounded-full bg-fill px-1.5 text-xs font-medium text-label">Next</span>}
+                  {m === nextMeeting && <Badge>Next</Badge>}
                 </button>
               </li>
             )
@@ -192,7 +190,7 @@ export function CertificatesWaiting() {
   const list = certs.filter((c) => (tab === 'To issue' ? c.status === 'Requested' : c.status === 'Needs review')).sort((a, b) => a.createdOffset - b.createdOffset)
   const principals = data.users.filter((u) => u.role === 'principal')
   return (
-    <Widget title="Certificates waiting" count={certs.filter((c) => c.status === 'Requested' || c.status === 'Needs review').length} to={tab === 'In review' ? '/certificates?view=needs-review' : '/certificates'} toolbar={<Seg label="Certificates" value={tab} options={['To issue', 'In review']} onChange={setTab} />}>
+    <Widget title="Certificates waiting" count={certs.filter((c) => c.status === 'Requested' || c.status === 'Needs review').length} to={tab === 'In review' ? '/certificates?view=needs-review' : '/certificates'} toolbar={<Segmented size="sm" label="Certificates" value={tab} options={opts('To issue', 'In review')} onChange={setTab} />}>
       {list.length ? (
         <ul className="divide-y divide-fill border-t border-fill">
           {list.slice(0, 6).map((c) => {
@@ -205,7 +203,7 @@ export function CertificatesWaiting() {
                     <span className="block truncate text-sm text-muted">{account(c.accountId)?.name} · {provisions(c)}</span>
                     {tab === 'In review' && <span className="block text-sm text-label">Waiting on {principals.filter((p) => p.id !== c.submittedById).map((p) => userName(p.id)).join(' or ')}</span>}
                   </span>
-                  <span className={cx('tabular text-sm', tab === 'To issue' && h > 4 ? 'font-medium text-warning-text' : 'text-label')}>{ageText(h)}</span>
+                  <Due tone={tab === 'To issue' && h > 4 ? 'soon' : null} className={cx('text-sm', !(tab === 'To issue' && h > 4) && 'text-label')}>{ageText(h)}</Due>
                 </button>
               </li>
             )
@@ -254,25 +252,25 @@ export function AgencyPipeline() {
     <Widget title="Agency pipeline" to="/reports">
       <div className="grid grid-cols-3 gap-3 px-4 pb-3 max-sm:grid-cols-1">
         {card('Open pipeline', `${usd(open.reduce((n, o) => n + o.estimatedPremium, 0))}`, <span className="text-label">{open.length} open</span>)}
-        {card('Won this month', usd(thisMonth.premium), lastMonthSame.premium < 1000 ? <span className="text-label">vs {usd(lastMonthSame.premium)} same day last month</span> : <span className={delta >= 0 ? 'text-success-text' : 'text-danger-text'}>{delta >= 0 ? '▲' : '▼'} {Math.abs(delta * 100).toFixed(1)}% vs same day last month</span>)}
+        {card('Won this month', usd(thisMonth.premium), lastMonthSame.premium < 1000 ? <span className="text-label">vs {usd(lastMonthSame.premium)} same day last month</span> : <span className={delta >= 0 ? 'text-success-text' : 'text-danger-text'}>{delta >= 0 ? '+' : '−'}{Math.abs(delta * 100).toFixed(1)}% vs same day last month</span>)}
         {card('Close ratio, last 90 days', `${(ratio * 100).toFixed(1)}%`)}
       </div>
       <div className="px-4 pb-3">
         <LineChart data={series} x="day" series={[{ key: 'current', label: 'This month' }, { key: 'last', label: 'Last month' }]} summary={`Won premium this month ${usd(thisMonth.premium)}, ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta * 100).toFixed(1)}% from the same day last month.`} height={160} />
       </div>
       <div className="overflow-x-auto border-t border-fill">
-        <table className="tabular w-full min-w-[720px] border-collapse text-left">
-          <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong"><th className="px-4">Producer</th><th className="px-2">Office</th><th className="px-2 text-right">Won this month</th><th className="px-2 text-right">Goal</th><th className="px-2 text-right">Open pipeline</th><th className="px-2 text-right">Close ratio</th><th className="px-4 text-right">Est. commission</th></tr></thead>
+        <table className={cx(mini.table, 'tabular min-w-[720px]')}>
+          <thead><tr className={mini.head}><th className={mini.th}>Producer</th><th className={mini.th}>Office</th><th className={cx(mini.th, 'text-right')}>Won this month</th><th className={cx(mini.th, 'text-right')}>Goal</th><th className={cx(mini.th, 'text-right')}>Open pipeline</th><th className={cx(mini.th, 'text-right')}>Close ratio</th><th className={cx(mini.th, 'text-right')}>Est. commission</th></tr></thead>
           <tbody>
             {board.map((r) => (
-              <tr key={r.p.id} onClick={() => navigate(`/pipeline?view=list&producer=${r.p.id}`)} className="h-10 cursor-pointer border-b border-fill last:border-0 hover:bg-recessed">
-                <td className="px-4 font-medium text-strong">{userName(r.p.id)}</td>
-                <td className="px-2 text-label">{office(r.p.officeId)?.name}</td>
-                <td className="px-2 text-right">{usd(r.won)}</td>
-                <td className="px-2 text-right">{Math.round(r.goal * 100)}%</td>
-                <td className="px-2 text-right">{usd(r.pipe)}</td>
-                <td className="px-2 text-right">{(r.ratio * 100).toFixed(0)}%</td>
-                <td className="px-4 text-right">{usd(r.comm)}</td>
+              <tr key={r.p.id} onClick={() => navigate(`/pipeline?view=list&producer=${r.p.id}`)} className={cx(mini.tr, 'cursor-pointer hover:bg-recessed')}>
+                <td className={cx(mini.td, 'font-medium text-strong')}>{userName(r.p.id)}</td>
+                <td className={cx(mini.td, 'text-label')}>{office(r.p.officeId)?.name}</td>
+                <td className={cx(mini.td, 'text-right')}>{usd(r.won)}</td>
+                <td className={cx(mini.td, 'text-right')}>{Math.round(r.goal * 100)}%</td>
+                <td className={cx(mini.td, 'text-right')}>{usd(r.pipe)}</td>
+                <td className={cx(mini.td, 'text-right')}>{(r.ratio * 100).toFixed(0)}%</td>
+                <td className={cx(mini.td, 'text-right')}>{usd(r.comm)}</td>
               </tr>
             ))}
           </tbody>
@@ -306,26 +304,26 @@ export function RetentionWidget() {
     <Widget title="Retention" to="/renewals?view=at-risk">
       <div className="flex flex-wrap items-baseline gap-x-4 px-4 pb-2">
         <span className="tabular text-metric font-semibold text-strong">{(now.rate * 100).toFixed(1)}%</span>
-        <span className={cx('text-sm', diff >= 0 ? 'text-success-text' : 'text-danger-text')}>{diff >= 0 ? '▲' : '▼'} {Math.abs(diff).toFixed(1)} pts</span>
+        <span className={cx('text-sm', diff >= 0 ? 'text-success-text' : 'text-danger-text')}>{diff >= 0 ? '+' : '−'}{Math.abs(diff).toFixed(1)} pts</span>
         <span className="tabular text-sm text-label">{now.retained.toLocaleString('en-US')} of {now.total.toLocaleString('en-US')} Terms retained · trailing 12 months</span>
       </div>
       <p className="tabular px-4 pb-2 text-sm text-label">{usd(stake)} premium at stake across {atRisk.length} Renewals · {noRemarket} with no remarket started</p>
       {atRisk.length > 0 && (
         <div className="overflow-x-auto border-t border-fill">
-          <table className="tabular w-full min-w-[760px] border-collapse text-left">
-            <thead><tr className="h-9 border-b border-fill text-sm font-semibold text-strong"><th className="px-4">Account</th><th className="px-2">Account Manager</th><th className="px-2">Producer</th><th className="px-2 text-right">Premium</th><th className="px-2 text-right">Change</th><th className="px-2">Expiration</th><th className="px-4">Status</th></tr></thead>
+          <table className={cx(mini.table, 'tabular min-w-[760px]')}>
+            <thead><tr className={mini.head}><th className={mini.th}>Account</th><th className={mini.th}>Account Manager</th><th className={mini.th}>Producer</th><th className={cx(mini.th, 'text-right')}>Premium</th><th className={cx(mini.th, 'text-right')}>Change</th><th className={mini.th}>Expiration</th><th className={mini.th}>Status</th></tr></thead>
             <tbody>
               {atRisk.slice(0, 8).map(({ r, t }) => {
                 const pct = changePct(r, t)
                 return (
-                  <tr key={r.id} onClick={() => navigate(`/renewals/${r.id}`)} className="h-10 cursor-pointer border-b border-fill last:border-0 hover:bg-recessed">
-                    <td className="max-w-0 truncate px-4 font-medium text-strong">{account(r.accountId)?.name}</td>
-                    <td className="px-2 text-label">{userName(r.ownerId)}</td>
-                    <td className="px-2 text-label">{userName(account(r.accountId)?.producerId)}</td>
-                    <td className="px-2 text-right">{usd(t.premium)}</td>
-                    <td className={cx('px-2 text-right', pct != null && pct >= 0.1 && 'text-danger-text')}>{pct == null ? '—' : `${pct > 0 ? '+' : '−'}${Math.abs(pct * 100).toFixed(1)}%`}</td>
-                    <td className="px-2">{dateOf(t.expirationOffset)}</td>
-                    <td className="px-4"><StatusCell status={r.status} /></td>
+                  <tr key={r.id} onClick={() => navigate(`/renewals/${r.id}`)} className={cx(mini.tr, 'cursor-pointer hover:bg-recessed')}>
+                    <td className={cx(mini.td, 'max-w-0 truncate font-medium text-strong')}>{account(r.accountId)?.name}</td>
+                    <td className={cx(mini.td, 'text-label')}>{userName(r.ownerId)}</td>
+                    <td className={cx(mini.td, 'text-label')}>{userName(account(r.accountId)?.producerId)}</td>
+                    <td className={cx(mini.td, 'text-right')}>{usd(t.premium)}</td>
+                    <td className={cx(mini.td, 'text-right')}><RateChange pct={pct} /></td>
+                    <td className={mini.td}>{dateOf(t.expirationOffset)}</td>
+                    <td className={mini.td}><StatusCell status={r.status} /></td>
                   </tr>
                 )
               })}
@@ -359,7 +357,7 @@ export function CertificateApprovals() {
                     <span className="block truncate text-sm text-muted">{account(c.accountId)?.name} · Prepared by {userName(c.preparedById ?? c.submittedById)}</span>
                     <span className="block truncate text-sm text-label">{own ? 'Needs another Principal' : provisions(c)}</span>
                   </span>
-                  <span className={cx('tabular inline-flex items-center gap-1 text-sm', h > 9 ? 'font-medium text-danger-text' : h > 4 ? 'font-medium text-warning-text' : 'text-label')}>{ageText(h)}</span>
+                  <Due tone={h > 9 ? 'overdue' : h > 4 ? 'soon' : null} className={cx('text-sm', h <= 4 && 'text-label')}>{ageText(h)}</Due>
                 </button>
               </li>
             )
@@ -388,7 +386,7 @@ export function UsersAndLicenses() {
         <p className="mt-1 flex flex-wrap gap-x-3 text-sm">{data.offices.filter((o) => !officeFilter || o.id === officeFilter).map((o) => <Link key={o.id} to="/settings/offices" className="text-link hover:underline">{o.name} {o.state} {active.filter((u) => u.officeId === o.id).length}</Link>)}</p>
         <p className="mt-1 text-sm text-label">{byRole.map(([r, n]) => `${r === 'account-manager' ? 'Account Managers' : `${r[0].toUpperCase()}${r.slice(1)}s`} ${n}`).join(' · ')}{users.length > active.length ? ` · ${users.length - active.length} inactive` : ''}</p>
       </div>
-      <div className="flex items-center justify-between border-t border-fill px-4 pt-3 pb-1"><h3 className="text-sm font-semibold text-label">Licenses expiring</h3><Link to="/settings/licenses" className="text-sm text-link hover:underline">View all</Link></div>
+      <div className="flex items-center justify-between border-t border-fill px-4 pt-3 pb-1"><SubHeading>Licenses expiring</SubHeading><Link to="/settings/licenses" className="text-sm text-link hover:underline">View all</Link></div>
       {lic.length ? (
         <ul className="pb-2">
           {lic.map(({ u, l }, i) => (
@@ -398,7 +396,7 @@ export function UsersAndLicenses() {
                 <span className="max-md:hidden">{l.state}</span>
                 <span className="truncate text-label max-md:hidden">{l.lineOfAuthority}</span>
                 <span className="max-md:hidden">{dateOf(l.expirationOffset)}</span>
-                <span className={cx('text-right', l.expirationOffset < 0 ? 'font-medium text-danger-text' : l.expirationOffset <= 30 ? 'font-medium text-warning-text' : 'text-label')}>{l.expirationOffset < 0 ? `Expired ${-l.expirationOffset}d ago` : `${l.expirationOffset} days`}</span>
+                <Due tone={dueTone(l.expirationOffset, 30)} className={cx('justify-end text-right', dueTone(l.expirationOffset, 30) === null && 'text-label')}>{l.expirationOffset < 0 ? `Expired ${-l.expirationOffset}d ago` : `${l.expirationOffset} days`}</Due>
               </button>
             </li>
           ))}
@@ -424,7 +422,7 @@ export function AmsSync() {
     <Widget title="AMS sync" to="/settings/data-sync">
       <div className="px-4 pb-3">
         <p className="flex items-center gap-2 text-base">
-          <Icon aria-hidden className={cx('size-4', last.status === 'Succeeded' ? 'text-success' : last.status === 'Partial' ? 'text-warning-text' : 'text-danger')} />
+          <Icon aria-hidden strokeWidth={1.75} className={cx('size-4', last.status === 'Succeeded' ? 'text-success' : last.status === 'Partial' ? 'text-warning-text' : 'text-danger')} />
           <span className="font-medium text-strong">{last.status}</span>
           <span className="text-label">· {t(last.at)} · {Math.floor(last.durationSec / 60)}m {last.durationSec % 60}s · next {next.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
         </p>

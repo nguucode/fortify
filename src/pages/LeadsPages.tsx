@@ -3,14 +3,15 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { menuContent, menuItem } from '@/components/shell/TopBar'
-import { Building2, Clock, MoreHorizontal, CheckCircle2, Home, Search, UserPlus } from 'lucide-react'
+import { Building2, MoreHorizontal, Home, Plus, UserPlus } from 'lucide-react'
 import { useApp } from '@/app/store'
 import { ago, dateOf, inDays, useLookups, useMutate } from '@/app/hooks'
 import { canSeeAccount, canWorkLead, scopeOf } from '@/domain/access'
 import { findMatches, type Match } from '@/domain/rules'
 import type { Lead, User } from '@/domain/types'
-import { Confirm, DataTable, Gate, KeyValue, PageTitle, Panel, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
-import { Button, cx, Tip } from '@/components/ui/primitives'
+import { AttentionCallout, Confirm, DataTable, Gate, KeyValue, PageTitle, Panel, PrimaryCell, RecordHeader, ViewTabs, useView, type Column } from '@/components/patterns'
+import { Button, Callout, cx, Due, SearchField, Tip } from '@/components/ui/primitives'
+import { dueTone } from '@/domain/urgency'
 import { StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 import { AccessDenied, NotFound } from './SystemPages'
@@ -51,13 +52,7 @@ export function LeadsPage() {
   const unassigned = scoped.filter(inView.Unassigned)
 
   const cols: Column<Lead>[] = [
-    { key: 'name', label: 'Name', sort: (a, b) => a.name.localeCompare(b.name), render: (l) => (
-      <span className="flex min-w-0 items-center gap-2">
-        {l.kind === 'Household' ? <Home aria-label="Personal" className="size-4 shrink-0 text-muted" strokeWidth={1.75} /> : <Building2 aria-label="Commercial" className="size-4 shrink-0 text-muted" strokeWidth={1.75} />}
-        <Link to={`/leads/${l.id}`} className="shrink-0 font-medium text-strong hover:text-link hover:underline">{l.name}</Link>
-        {l.businessName && <span className="min-w-0 truncate text-sm text-muted max-sm:hidden">{l.businessName}</span>}
-      </span>
-    ) },
+    { key: 'name', label: 'Name', sort: (a, b) => a.name.localeCompare(b.name), render: (l) => <PrimaryCell icon={l.kind === 'Household' ? Home : Building2} iconLabel={l.kind === 'Household' ? 'Personal' : 'Commercial'} name={l.name} to={`/leads/${l.id}`} token={l.businessName} /> },
     { key: 'status', label: 'Status', width: 120, render: (l) => <StatusCell status={l.status} reason={l.disqualifyReason ?? undefined} /> },
     { key: 'source', label: 'Source', width: 120, render: (l) => l.source },
     { key: 'lines', label: 'Lines of interest', width: 140, render: (l) => l.linesOfInterest.join(', ') },
@@ -66,9 +61,8 @@ export function LeadsPage() {
     { key: 'received', label: 'Received', width: 120, mobile: true, sort: (a, b) => a.createdOffset - b.createdOffset, render: (l) => {
       const stale = l.status === 'New' && l.attempts.length === 0 && l.createdOffset < 0
       return (
-        <span className={cx('inline-flex items-center gap-1', stale && 'font-medium text-warning-text')} title={stale ? `No contact attempt in ${-l.createdOffset} day(s)` : undefined}>
-          {stale && <Clock aria-hidden className="size-3.5" />}
-          {ago(l.createdOffset)}
+        <span title={stale ? `No contact attempt in ${-l.createdOffset} day(s)` : undefined}>
+          <Due tone={stale ? 'overdue' : null}>{ago(l.createdOffset)}</Due>
         </span>
       )
     } },
@@ -83,7 +77,7 @@ export function LeadsPage() {
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="truncate">{a ? `${a.channel} · ${a.outcome}` : <span className="text-muted">—</span>}</span>
             {l.followUpOffset != null && (l.status === 'New' || l.status === 'Contacted') && (
-              <span className={cx('text-sm', l.followUpOffset < 0 ? 'font-medium text-warning-text' : 'text-muted')}>Follow up {dateOf(l.followUpOffset).slice(0, 5)}</span>
+              <Due tone={dueTone(l.followUpOffset, 0)} className={cx('text-sm', dueTone(l.followUpOffset, 0) === null && 'text-muted')}>Follow up {dateOf(l.followUpOffset).slice(0, 5)}</Due>
             )}
           </span>
         )
@@ -94,42 +88,39 @@ export function LeadsPage() {
 
   return (
     <div className="px-8 pt-6 pb-10 max-sm:px-4">
-      <PageTitle title="Leads" description="Inbound inquiries waiting to be contacted and qualified." actions={<span className="flex gap-2">{(user.role === 'principal' || user.role === 'admin') && <Button onClick={() => setImporting(true)}>Import</Button>}{user.role !== 'admin' && <Button variant="primary" onClick={() => setAdding(true)}><UserPlus aria-hidden className="size-4" /> Add lead</Button>}</span>} />
+      <PageTitle title="Leads" description="Inbound inquiries waiting to be contacted and qualified." />
       {user.role !== 'producer' && unassigned.length > 0 && (
-        <div className="mt-4 rounded-md bg-surface px-4 py-3 shadow-ring">
-          <p className="text-base font-medium text-strong">{unassigned.length} new leads are unassigned</p>
-          <ul className="mt-1 text-sm text-label">
-            {unassigned.slice(0, 3).map((l) => (
-              <li key={l.id}>
-                <Link className="text-link underline" to={`/leads/${l.id}`}>{l.name}</Link> · {l.source} · {ago(l.createdOffset)}
-              </li>
-            ))}
-          </ul>
+        <div className="mt-4">
+          <AttentionCallout storageKey="fortify.leads.unassigned" badge={false} max={3} title={`${unassigned.length} new leads are unassigned`} items={unassigned.map((l) => ({ key: l.id, title: l.name, detail: `${l.source} · ${ago(l.createdOffset)}`, to: `/leads/${l.id}` }))} />
         </div>
       )}
       <ViewTabs views={VIEWS} counts={counts} />
-      <div className="mt-4 flex items-center gap-2">
-        <label className="relative w-80 max-sm:w-full">
-          <span className="sr-only">Search leads</span>
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" strokeWidth={1.75} />
-          <input
-            defaultValue={params.get('q') ?? ''}
-            onChange={(e) => {
+      <DataTable
+        className="mt-4"
+        toolbar={
+          <SearchField
+            label="Search leads"
+            value={params.get('q') ?? ''}
+            onChange={(v) => {
               const next = new URLSearchParams(params)
-              if (e.target.value) next.set('q', e.target.value)
+              if (v) next.set('q', v)
               else next.delete('q')
               setParams(next, { replace: true })
             }}
             placeholder="Search name, business, phone, or email"
-            className="h-9 w-full rounded-md bg-surface pr-3 pl-8 text-base shadow-control outline-none focus-visible:outline-2 focus-visible:outline-primary"
           />
-        </label>
-      </div>
-      <p className="tabular mt-3 mb-2 text-sm text-muted">Showing {rows.length} {view.toLowerCase()} leads</p>
-      <DataTable
+        }
+        actions={
+          <>
+            {(user.role === 'principal' || user.role === 'admin') && <Button onClick={() => setImporting(true)}>Import</Button>}
+            {user.role !== 'admin' && <Button variant="primary" onClick={() => setAdding(true)}><Plus aria-hidden className="size-4" strokeWidth={1.75} /> Add lead</Button>}
+          </>
+        }
+        meta={<>Showing {rows.length} {view.toLowerCase()} leads</>}
         rows={rows}
         columns={cols}
         minWidth={1100}
+        pageSize={50}
         listId="leads"
         exportName="leads"
         bulkActions={
@@ -197,7 +188,7 @@ export function LeadPage() {
               {canWork && (
                 <Menu.Root>
                   <Menu.Trigger aria-label="More actions" className="grid size-9 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed">
-                    <MoreHorizontal className="size-4" />
+                    <MoreHorizontal className="size-4" strokeWidth={1.75} />
                   </Menu.Trigger>
                   <Menu.Portal>
                     <Menu.Content align="end" sideOffset={4} className={menuContent}>
@@ -217,15 +208,14 @@ export function LeadPage() {
       />
       <div className="flex flex-col gap-4 px-8 pt-5 max-sm:px-4">
         {lead.status === 'Qualified' && lead.qualifiedAccountId && (
-          <div className="flex items-center gap-2 rounded-md bg-success-tint px-4 py-3 text-base text-ink shadow-ring">
-            <CheckCircle2 aria-hidden className="size-4 text-success" />
+          <Callout tone="success">
             Qualified into <Link className="font-medium text-link hover:underline" to={`/accounts/${lead.qualifiedAccountId}`}>{account(lead.qualifiedAccountId)?.name ?? 'the Account'}</Link>
             {lead.qualifiedOpportunityId && (
               <>
                 {' '}· <Link className="font-medium text-link hover:underline" to={`/pipeline/${lead.qualifiedOpportunityId}`}>open the Opportunity</Link>
               </>
             )}
-          </div>
+          </Callout>
         )}
         {lead.status === 'Disqualified' && (
           <div className="rounded-md bg-recessed px-4 py-3 text-base text-ink">
@@ -243,7 +233,7 @@ export function LeadPage() {
             <KeyValue items={[['Type', lead.kind === 'Household' ? 'Personal' : 'Commercial'], ['Business', lead.businessName], ['Lines', lead.linesOfInterest.join(', ')], ['Current carrier', lead.currentCarrier], ['X-date', lead.xDateOffset != null ? `${dateOf(lead.xDateOffset)} (${inDays(lead.xDateOffset)})` : null]]} />
           </Panel>
           <Panel title="Timeline">
-            {lead.followUpOffset != null && open && <p className={cx('mb-2 text-sm', lead.followUpOffset < 0 ? 'font-medium text-warning-text' : 'text-label')}>Follow up {dateOf(lead.followUpOffset)}</p>}
+            {lead.followUpOffset != null && open && <p className={cx('mb-2 text-sm', dueTone(lead.followUpOffset, 0) === null && 'text-label')}><Due tone={dueTone(lead.followUpOffset, 0)}>Follow up {dateOf(lead.followUpOffset)}</Due></p>}
             {lead.attempts.length || lead.events?.length ? (
               <ol className="flex flex-col gap-2 text-base">
                 {[

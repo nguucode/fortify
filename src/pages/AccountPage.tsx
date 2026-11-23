@@ -10,8 +10,8 @@ import { AccountFormSheet, ArchiveDialog, ContactSheet, LinkedAccounts, ManageCo
 import { ActivityTab, DetailsPanel, DocumentsTab, RenewalsTab, SalesTab } from './AccountPanels'
 import { AccountCertificates } from './CertificatesPages'
 import { canSeeAccount } from '@/domain/access'
-import { KeyValue, Panel, RecordHeader, TabBar, useTab } from '@/components/patterns'
-import { Button } from '@/components/ui/primitives'
+import { KeyValue, mini, Panel, RecordHeader, TabBar, useTab } from '@/components/patterns'
+import { Button, Callout, cx, Due } from '@/components/ui/primitives'
 import { StatusCell } from '@/components/ui/status'
 import { ActivityTimeline, LogActivityButton } from '@/components/ActivityTimeline'
 import { AmsBadge, currentTerm } from './PoliciesPages'
@@ -97,7 +97,7 @@ export function AccountPage() {
               {user.role !== 'admin' && active.length > 0 && <Button variant="primary" onClick={() => setNewRequest(true)}>New request</Button>}
               <Menu.Root>
                 <Menu.Trigger aria-label="More actions" className="grid size-9 place-items-center rounded-md bg-surface text-label shadow-ring hover:bg-recessed">
-                  <MoreHorizontal className="size-4" />
+                  <MoreHorizontal className="size-4" strokeWidth={1.75} />
                 </Menu.Trigger>
                 <Menu.Portal>
                   <Menu.Content align="end" sideOffset={4} className={menuContent}>
@@ -114,11 +114,9 @@ export function AccountPage() {
         }
       />
       {archived && (
-        <div role="status" className="flex flex-wrap items-center gap-3 border-b border-line bg-warning-tint px-8 py-2.5 text-base text-ink max-sm:px-4">
-          <Archive aria-hidden className="size-4 text-warning-text" />
-          <span className="flex-1">Archived {dateOf(a.archived!.offset)} by {userName(a.archived!.byId)} · {a.archived!.reason}. This account is read-only.</span>
-          {user.role === 'admin' && <Button size="sm" onClick={() => mutate((s) => s.restoreAccount(a.id, user.id), `${a.name} restored`)}>Restore</Button>}
-        </div>
+        <Callout tone="warning" bleed icon={Archive} role="status" action={user.role === 'admin' && <Button size="sm" onClick={() => mutate((s) => s.restoreAccount(a.id, user.id), `${a.name} restored`)}>Restore</Button>}>
+          Archived {dateOf(a.archived!.offset)} by {userName(a.archived!.byId)} · {a.archived!.reason}. This account is read-only.
+        </Callout>
       )}
       <div className="px-8 pt-3 max-sm:px-4">
         <TabBar tabs={tabs} />
@@ -130,10 +128,9 @@ export function AccountPage() {
                   const w = a.kind === 'Business' ? 90 : 45
                   const x = xdates.filter((v) => v.xDateOffset >= 0 && v.xDateOffset <= w && v.interestLevel !== 'Closed' && !v.opportunityId).sort((m, n) => m.xDateOffset - n.xDateOffset)[0]
                   return x ? (
-                    <p className="flex items-center gap-2 rounded-md bg-surface px-4 py-2.5 text-base shadow-ring">
-                      <span className="flex-1">{x.line} elsewhere expires in {x.xDateOffset} days</span>
-                      <Link to={`/accounts/${a.id}?tab=sales`} className="font-medium text-link hover:underline">Start quote</Link>
-                    </p>
+                    <Callout tone="info" action={<Link to={`/accounts/${a.id}?tab=sales`} className="inline-flex h-8 items-center font-medium text-link hover:underline">Start quote</Link>}>
+                      {x.line} elsewhere expires in {x.xDateOffset} days
+                    </Callout>
                   ) : null
                 })()}
                 <Panel title="At a glance">
@@ -145,7 +142,7 @@ export function AccountPage() {
                       {[...tasks].sort((x, y) => x.dueOffset - y.dueOffset).slice(0, 6).map((t) => (
                         <li key={t.id} className="flex items-center justify-between gap-3 py-2">
                           <button onClick={() => setTaskSheet(t)} className="min-w-0 truncate text-left text-base text-strong hover:text-link hover:underline">{t.title}</button>
-                          <span className={`tabular shrink-0 text-sm ${t.dueOffset < 0 ? 'font-medium text-danger-text' : 'text-muted'}`}>{userName(t.assigneeId)} · {dateOf(t.dueOffset)}</span>
+                          <span className="tabular shrink-0 text-sm text-muted">{userName(t.assigneeId)} · <Due tone={t.dueOffset < 0 ? 'overdue' : null}>{dateOf(t.dueOffset)}</Due></span>
                         </li>
                       ))}
                     </ul>
@@ -246,16 +243,16 @@ export function AccountPage() {
 function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-left">
+      <table className={cx(mini.table, 'min-w-[640px]')}>
         <thead>
-          <tr className="h-10 border-b border-fill">
-            {head.map((h) => <th key={h} className="px-2 text-base font-semibold text-strong">{h}</th>)}
+          <tr className={mini.head}>
+            {head.map((h) => <th key={h} className={mini.th}>{h}</th>)}
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="tabular h-10 border-b border-fill last:border-0">
-              {r.map((c, j) => <td key={j} className="truncate px-2">{c}</td>)}
+            <tr key={i} className={cx(mini.tr, 'tabular')}>
+              {r.map((c, j) => <td key={j} className={cx(mini.td, 'truncate')}>{c}</td>)}
             </tr>
           ))}
         </tbody>
