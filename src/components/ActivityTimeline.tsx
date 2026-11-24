@@ -132,7 +132,7 @@ export function LogActivityButton({ accountId, linked }: { accountId: string; li
                   {options.map((u, i) => (
                     <li key={u.id} role="option" aria-selected={i === active}>
                       <button type="button" onMouseDown={(e) => { e.preventDefault(); pick(u.name) }} className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-base ${i === active ? 'bg-recessed' : ''}`}>
-                        <Avatar name={u.name} />
+                        <Avatar name={u.name} photo={u.photo} />
                         <span className="flex-1 truncate">{u.name}</span>
                         <span className="text-xs text-muted">{u.role.replace('-', ' ')} · {data.offices.find((o) => o.id === u.officeId)?.name}</span>
                       </button>

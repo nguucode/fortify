@@ -35,6 +35,8 @@ export interface User {
   status?: 'Active' | 'Invited' | 'Deactivated'
   title?: string | null
   phone?: string | null
+  /** Portrait URL; absent means the Avatar shows colored initials. */
+  photo?: string
 }
 
 /** SET-006/007 agency settings (session-persistent in the mock). */
