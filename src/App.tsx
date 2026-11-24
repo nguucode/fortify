@@ -79,7 +79,7 @@ function Shell() {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         {/* scroll-padding keeps focused controls clear of sticky record headers (2.4.11). */}
-        <main id="main" tabIndex={-1} className="min-w-0 flex-1 scroll-pt-40 overflow-y-auto outline-none">
+        <main id="main" tabIndex={-1} className="m-2.5 min-w-0 flex-1 scroll-pt-40 overflow-y-auto rounded-lg bg-(--chrome-content) shadow-(--chrome-content-ring) outline-none max-sm:m-1.5">
           <ReadOnlyBanner />
           <Outlet />
         </main>

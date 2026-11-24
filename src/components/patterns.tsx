@@ -129,7 +129,7 @@ export const inputCls = cx(controlCls(), 'w-full')
 /** Record page header (US-FND-013): back link, title, meta, status, actions. Sticky under the top bar. */
 export function RecordHeader({ back, icon: Icon, title, meta, status, actions }: { back: { to: string; label: string }; icon?: LucideIcon; title: ReactNode; meta?: ReactNode; status?: ReactNode; actions?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-canvas px-8 pt-4 pb-4 max-sm:px-4">
+    <header className="sticky top-0 z-20 border-b border-line bg-(--chrome-content-solid) px-8 pt-4 pb-4 max-sm:px-4">
       <Link to={back.to} className="text-sm text-label hover:text-link hover:underline">
         ← {back.label}
       </Link>
