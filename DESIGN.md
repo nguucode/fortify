@@ -151,8 +151,8 @@ components:
     padding: "0 10px"
     height: "32px"
   nav-item-active:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.strong}"
+    backgroundColor: "color-mix(in oklab, {colors.strong} 7%, transparent)"
+    textColor: "{colors.link}"
   segmented:
     backgroundColor: "{colors.recessed}"
     rounded: "{rounded.md}"
@@ -228,7 +228,7 @@ A restrained, achromatic palette with a single saturated blue and four status hu
 
 ### Neutral
 - **Console Grey** (canvas): page background, top bar and sidebar.
-- **Paper White** (surface): tables, controls, popovers, toasts, the active nav item. Named `surface`, not `base`, because Tailwind v4's `text-base` size utility collides with a `base` color.
+- **Paper White** (surface): tables, controls, popovers, toasts. Named `surface`, not `base`, because Tailwind v4's `text-base` size utility collides with a `base` color.
 - **Well Grey** (recessed): row hover, button hover, ghost hover, skeleton bars.
 - **Divider Grey** (fill): table row dividers, count pills, the Sample data badge, kbd hints, avatar, the ribbon baseline, scrollbar thumb.
 - **Ring Line** (line): the 0.1-alpha edge for every surface ring, plus the 1px structural shell dividers.
@@ -254,7 +254,7 @@ A restrained, achromatic palette with a single saturated blue and four status hu
 - Neutral: not started, inactive, or settled history. Upcoming, Draft, Disqualified, Not taken, Former client, Expired, Renewed, Rewritten, Replaced, Withdrawn, Closed, Inactive, Retired, Medium, Normal, Low.
 
 ### Named Rules
-**The One Blue Rule.** Action Blue is the only accent. It appears on the primary action, focus, links, selection, progress lines, unread dots, the first chart series, ribbon ticks and the logomark; nowhere else. Active tabs and active nav use strong neutrals, not blue.
+**The One Blue Rule.** Action Blue is the only accent. It appears on the primary action, focus, links, selection, the active nav item (as Link Blue text), progress lines, unread dots, the first chart series, ribbon ticks and the logomark; nowhere else. Active tabs use strong neutrals, not blue.
 
 **The State-Only Color Rule.** Status hues appear only where they encode state (pipeline stage, policy status, renewal risk, urgency) and always beside a text label or icon.
 
@@ -298,7 +298,7 @@ Responsive: the global search entry collapses to an icon button below 1024px; th
 Flat, with ring edges. Depth is conveyed by the canvas-to-white step and a 1px ring; real shadows appear only on floating layers.
 
 ### Shadow Vocabulary
-- **Ring** (`box-shadow: 0 0 0 1px var(--color-line)`): every resting surface: table container, secondary buttons, filter chips, active nav item, global search entry.
+- **Ring** (`box-shadow: 0 0 0 1px var(--color-line)`): every resting surface: table container, secondary buttons, filter chips, global search entry.
 - **Control** (`box-shadow: 0 0 0 1px var(--color-line-control)`): form controls (search input, selects, toggle off-state) and hover on the global search entry and avatar.
 - **Pop** (`box-shadow: 0 0 0 1px var(--color-line), 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)`): popovers, menus, toasts, the command palette, the hover-expanded sidebar.
 
@@ -376,7 +376,7 @@ White container, ring, 8px radius (top corners only when the pagination footer c
 
 ### Navigation
 - **Icons:** Lucide at 1.75 stroke for 16px and larger; 12–14px inline icons keep 2. Create actions use the Plus icon, never a typed "+".
-- **Sidebar:** 32px items, 8px radius, 14/500. Icons 16px at 1.75 stroke, 60% opacity until hover or active. Active item is white with a ring and strong text; hover fills Well Grey. Collapsed rail shows tooltips to the right and swaps group labels for 1px dividers.
+- **Sidebar:** 32px items, 8px radius, 14/500. Icons 16px at 1.75 stroke, 60% opacity until hover or active. Items sit on a wash of the strong ink, so they darken a light rail and lighten a dark one on any sidebar or app background: hover 4% with strong text, active 7% with Link Blue text and icon (dark mode 6% and 11%). On a picked app background (Color or Gradient) with a transparent sidebar, the active item takes the solved strong ink and a 10% wash instead, since blue can't be guaranteed to read on an arbitrary hue. Tokens: `--nav-hover-a`, `--nav-active-a`, `--nav-active-ink`; utilities `nav-hover`, `nav-active`. Collapsed rail shows tooltips to the right and swaps group labels for 1px dividers.
 - **Saved-view tabs:** 14px text with count pills; the active tab gets a 2px strong underline and 500 weight, never blue.
 - **Top bar:** logomark (24px Layered F app icon, `/logo.svg`) and neutral wordmark, office control, Sample data badge, global search entry with a ⌘K hint; on the right, notifications, then View as and Demo controls grouped behind a 1px divider under a muted "Demo" caption, then the avatar.
 - **Menus and popovers:** white, Pop shadow, 8px radius, 32px items with 4px radius; the selected option carries a blue check.
