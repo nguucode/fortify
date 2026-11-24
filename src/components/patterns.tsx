@@ -429,7 +429,7 @@ export function ViewTabs({ views, counts, param = 'view' }: { views: string[]; c
   const slug = (v: string) => v.toLowerCase().replace(/\s+/g, '-')
   const current = views.find((v) => slug(v) === params.get(param)) ?? views[0]
   return (
-    <nav aria-label="Saved views" className="mt-6 flex gap-1 overflow-x-auto border-b border-line">
+    <nav aria-label="Saved views" className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line">
       {views.map((v) => (
         <button
           key={v}

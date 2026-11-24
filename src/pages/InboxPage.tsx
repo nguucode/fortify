@@ -123,7 +123,7 @@ export function InboxPage() {
     <div className="flex h-full min-h-0 max-md:flex-col">
       <h1 className="sr-only">Inbox</h1>
       <section aria-label="Conversations" className={cx('flex w-[400px] shrink-0 flex-col border-r border-line max-md:w-full', selectedId && 'max-md:hidden')}>
-        <div role="tablist" aria-label="Channel" className="flex gap-1 overflow-x-auto border-b border-line px-3 pt-3">
+        <div role="tablist" aria-label="Channel" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line px-3 pt-3">
           {TABS.map(([k, l]) => {
             const n = k === 'mentions' ? mentionUnread : unread(k)
             return (
