@@ -1,6 +1,6 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { NotificationsButton } from './Notifications'
-import { MobileNav, readPinned } from './Sidebar'
+import { MobileNav } from './Sidebar'
 import * as Popover from '@radix-ui/react-popover'
 import { Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
 import { useState } from 'react'
@@ -17,43 +17,51 @@ export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base sh
 export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
 
 type ChromeBg = 'white' | 'transparent'
-type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg }
+type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; primary: string; mode: 'light' | 'dark' }
 const THEME_KEY = 'fortify.chromeTheme'
+const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', primary: 'blue', mode: 'light' }
+// Hues mirror html[data-primary] in index.css; blue is the exact @theme token.
+const PRIMARIES = [['red', 25], ['orange', 50], ['yellow', 85], ['green', 150], ['blue', 260], ['indigo', 280], ['violet', 310]] as const
 
 function readTheme(): ChromeTheme {
   try {
-    return { sidebar: 'transparent', topbar: 'transparent', ...JSON.parse(localStorage.getItem(THEME_KEY) ?? '{}') }
+    return { ...DEFAULT_THEME, ...JSON.parse(localStorage.getItem(THEME_KEY) ?? '{}') }
   } catch {
-    return { sidebar: 'transparent', topbar: 'transparent' }
+    return DEFAULT_THEME
   }
 }
 const applyTheme = (t: ChromeTheme) => {
-  document.documentElement.dataset.sidebarBg = t.sidebar
-  document.documentElement.dataset.topbarBg = t.topbar
+  const d = document.documentElement.dataset
+  d.sidebarBg = t.sidebar
+  d.topbarBg = t.topbar
+  d.primary = t.primary
+  d.theme = t.mode
 }
 applyTheme(readTheme()) // at import, before first paint
 
 function ThemeMenu() {
   const [theme, setTheme] = useState(readTheme)
   const set = (part: keyof ChromeTheme, v: string) => {
-    const t = { ...theme, [part]: v as ChromeBg }
+    const t = { ...theme, [part]: v } as ChromeTheme
     setTheme(t)
     applyTheme(t)
     try { localStorage.setItem(THEME_KEY, JSON.stringify(t)) } catch { /* storage blocked */ }
   }
-  const group = (part: keyof ChromeTheme, label: string) => (
+  const label = (text: string) => <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">{text}</Menu.Label>
+  const group = (part: keyof ChromeTheme, text: string, options: Record<string, string>) => (
     <>
-      <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">{label}</Menu.Label>
+      {label(text)}
       <Menu.RadioGroup value={theme[part]} onValueChange={(v) => set(part, v)}>
-        {(['white', 'transparent'] as const).map((v) => (
+        {Object.entries(options).map(([v, name]) => (
           <Menu.RadioItem key={v} value={v} className={menuItem}>
             <Check aria-hidden className={cx('size-4', theme[part] === v ? 'text-primary' : 'invisible')} />
-            {v === 'white' ? 'White' : 'Transparent'}
+            {name}
           </Menu.RadioItem>
         ))}
       </Menu.RadioGroup>
     </>
   )
+  const bg = { white: 'White', transparent: 'Transparent' }
   return (
     <Menu.Root>
       <Tip label="Theme">
@@ -63,20 +71,32 @@ function ThemeMenu() {
       </Tip>
       <Menu.Portal>
         <Menu.Content align="end" sideOffset={4} className={menuContent}>
-          <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">Sidebar</Menu.Label>
-          {/* Content mounts on open, so this reads the current pin. Toggling reuses the `[` shortcut's event. */}
-          <Menu.RadioGroup value={readPinned() ? 'expanded' : 'collapsed'} onValueChange={(v) => (v === 'expanded') !== readPinned() && window.dispatchEvent(new Event('fortify:toggle-sidebar'))}>
-            {(['expanded', 'collapsed'] as const).map((v) => (
-              <Menu.RadioItem key={v} value={v} className={menuItem}>
-                <Check aria-hidden className={cx('size-4', (v === 'expanded') === readPinned() ? 'text-primary' : 'invisible')} />
-                {v === 'expanded' ? 'Expanded' : 'Collapsed'}
+          {group('mode', 'Theme', { light: 'Light', dark: 'Dark' })}
+          <Menu.Separator className="my-1 h-px bg-fill" />
+          {label('Primary color')}
+          <Menu.RadioGroup value={theme.primary} onValueChange={(v) => set('primary', v)} className="flex gap-1 px-2 pb-1.5">
+            {PRIMARIES.map(([v, h]) => (
+              <Menu.RadioItem
+                key={v}
+                value={v}
+                aria-label={v[0].toUpperCase() + v.slice(1)}
+                title={v[0].toUpperCase() + v.slice(1)}
+                className="grid size-6 cursor-default place-items-center rounded-full outline-none data-[highlighted]:shadow-control"
+              >
+                <span
+                  aria-hidden
+                  className="grid size-4.5 place-items-center rounded-full text-white"
+                  style={{ background: v === 'blue' ? 'oklch(57.72% 0.2324 260)' : `oklch(57.72% 0.2 ${h})` }}
+                >
+                  {theme.primary === v && <Check className="size-3" strokeWidth={3} />}
+                </span>
               </Menu.RadioItem>
             ))}
           </Menu.RadioGroup>
           <Menu.Separator className="my-1 h-px bg-fill" />
-          {group('sidebar', 'Sidebar background')}
+          {group('sidebar', 'Sidebar background', bg)}
           <Menu.Separator className="my-1 h-px bg-fill" />
-          {group('topbar', 'Top bar background')}
+          {group('topbar', 'Top bar background', bg)}
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>

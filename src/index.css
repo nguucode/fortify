@@ -67,6 +67,49 @@
   html { --chrome-topbar: transparent; --chrome-sidebar: transparent; --chrome-sidebar-float: var(--color-canvas); }
   html[data-topbar-bg='white'] { --chrome-topbar: var(--color-surface); }
   html[data-sidebar-bg='white'] { --chrome-sidebar: var(--color-surface); --chrome-sidebar-float: var(--color-surface); }
+  /* Primary colour (ThemeMenu): blue keeps the exact @theme tokens; the rest share one formula on hue --ph. */
+  html { --ph: 260; }
+  html[data-primary='red'] { --ph: 25; }
+  html[data-primary='orange'] { --ph: 50; }
+  html[data-primary='yellow'] { --ph: 85; }
+  html[data-primary='green'] { --ph: 150; }
+  html[data-primary='indigo'] { --ph: 280; }
+  html[data-primary='violet'] { --ph: 310; }
+  html[data-primary]:not([data-primary='blue']) {
+    --color-primary: oklch(57.72% 0.2 var(--ph));
+    --color-primary-hover: oklch(48.8% 0.2 var(--ph));
+    --color-link: oklch(var(--link-l, 42.4%) 0.17 var(--ph));
+    --color-selection: oklch(var(--sel-l, 93.2%) var(--sel-c, 0.032) var(--ph));
+  }
+  /* Dark mode (ThemeMenu): same token names, inverted neutral ramp. */
+  html[data-theme='dark'] {
+    color-scheme: dark;
+    --link-l: 76%;
+    --sel-l: 36%;
+    --sel-c: 0.08;
+    --color-canvas: oklch(16% 0 0);
+    --color-surface: oklch(20.5% 0 0);
+    --color-recessed: oklch(24.5% 0 0);
+    --color-fill: oklch(30% 0 0);
+    --color-line: oklch(100% 0 0 / 0.1);
+    --color-line-control: oklch(100% 0 0 / 0.32);
+    --color-strong: oklch(98.5% 0 0);
+    --color-ink: oklch(92% 0 0);
+    --color-label: oklch(77% 0 0);
+    --color-muted: oklch(66% 0 0);
+    --color-inactive: oklch(40% 0 0);
+    --color-link: oklch(76% 0.13 var(--ph));
+    --color-selection: oklch(36% 0.08 var(--ph));
+    --color-success-text: oklch(76% 0.13 163);
+    --color-success-tint: oklch(45% 0.1 163 / 0.25);
+    --color-danger-text: oklch(74% 0.16 25);
+    --color-danger-tint: oklch(45% 0.14 25 / 0.25);
+    --color-warning-text: oklch(82% 0.14 75);
+    --color-warning-tint: oklch(50% 0.12 75 / 0.22);
+    --color-info-text: oklch(76% 0.12 260);
+    --color-info-tint: oklch(45% 0.12 260 / 0.25);
+    --shadow-pop: 0 0 0 1px var(--color-line), 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  }
   body {
     @apply bg-canvas text-ink font-sans text-base antialiased;
     letter-spacing: -0.16px;

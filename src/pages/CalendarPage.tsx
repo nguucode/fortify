@@ -194,7 +194,7 @@ export function CalendarPage() {
             const inMonth = d.getMonth() === anchor.getMonth()
             return (
               <div key={i} className={cx('min-h-24 border-r border-b border-fill p-1 [&:nth-child(7n+7)]:border-r-0', !inMonth && 'bg-recessed')}>
-                <button onClick={() => set({ view: 'day', date: isoDate(d) })} className={cx('mb-1 grid size-6 place-items-center rounded-full text-xs tabular hover:bg-fill', offsetOf(d) === today ? 'bg-strong font-semibold text-white hover:bg-strong' : inMonth ? 'text-ink' : 'text-label')}>{d.getDate()}</button>
+                <button onClick={() => set({ view: 'day', date: isoDate(d) })} className={cx('mb-1 grid size-6 place-items-center rounded-full text-xs tabular hover:bg-fill', offsetOf(d) === today ? 'bg-strong font-semibold text-surface hover:bg-strong' : inMonth ? 'text-ink' : 'text-label')}>{d.getDate()}</button>
                 <div className="flex flex-col gap-0.5">
                   {list.slice(0, 3).map(chip)}
                   {list.length > 3 && <button onClick={() => set({ view: 'day', date: isoDate(d) })} className="min-h-6 px-1 text-left text-xs text-link hover:underline">+{list.length - 3} more</button>}

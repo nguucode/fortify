@@ -334,7 +334,7 @@ function QualifyDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   return (
     <Dialog.Root open onOpenChange={(o) => !o && !busy && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content className="fixed top-[10vh] left-1/2 z-50 flex max-h-[80vh] w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col rounded-lg bg-surface shadow-pop">
           <header className="border-b border-fill px-5 py-4">
             <p className="text-sm text-muted">Step {step} of 2</p>

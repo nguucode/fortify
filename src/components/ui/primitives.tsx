@@ -33,7 +33,7 @@ export function Tip({ label, children, side = 'top' }: { label: ReactNode; child
     <RTooltip.Root delayDuration={150}>
       <RTooltip.Trigger asChild>{children}</RTooltip.Trigger>
       <RTooltip.Portal>
-        <RTooltip.Content side={side} sideOffset={6} className="z-50 max-w-80 rounded-md bg-strong px-2 py-1 text-sm text-white">
+        <RTooltip.Content side={side} sideOffset={6} className="z-50 max-w-80 rounded-md bg-strong px-2 py-1 text-sm text-surface">
           {label}
         </RTooltip.Content>
       </RTooltip.Portal>

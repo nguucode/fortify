@@ -29,7 +29,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
   return (
     <Dialog.Root open={open} onOpenChange={request}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content onChangeCapture={() => setDirty(true)} className="fixed inset-y-0 right-0 z-50 flex w-[480px] max-w-full flex-col bg-surface shadow-pop max-lg:w-full">
           <header className="flex items-start justify-between gap-4 border-b border-fill px-5 py-4">
             <div>
@@ -46,7 +46,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
       </Dialog.Portal>
       <Dialog.Root open={asking} onOpenChange={setAsking}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[60] bg-strong/20" />
+          <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/20" />
           <Dialog.Content className="fixed top-1/2 left-1/2 z-[70] w-[400px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-surface p-5 shadow-pop">
             <Dialog.Title className="text-lg font-medium text-strong">Discard changes?</Dialog.Title>
             <Dialog.Description className="mt-2 text-base text-ink">What you entered in “{title}” will be lost.</Dialog.Description>
@@ -93,7 +93,7 @@ export function Confirm({ open, onOpenChange, title, body, confirmLabel, danger,
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[440px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-surface p-5 shadow-pop">
           <Dialog.Title className="text-lg font-medium text-strong">{title}</Dialog.Title>
           <Dialog.Description asChild>

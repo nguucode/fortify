@@ -16,7 +16,7 @@ const ICON: Record<string, LucideIcon> = {
   calendar: Calendar, reports: LineChart, product: LayoutDashboard, settings: Settings,
 }
 
-export function readPinned() {
+function readPinned() {
   if (import.meta.env.DEV && new URLSearchParams(location.search).get('sidebar') === 'pinned') return true
   try {
     return localStorage.getItem('fortify.sidebarPinned') === '1'
@@ -154,7 +154,7 @@ export function MobileNav() {
         <Menu aria-hidden className="size-5" strokeWidth={1.75} />
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content aria-describedby={undefined} className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-canvas px-2 py-3 shadow-pop">
           <Dialog.Title className="px-3 pb-2 text-lg font-semibold text-strong">Fortify</Dialog.Title>
           <nav aria-label="Main" className="flex flex-col gap-0.5">
