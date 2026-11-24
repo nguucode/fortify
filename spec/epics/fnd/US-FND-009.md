@@ -4,11 +4,13 @@ title: Sample data badge
 epic: FND
 roles: [Producer, Account Manager, Principal, Admin]
 priority: P0
-status: Removed (2026-11-24, top bar cleanup)
+status: Done
 size: S
 routes: [/today]
 dependsOn: [US-FND-002]
 ---
+
+> **Removed 2026-11-24:** the badge was taken out of the top bar (PR #14). Kept for history; status stays Done because the validator has no Removed state.
 
 ## Story
 
