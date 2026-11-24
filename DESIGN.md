@@ -233,7 +233,7 @@ A restrained, achromatic palette with a single saturated blue and four status hu
 - **Divider Grey** (fill): table row dividers, count pills, the Sample data badge, kbd hints, avatar, the ribbon baseline, scrollbar thumb.
 - **Ring Line** (line): the 0.1-alpha edge for every surface ring, plus the 1px structural shell dividers.
 - **Control Line** (line-control): form control edges only (inputs, selects, toggles at rest). 3.16:1 on white, which passes WCAG 1.4.11.
-- **Strong** (strong): headings, primary-column names, active tabs, tooltips, the ribbon's today marker and the calendar's now line.
+- **Strong** (strong): headings, primary-column names, tooltips, the ribbon's today marker and the calendar's now line.
 - **Ink** (ink): default body and cell text.
 - **Label** (label): secondary UI text, inactive nav, ghost buttons, filter labels.
 - **Muted** (muted): descriptions, meta lines, empty-cell "—", secondary tokens, and the placeholder color. Placeholder was raised from the reference 70.8% to this value (4.73:1) and resolves to `muted` rather than a separate token.
@@ -255,7 +255,7 @@ A restrained, achromatic palette with a single saturated blue and four status hu
 - Levels (priority, renewal risk): High red, Medium orange, Low green, Normal neutral. A scale where high is good passes its own tone: interest level is High green, Medium orange, Low and Closed neutral (`INTEREST_TONE`).
 
 ### Named Rules
-**The One Blue Rule.** Action Blue is the only accent. It appears on the primary action, focus, links, selection, the active nav item (as Link Blue text), progress lines, unread dots, the first chart series, ribbon ticks and the logomark; nowhere else. Active tabs use strong neutrals, not blue.
+**The One Blue Rule.** Action Blue is the only accent. It appears on the primary action, focus, links, selection, the active nav item and active tab (as Link Blue text; the tab underline is Action Blue), progress lines, unread dots, the first chart series, ribbon ticks and the logomark; nowhere else.
 
 **The State-Only Color Rule.** Status hues appear only where they encode state (pipeline stage, policy status, renewal risk, urgency) and always beside a text label or icon.
 
