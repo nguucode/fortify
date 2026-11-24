@@ -17,9 +17,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
           'inline-flex shrink-0 items-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
           size === 'md' ? 'h-9 px-3 text-base' : 'h-8 px-2.5 text-sm',
           variant === 'primary' && 'solid [--solid:var(--color-primary)]',
-          // A secondary button with aria-pressed is a toggle: pressed reads as recessed with strong text.
-          variant === 'secondary' && 'bg-surface text-ink shadow-ring hover:bg-recessed aria-pressed:bg-recessed aria-pressed:text-strong aria-pressed:shadow-control',
-          variant === 'ghost' && 'text-label hover:bg-recessed hover:text-strong',
+          // Pressed toggles (aria-pressed) and triggers whose menu/popover is open (Radix data-state=open) read as recessed with strong text.
+          variant === 'secondary' && 'bg-surface text-ink shadow-ring hover:bg-recessed aria-pressed:bg-recessed aria-pressed:text-strong aria-pressed:shadow-control data-[state=open]:bg-recessed data-[state=open]:text-strong data-[state=open]:shadow-control',
+          variant === 'ghost' && 'text-label hover:bg-recessed hover:text-strong data-[state=open]:bg-recessed data-[state=open]:text-strong',
           variant === 'danger' && 'solid [--solid:var(--color-danger)]',
           className,
         )}

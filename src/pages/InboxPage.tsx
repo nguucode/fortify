@@ -281,7 +281,7 @@ function BulkBar({ ids, onClear, onDone }: { ids: string[]; onClear: () => void;
 }
 
 /** US-INB-010: the Account's team first, then the Office; Producers may only hand to the Account Manager or themselves. */
-function AssignMenu({ ids, disabled }: { ids: string[]; disabled?: boolean }) {
+function AssignMenu({ ids, disabled, align = 'start' }: { ids: string[]; disabled?: boolean; align?: 'start' | 'end' }) {
   const { data, user } = useApp()
   const mutate = useMutate()
   const convs = (data.conversations ?? []).filter((c) => ids.includes(c.id))
@@ -299,7 +299,7 @@ function AssignMenu({ ids, disabled }: { ids: string[]; disabled?: boolean }) {
         <Button size="sm" disabled={disabled}>Assign<ChevronDown aria-hidden className="size-3.5" /></Button>
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Content align="start" sideOffset={4} className={cx(menuContent, 'max-h-80 overflow-y-auto')}>
+        <Menu.Content align={align} sideOffset={4} className={cx(menuContent, 'max-h-80 overflow-y-auto')}>
           {list.map((u) => {
             const ok = allowed(u)
             return (
@@ -361,7 +361,7 @@ function ReadingPane({ c, onDone, onLogCall }: { c: Conversation; onDone: () => 
           <div className="flex shrink-0 items-center gap-1.5">
             {c.channel === 'email' && <Button size="sm" variant="primary" onClick={() => setReplying(true)}>Reply</Button>}
             {c.status === 'Open' ? <Button size="sm" onClick={onDone}>Mark done</Button> : <Button size="sm" onClick={() => mutate((s) => s.setConversationStatus([c.id], 'Open'), 'Reopened')}>Reopen</Button>}
-            <AssignMenu ids={[c.id]} />
+            <AssignMenu ids={[c.id]} align="end" />
             <Menu.Root>
               <Menu.Trigger asChild><Button size="sm">More<ChevronDown aria-hidden className="size-3.5" /></Button></Menu.Trigger>
               <Menu.Portal>
