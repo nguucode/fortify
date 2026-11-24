@@ -124,8 +124,17 @@
     --color-canvas: color-mix(in oklab, var(--grad-from), var(--grad-to));
     --app-bg-image: linear-gradient(135deg, var(--grad-from), var(--grad-to));
   }
-  /* Text on the page background (ThemeMenu). A custom colour or gradient can be dark in Light mode (or light in
-     Dark mode); TopBar.tsx sets data-canvas-ink from its luminance. Where chrome is transparent, text sitting on the
+  /* Dark theme: Material 2 branded dark surface. The chosen colours overlay the dark canvas at 8%, so any pick
+     stays a dark, on-theme backdrop that light text reads on. */
+  html[data-theme='dark'][data-app-bg='custom'] { --color-canvas: color-mix(in srgb, var(--app-color, #f5f5f5) 8%, oklch(16% 0 0)); }
+  html[data-theme='dark'][data-app-bg='gradient'] {
+    --grad-dark-from: color-mix(in srgb, var(--grad-from) 8%, oklch(16% 0 0));
+    --grad-dark-to: color-mix(in srgb, var(--grad-to) 8%, oklch(16% 0 0));
+    --color-canvas: color-mix(in oklab, var(--grad-dark-from), var(--grad-dark-to));
+    --app-bg-image: linear-gradient(135deg, var(--grad-dark-from), var(--grad-dark-to));
+  }
+  /* Text on the page background (ThemeMenu). A custom colour or gradient can be dark in Light mode; TopBar.tsx
+     sets data-canvas-ink from its luminance (Dark mode always tints it dark, so it never flips there). Where chrome is transparent, text sitting on the
      canvas flips to the readable ink; cards (.bg-surface) inside reset to the theme's own values. */
   html[data-theme='light'][data-canvas-ink='light'][data-topbar-bg='transparent'] [data-chrome='topbar'],
   html[data-theme='light'][data-canvas-ink='light'][data-sidebar-bg='transparent'] [data-chrome='sidebar'],
@@ -152,32 +161,6 @@
     --color-line-control: oklch(14.5% 0 0 / 0.45);
     --color-recessed: oklch(96.5% 0 0);
     --color-fill: oklch(92.2% 0 0);
-  }
-  html[data-theme='dark'][data-canvas-ink='dark'][data-topbar-bg='transparent'] [data-chrome='topbar'],
-  html[data-theme='dark'][data-canvas-ink='dark'][data-sidebar-bg='transparent'] [data-chrome='sidebar'],
-  html[data-theme='dark'][data-canvas-ink='dark'][data-content-bg='transparent'] #main {
-    --color-strong: oklch(14.5% 0 0);
-    --color-ink: oklch(20.5% 0 0);
-    --color-label: oklch(38% 0 0);
-    --color-muted: oklch(46% 0 0);
-    --color-inactive: oklch(70% 0 0);
-    --color-line: oklch(0% 0 0 / 0.12);
-    --color-line-control: oklch(0% 0 0 / 0.4);
-    --color-recessed: oklch(0% 0 0 / 0.05);
-    --color-fill: oklch(0% 0 0 / 0.08);
-  }
-  html[data-theme='dark'][data-canvas-ink='dark'][data-topbar-bg='transparent'] [data-chrome='topbar'] .bg-surface,
-  html[data-theme='dark'][data-canvas-ink='dark'][data-sidebar-bg='transparent'] [data-chrome='sidebar'] .bg-surface,
-  html[data-theme='dark'][data-canvas-ink='dark'][data-content-bg='transparent'] #main .bg-surface {
-    --color-strong: oklch(98.5% 0 0);
-    --color-ink: oklch(92% 0 0);
-    --color-label: oklch(77% 0 0);
-    --color-muted: oklch(66% 0 0);
-    --color-inactive: oklch(40% 0 0);
-    --color-line: oklch(100% 0 0 / 0.1);
-    --color-line-control: oklch(100% 0 0 / 0.32);
-    --color-recessed: oklch(24.5% 0 0);
-    --color-fill: oklch(30% 0 0);
   }
   body {
     @apply bg-canvas text-ink font-sans text-base antialiased;
