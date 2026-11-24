@@ -172,7 +172,7 @@ export function TabBar({ tabs, param = 'tab' }: { tabs: { id: string; label: str
               else next.set(param, t.id)
               setParams(next, { replace: true })
             }}
-            className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', active ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}
+            className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', active ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
           >
             {t.label}
             {t.count != null && t.count > 0 && <CountPill n={t.count} />}
@@ -441,7 +441,7 @@ export function ViewTabs({ views, counts, param = 'view' }: { views: string[]; c
             next.delete('page')
             setParams(next, { replace: true })
           }}
-          className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', v === current ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}
+          className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', v === current ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
         >
           {v}
           <CountPill n={counts ? (counts[v] ?? 0) : null} />
