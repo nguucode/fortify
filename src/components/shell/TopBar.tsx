@@ -3,7 +3,7 @@ import { NotificationsButton } from './Notifications'
 import { MobileNav } from './Sidebar'
 import * as Popover from '@radix-ui/react-popover'
 import { Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
 import { Badge, cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
@@ -17,9 +17,9 @@ export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base sh
 export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
 
 type ChromeBg = 'white' | 'transparent'
-type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; content: ChromeBg; primary: string; mode: 'light' | 'dark' | 'system' }
+type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; content: ChromeBg; app: 'white' | 'gray' | 'custom' | 'gradient'; appColor: string; primary: string; mode: 'light' | 'dark' | 'system' }
 const THEME_KEY = 'fortify.chromeTheme'
-const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', content: 'transparent', primary: 'blue', mode: 'light' }
+const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', content: 'transparent', app: 'gray', appColor: '#eef2f7', primary: 'blue', mode: 'light' }
 // Hues mirror html[data-primary] in index.css; blue is the exact @theme token.
 const PRIMARIES = [['red', 25], ['orange', 50], ['yellow', 85], ['green', 150], ['blue', 260], ['indigo', 280], ['violet', 310]] as const
 
@@ -35,6 +35,8 @@ const applyTheme = (t: ChromeTheme) => {
   d.sidebarBg = t.sidebar
   d.topbarBg = t.topbar
   d.contentBg = t.content
+  d.appBg = t.app
+  document.documentElement.style.setProperty('--app-color', t.appColor)
   d.primary = t.primary
   d.theme = t.mode === 'system' ? (systemDark?.matches ? 'dark' : 'light') : t.mode
 }
@@ -46,17 +48,17 @@ const keepOpen = (e: Event) => e.preventDefault() // menu stays open so options 
 
 function ThemeMenu() {
   const [theme, setTheme] = useState(readTheme)
-  const set = (part: keyof ChromeTheme, v: string) => {
-    const t = { ...theme, [part]: v } as ChromeTheme
+  const set = (patch: Partial<ChromeTheme>) => {
+    const t = { ...theme, ...patch }
     setTheme(t)
     applyTheme(t)
     try { localStorage.setItem(THEME_KEY, JSON.stringify(t)) } catch { /* storage blocked */ }
   }
   const label = (text: string) => <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">{text}</Menu.Label>
-  const group = (part: keyof ChromeTheme, text: string, options: Record<string, string>) => (
+  const group = (part: keyof ChromeTheme, text: string, options: Record<string, ReactNode>) => (
     <>
       {label(text)}
-      <Menu.RadioGroup value={theme[part]} onValueChange={(v) => set(part, v)}>
+      <Menu.RadioGroup value={theme[part]} onValueChange={(v) => set({ [part]: v })}>
         {Object.entries(options).map(([v, name]) => (
           <Menu.RadioItem key={v} value={v} className={menuItem} onSelect={keepOpen}>
             <Check aria-hidden className={cx('size-4', theme[part] === v ? 'text-primary' : 'invisible')} />
@@ -79,7 +81,7 @@ function ThemeMenu() {
           {group('mode', 'Theme', { light: 'Light', dark: 'Dark', system: 'System' })}
           <Menu.Separator className="my-1 h-px bg-fill" />
           {label('Primary color')}
-          <Menu.RadioGroup value={theme.primary} onValueChange={(v) => set('primary', v)} className="flex gap-1 px-2 pb-1.5">
+          <Menu.RadioGroup value={theme.primary} onValueChange={(v) => set({ primary: v })} className="flex gap-1 px-2 pb-1.5">
             {PRIMARIES.map(([v, h]) => (
               <Menu.RadioItem
                 key={v}
@@ -99,6 +101,26 @@ function ThemeMenu() {
               </Menu.RadioItem>
             ))}
           </Menu.RadioGroup>
+          <Menu.Separator className="my-1 h-px bg-fill" />
+          {group('app', 'App background', {
+            white: 'White',
+            gray: 'Gray',
+            custom: (
+              <>
+                Color
+                <input
+                  type="color"
+                  aria-label="Background color"
+                  value={theme.appColor}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onChange={(e) => set({ app: 'custom', appColor: e.target.value })}
+                  className="ml-auto size-5 cursor-pointer rounded-sm border-0 bg-transparent p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-line [&::-webkit-color-swatch-wrapper]:p-0"
+                />
+              </>
+            ),
+            gradient: 'Gradient',
+          })}
           <Menu.Separator className="my-1 h-px bg-fill" />
           {group('sidebar', 'Sidebar background', bg)}
           <Menu.Separator className="my-1 h-px bg-fill" />
