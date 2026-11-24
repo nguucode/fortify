@@ -1,9 +1,11 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { NotificationsButton } from './Notifications'
 import { MobileNav } from './Sidebar'
+import { GradientEditor } from './GradientEditor'
+import { onCanvasTokens } from './canvasInk'
 import * as Popover from '@radix-ui/react-popover'
-import { ArrowRight, Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
-import { Fragment, useState, type ReactNode } from 'react'
+import { Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
 import { Badge, cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
@@ -30,19 +32,6 @@ function readTheme(): ChromeTheme {
     return DEFAULT_THEME
   }
 }
-// WCAG relative luminance of #rrggbb, and contrast ratio between two luminances.
-const lum = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
-const INK = { light: lum('#f7f7f7'), dark: lum('#0a0a0a') }
-/** Which ink reads on these background stops: the one whose worst contrast across them is highest. */
-export function canvasInk(stops: string[]) {
-  const worst = (ink: number) => Math.min(...stops.map((s) => contrast(lum(s), ink)))
-  const light = worst(INK.light), dark = worst(INK.dark)
-  return light > dark ? { ink: 'light' as const, worst: light } : { ink: 'dark' as const, worst: dark }
-}
 const bgStops = (t: ChromeTheme) => (t.app === 'custom' ? [t.appColor] : t.app === 'gradient' ? [t.gradFrom, t.gradTo] : null)
 
 const applyTheme = (t: ChromeTheme) => {
@@ -57,37 +46,18 @@ const applyTheme = (t: ChromeTheme) => {
   st.setProperty('--grad-to', t.gradTo)
   d.primary = t.primary
   d.theme = t.mode === 'system' ? (systemDark?.matches ? 'dark' : 'light') : t.mode
+  // Text roles solved against the picked background (canvasInk.ts); index.css applies them in Light mode only,
+  // since Dark mode tints the picks dark and its own tokens already read there.
   const stops = bgStops(t)
-  // Dark mode tints the chosen colours dark (index.css), so only Light mode needs to measure them.
-  d.canvasInk = d.theme === 'dark' ? 'light' : stops ? canvasInk(stops).ink : 'dark'
+  if (stops) for (const [k, v] of Object.entries(onCanvasTokens(stops).css)) st.setProperty(k, v)
 }
 const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)') // absent in jsdom
 systemDark?.addEventListener('change', () => applyTheme(readTheme()))
 applyTheme(readTheme()) // at import, before first paint
 
 const keepOpen = (e: Event) => e.preventDefault() // menu stays open so options can be compared
-const HEX = /^#[0-9a-f]{6}$/i
 const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
-const swatchCls = 'size-5 shrink-0 cursor-pointer rounded-sm border-0 bg-transparent p-0 shadow-ring [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0'
-
-/** Colour well + hex field; the field only commits a full #rrggbb. */
-function HexInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const [draft, setDraft] = useState(value)
-  return (
-    <span className="flex h-8 items-center gap-1.5 rounded-md bg-surface px-1.5 shadow-control">
-      <input type="color" aria-label={`${label} color`} value={value} onChange={(e) => { setDraft(e.target.value); onChange(e.target.value) }} className={swatchCls} />
-      <input
-        aria-label={`${label} hex`}
-        value={draft}
-        spellCheck={false}
-        maxLength={7}
-        onChange={(e) => { const v = e.target.value.startsWith('#') ? e.target.value : '#' + e.target.value; setDraft(v); if (HEX.test(v)) onChange(v.toLowerCase()) }}
-        onBlur={() => setDraft(value)}
-        className="w-[68px] bg-transparent font-mono text-sm text-ink uppercase outline-none"
-      />
-    </span>
-  )
-}
+const segmentItem = 'flex h-7 flex-1 cursor-default items-center justify-center rounded-[6px] px-2 text-sm whitespace-nowrap text-label outline-none data-[highlighted]:text-strong data-[highlighted]:ring-1 data-[highlighted]:ring-line-control data-[state=checked]:bg-surface data-[state=checked]:font-medium data-[state=checked]:text-strong data-[state=checked]:shadow-ring'
 
 function ThemeMenu() {
   const [theme, setTheme] = useState(readTheme)
@@ -98,23 +68,28 @@ function ThemeMenu() {
     try { localStorage.setItem(THEME_KEY, JSON.stringify(t)) } catch { /* storage blocked */ }
   }
   const label = (text: string) => <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">{text}</Menu.Label>
-  const group = (part: keyof ChromeTheme, text: string, options: Record<string, ReactNode>, wrap?: Record<string, (item: ReactNode) => ReactNode>) => (
-    <>
-      {label(text)}
-      <Menu.RadioGroup value={theme[part]} onValueChange={(v) => set({ [part]: v })}>
-        {Object.entries(options).map(([v, name]) => {
-          const item = (
-            <Menu.RadioItem key={v} value={v} className={menuItem} onSelect={keepOpen}>
-              <Check aria-hidden className={cx('size-4', theme[part] === v ? 'text-primary' : 'invisible')} />
-              {name}
-            </Menu.RadioItem>
-          )
-          return wrap?.[v] ? <Fragment key={v}>{wrap[v](item)}</Fragment> : item
-        })}
-      </Menu.RadioGroup>
-    </>
+  // Compact layout: every choice is a segmented control or a tile row, so the menu stays short.
+  const segmented = (part: keyof ChromeTheme, options: Record<string, string>, aria: string) => (
+    <Menu.RadioGroup aria-label={aria} value={theme[part]} onValueChange={(v) => set({ [part]: v })} className="flex flex-1 gap-0.5 rounded-md bg-recessed p-0.5">
+      {Object.entries(options).map(([v, name]) => (
+        <Menu.RadioItem key={v} value={v} onSelect={keepOpen} className={segmentItem}>
+          {name}
+        </Menu.RadioItem>
+      ))}
+    </Menu.RadioGroup>
   )
-  const bg = { white: 'White', transparent: 'Transparent' }
+  const surface = (part: 'sidebar' | 'topbar' | 'content', name: string) => (
+    <div className="flex items-center gap-2 px-2 py-0.5">
+      <span className="w-16 shrink-0 text-sm text-label">{name}</span>
+      {segmented(part, { white: 'White', transparent: 'Transparent' }, `${name} background`)}
+    </div>
+  )
+  const tile = (v: ChromeTheme['app'], name: string, swatch: ReactNode) => (
+    <Menu.RadioItem value={v} onSelect={keepOpen} className="group flex cursor-default flex-col items-center gap-1 rounded-md p-1 outline-none data-[highlighted]:bg-recessed">
+      <span className={cx('flex h-7 w-full overflow-hidden rounded-md shadow-ring', theme.app === v && 'ring-2 ring-primary ring-offset-1 ring-offset-surface')}>{swatch}</span>
+      <span className={cx('text-xs', theme.app === v ? 'font-medium text-strong' : 'text-label')}>{name}</span>
+    </Menu.RadioItem>
+  )
   return (
     <Menu.Root>
       <Tip label="Theme">
@@ -126,14 +101,14 @@ function ThemeMenu() {
         <Menu.Content
           align="end"
           sideOffset={4}
-          className={menuContent}
+          className={cx(menuContent, 'w-72')}
           // The gradient editor is portalled to <body>; working in it must not close the menu.
           onInteractOutside={(e) => (e.target as Element | null)?.closest?.('[data-gradient-editor]') && e.preventDefault()}
         >
-          {group('mode', 'Theme', { light: 'Light', dark: 'Dark', system: 'System' })}
-          <Menu.Separator className="my-1 h-px bg-fill" />
+          {label('Theme')}
+          <div className="px-2 pb-1.5">{segmented('mode', { light: 'Light', dark: 'Dark', system: 'System' }, 'Theme')}</div>
           {label('Primary color')}
-          <Menu.RadioGroup value={theme.primary} onValueChange={(v) => set({ primary: v })} className="flex gap-1 px-2 pb-1.5">
+          <Menu.RadioGroup aria-label="Primary color" value={theme.primary} onValueChange={(v) => set({ primary: v })} className="flex justify-between px-2 pb-1.5">
             {PRIMARIES.map(([v, h]) => (
               <Menu.RadioItem
                 key={v}
@@ -141,11 +116,11 @@ function ThemeMenu() {
                 onSelect={keepOpen}
                 aria-label={v[0].toUpperCase() + v.slice(1)}
                 title={v[0].toUpperCase() + v.slice(1)}
-                className="grid size-6 cursor-default place-items-center rounded-full outline-none data-[highlighted]:shadow-control"
+                className="grid size-7 cursor-default place-items-center rounded-full outline-none data-[highlighted]:shadow-control"
               >
                 <span
                   aria-hidden
-                  className="grid size-4.5 place-items-center rounded-full text-white"
+                  className="grid size-5 place-items-center rounded-full text-white"
                   style={{ background: v === 'blue' ? 'oklch(57.72% 0.2324 260)' : `oklch(57.72% 0.2 ${h})` }}
                 >
                   {theme.primary === v && <Check className="size-3" strokeWidth={3} />}
@@ -154,66 +129,60 @@ function ThemeMenu() {
             ))}
           </Menu.RadioGroup>
           <Menu.Separator className="my-1 h-px bg-fill" />
-          {group('app', 'App background', {
-            white: 'White',
-            gray: 'Gray',
-            custom: (
-              <>
-                Color
-                <input
-                  type="color"
-                  aria-label="Background color"
-                  value={theme.appColor}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  onChange={(e) => set({ app: 'custom', appColor: e.target.value })}
-                  className="ml-auto size-5 cursor-pointer rounded-sm border-0 bg-transparent p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-line [&::-webkit-color-swatch-wrapper]:p-0"
+          {label('App background')}
+          {/* The gradient editor anchors to the whole tile row, so it opens beside the menu rather than over it. */}
+          <Popover.Root>
+            <Popover.Anchor asChild>
+              <Menu.RadioGroup aria-label="App background" value={theme.app} onValueChange={(v) => set({ app: v as ChromeTheme['app'] })} className="grid grid-cols-4 gap-1 px-1 pb-1">
+                {tile('white', 'White', <span className="flex-1 bg-surface" />)}
+                {tile('gray', 'Gray', <span className="flex-1 bg-recessed" />)}
+                {tile('custom', 'Color', (
+                  <input
+                    type="color"
+                    aria-label="Background color"
+                    value={theme.appColor}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onChange={(e) => set({ app: 'custom', appColor: e.target.value })}
+                    className="h-full w-full cursor-pointer border-0 bg-transparent p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+                  />
+                ))}
+                {tile('gradient', 'Gradient', (
+                  <Popover.Trigger aria-label="Edit gradient" className="flex-1" style={{ background: `linear-gradient(135deg, ${theme.gradFrom}, ${theme.gradTo})` }} />
+                ))}
+              </Menu.RadioGroup>
+            </Popover.Anchor>
+            <Popover.Portal>
+              <Popover.Content
+                data-gradient-editor
+                side="left"
+                align="center"
+                sideOffset={8}
+                collisionPadding={8}
+                // React bubbles portalled events to the RadioItem; keep typing and clicks from reaching it.
+                onKeyDown={stop}
+                onPointerMove={stop}
+                onPointerDown={stop}
+                onPointerUp={stop}
+                onClick={stop}
+                className="z-50 rounded-md bg-surface p-3 shadow-pop"
+              >
+                <GradientEditor
+                  from={theme.gradFrom}
+                  to={theme.gradTo}
+                  dark={document.documentElement.dataset.theme === 'dark'}
+                  onChange={(v) => set({ app: 'gradient', ...v })}
                 />
-              </>
-            ),
-            gradient: (
-              <>
-                Gradient
-                <Popover.Trigger
-                  aria-label="Edit gradient"
-                  className="ml-auto size-5 rounded-sm shadow-ring"
-                  style={{ background: `linear-gradient(135deg, ${theme.gradFrom}, ${theme.gradTo})` }}
-                />
-                <Popover.Portal>
-                  <Popover.Content
-                    data-gradient-editor
-                    side="left"
-                    align="center"
-                    sideOffset={8}
-                    collisionPadding={8}
-                    // React bubbles portalled events to the RadioItem; keep typing and clicks from reaching it.
-                    onKeyDown={stop}
-                    onPointerMove={stop}
-                    onPointerDown={stop}
-                    onPointerUp={stop}
-                    onClick={stop}
-                    className="z-50 flex max-w-[340px] flex-wrap items-center gap-2 rounded-md bg-surface p-2 shadow-pop"
-                  >
-                    <HexInput label="Gradient start" value={theme.gradFrom} onChange={(v) => set({ app: 'gradient', gradFrom: v })} />
-                    <ArrowRight aria-hidden className="size-4 text-muted" />
-                    <HexInput label="Gradient end" value={theme.gradTo} onChange={(v) => set({ app: 'gradient', gradTo: v })} />
-                    {document.documentElement.dataset.theme !== 'dark' && canvasInk([theme.gradFrom, theme.gradTo]).worst < 4.5 && (
-                      <p role="status" className="basis-full text-sm text-warning-text">Text may be hard to read on part of this gradient. Bring the two colors closer in lightness.</p>
-                    )}
-                  </Popover.Content>
-                </Popover.Portal>
-              </>
-            ),
-          }, {
-            // The editor anchors to the whole row, so it opens beside the menu rather than over it.
-            gradient: (item) => <Popover.Root><Popover.Anchor asChild>{item}</Popover.Anchor></Popover.Root>,
-          })}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
           <Menu.Separator className="my-1 h-px bg-fill" />
-          {group('sidebar', 'Sidebar background', bg)}
-          <Menu.Separator className="my-1 h-px bg-fill" />
-          {group('topbar', 'Top bar background', bg)}
-          <Menu.Separator className="my-1 h-px bg-fill" />
-          {group('content', 'Content area background', bg)}
+          {label('Surfaces')}
+          <div className="flex flex-col gap-1 pb-1">
+            {surface('sidebar', 'Sidebar')}
+            {surface('topbar', 'Top bar')}
+            {surface('content', 'Content')}
+          </div>
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>
