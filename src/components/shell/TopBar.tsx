@@ -61,7 +61,9 @@ const segmentItem = 'flex h-7 flex-1 cursor-default items-center justify-center 
 
 function ThemeMenu() {
   const [theme, setTheme] = useState(readTheme)
+  const [gradOpen, setGradOpen] = useState(false)
   const set = (patch: Partial<ChromeTheme>) => {
+    if (patch.app && patch.app !== 'gradient') setGradOpen(false) // picking another background closes the editor
     const t = { ...theme, ...patch }
     setTheme(t)
     applyTheme(t)
@@ -130,34 +132,34 @@ function ThemeMenu() {
           </Menu.RadioGroup>
           <Menu.Separator className="my-1 h-px bg-fill" />
           {label('App background')}
-          {/* The gradient editor anchors to the whole tile row, so it opens beside the menu rather than over it. */}
-          <Popover.Root>
-            <Popover.Anchor asChild>
-              <Menu.RadioGroup aria-label="App background" value={theme.app} onValueChange={(v) => set({ app: v as ChromeTheme['app'] })} className="grid grid-cols-4 gap-1 px-1 pb-1">
-                {tile('white', 'White', <span className="flex-1 bg-surface" />)}
-                {tile('gray', 'Gray', <span className="flex-1 bg-recessed" />)}
-                {tile('custom', 'Color', (
-                  <input
-                    type="color"
-                    aria-label="Background color"
-                    value={theme.appColor}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onChange={(e) => set({ app: 'custom', appColor: e.target.value })}
-                    className="h-full w-full cursor-pointer border-0 bg-transparent p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
-                  />
-                ))}
-                {tile('gradient', 'Gradient', (
-                  <Popover.Trigger aria-label="Edit gradient" className="flex-1" style={{ background: `linear-gradient(135deg, ${theme.gradFrom}, ${theme.gradTo})` }} />
-                ))}
-              </Menu.RadioGroup>
-            </Popover.Anchor>
+          {/* The gradient editor opens under its tile, like the native picker under the Color tile. */}
+          <Popover.Root open={gradOpen} onOpenChange={setGradOpen}>
+            <Menu.RadioGroup aria-label="App background" value={theme.app} onValueChange={(v) => set({ app: v as ChromeTheme['app'] })} className="grid grid-cols-4 gap-1 px-1 pb-1">
+              {tile('white', 'White', <span className="flex-1 bg-surface" />)}
+              {tile('gray', 'Gray', <span className="flex-1 bg-recessed" />)}
+              {tile('custom', 'Color', (
+                <input
+                  type="color"
+                  aria-label="Background color"
+                  value={theme.appColor}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onChange={(e) => set({ app: 'custom', appColor: e.target.value })}
+                  className="h-full w-full cursor-pointer border-0 bg-transparent p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+                />
+              ))}
+              {tile('gradient', 'Gradient', (
+                <Popover.Trigger aria-label="Edit gradient" className="flex-1" style={{ background: `linear-gradient(135deg, ${theme.gradFrom}, ${theme.gradTo})` }} />
+              ))}
+            </Menu.RadioGroup>
             <Popover.Portal>
               <Popover.Content
                 data-gradient-editor
-                side="left"
-                align="center"
-                sideOffset={8}
+                side="bottom"
+                align="end"
+                sideOffset={6}
+                // Hovering menu items moves focus to them; that must not close the editor. A click outside still does.
+                onFocusOutside={(e) => e.preventDefault()}
                 collisionPadding={8}
                 // React bubbles portalled events to the RadioItem; keep typing and clicks from reaching it.
                 onKeyDown={stop}
