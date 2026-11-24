@@ -52,7 +52,7 @@ export function NotificationsButton() {
       <Tip label="Notifications">
         <Popover.Trigger aria-label={unread.length ? `Notifications, ${unread.length} unread` : 'Notifications'} className="relative inline-flex size-8 items-center justify-center rounded-md text-label hover:bg-recessed hover:text-strong">
           <Bell aria-hidden className="size-4" strokeWidth={1.75} />
-          {unread.length > 0 && <span aria-hidden className="tabular absolute -top-0.5 -right-1 min-w-4 rounded-full bg-strong px-1 text-xs leading-4 font-medium text-canvas">{count}</span>}
+          {unread.length > 0 && <span aria-hidden className="tabular absolute -top-0.5 -right-1 min-w-4 rounded-full bg-danger-solid px-1 text-xs leading-4 font-medium text-white">{count}</span>}
         </Popover.Trigger>
       </Tip>
       <Popover.Portal>

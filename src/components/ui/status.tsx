@@ -1,12 +1,15 @@
 import { Tip } from './primitives'
 
-// Tone map per US-FND-017. Dots carry the hue; labels stay text-default for contrast.
-const TONE: Record<string, string> = {
-  New: 'blue', Ready: 'blue', Reported: 'blue', 'Claim # assigned': 'blue', Open: 'blue', 'Submitted to carrier': 'orange', 'In design': 'orange', 'In build': 'orange', 'Gathering info': 'blue', Quoting: 'blue', 'In progress': 'blue', 'In review': 'blue', Prospect: 'blue', Requested: 'blue', Quoted: 'blue', Presented: 'blue', Proposed: 'blue',
-  Qualified: 'green', Succeeded: 'green', 'Re-issued': 'green', Won: 'green', Active: 'green', Issued: 'green', Done: 'green', Accepted: 'green', Client: 'green', Renewed: 'green',
-  'Waiting on carrier': 'orange', Partial: 'orange', 'Waiting on client': 'orange', 'Needs review': 'orange', Referred: 'orange', Remarketing: 'orange', 'Pending cancellation': 'orange', Bound: 'orange',
-  Lost: 'red', High: 'red', Failed: 'red', Declined: 'red', Canceled: 'red', 'Non-renewed': 'red',
-  'Former client': 'neutral', Draft: 'neutral', Replaced: 'neutral', Withdrawn: 'neutral', Inactive: 'neutral', Closed: 'neutral', Contacted: 'neutral', Upcoming: 'neutral', Low: 'neutral', Medium: 'neutral', Normal: 'neutral', Expired: 'neutral', 'Not taken': 'neutral', Disqualified: 'neutral', Rewritten: 'neutral',
+// Tone map per US-FND-017. One meaning per hue; dots carry it, labels stay ink for contrast.
+// blue: open or in progress, the next move is ours · orange: waiting on someone else, or needs attention
+// green: a good outcome, or live and healthy · red: a bad outcome, failure, high priority
+// neutral: not started, inactive, or settled history
+export const TONE: Record<string, 'blue' | 'green' | 'orange' | 'red' | 'neutral'> = {
+  New: 'blue', Contacted: 'blue', 'Gathering info': 'blue', Quoting: 'blue', Proposed: 'blue', Prospect: 'blue', Requested: 'blue', Quoted: 'blue', Presented: 'blue', 'In progress': 'blue', 'In review': 'blue', Decided: 'blue', Bound: 'blue', Reported: 'blue', 'Claim # assigned': 'blue', Open: 'blue', Ready: 'blue', 'In design': 'blue', 'In build': 'blue',
+  Qualified: 'green', Won: 'green', Accepted: 'green', Client: 'green', Active: 'green', Issued: 'green', 'Re-issued': 'green', Done: 'green', Succeeded: 'green',
+  'Waiting on carrier': 'orange', 'Waiting on client': 'orange', 'Submitted to carrier': 'orange', Referred: 'orange', 'Needs review': 'orange', Remarketing: 'orange', 'Pending cancellation': 'orange', Partial: 'orange',
+  Lost: 'red', Declined: 'red', Canceled: 'red', 'Non-renewed': 'red', Failed: 'red', High: 'red',
+  Upcoming: 'neutral', Draft: 'neutral', Disqualified: 'neutral', 'Not taken': 'neutral', 'Former client': 'neutral', Expired: 'neutral', Renewed: 'neutral', Rewritten: 'neutral', Replaced: 'neutral', Withdrawn: 'neutral', Closed: 'neutral', Inactive: 'neutral', Retired: 'neutral', Medium: 'neutral', Normal: 'neutral', Low: 'neutral',
 }
 const DOT: Record<string, string> = {
   blue: 'bg-info',

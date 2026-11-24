@@ -244,6 +244,14 @@ A restrained, achromatic palette with a single saturated blue and four status hu
 - **Warning** (warning) for dots and the ribbon's 30-day band; **Warning Text** (warning-text) for warning-colored text and near-term ribbon ticks. Darkened from 59.7% to 55% for 5.06:1.
 - **Status text** (success-text, danger-text, info-text): the AA-safe text and icon colors of each hue, used for inline status words, deltas, errors and urgent dates.
 - **Status tints** (success-tint, danger-tint, warning-tint, info-tint): Callout backgrounds only. Text on a tint is always ink.
+- **Danger Solid** (danger-solid): the fill of alert count badges (notification bell, Inbox unread). White 12px text, AA in both themes.
+
+**The One Meaning Per Hue Rule.** Each status hue means one thing everywhere (tone map in `src/components/ui/status.tsx`, covered by `status.test.ts`):
+- Blue (info): open or in progress, the next move is ours. New, Contacted, Gathering info, Quoting, Proposed, Prospect, Requested, Quoted, Presented, In progress, In review, Decided, Bound, Reported, Claim # assigned, Open, Ready, In design, In build.
+- Orange (warning): waiting on someone else, or needs attention. Waiting on carrier, Waiting on client, Submitted to carrier, Referred, Needs review, Remarketing, Pending cancellation, Partial, Awaiting AMS, Terminated appointment, no SMS consent.
+- Green (success): a good outcome, or live and healthy. Qualified, Won, Accepted, Client, Active, Issued, Re-issued, Done, Succeeded, Connected, Opted in.
+- Red (danger): a bad outcome, failure, high priority, or something unread that wants you. Lost, Declined, Canceled, Non-renewed, Failed, Error, High (priority and renewal risk), Opted out, P0, notification and unread counts.
+- Neutral: not started, inactive, or settled history. Upcoming, Draft, Disqualified, Not taken, Former client, Expired, Renewed, Rewritten, Replaced, Withdrawn, Closed, Inactive, Retired, Medium, Normal, Low.
 
 ### Named Rules
 **The One Blue Rule.** Action Blue is the only accent. It appears on the primary action, focus, links, selection, progress lines, unread dots, the first chart series, ribbon ticks and the logomark; nowhere else. Active tabs and active nav use strong neutrals, not blue.
@@ -317,7 +325,7 @@ Compact and quiet; only one per toolbar is blue.
 - **Disabled:** 50% opacity, not-allowed cursor.
 
 ### Chips
-- **Count pill** (`CountPill`): fill background, label text, 12px/500 tabular, 20px, full round. Counts only.
+- **Count pill** (`CountPill`): fill background, label text, 12px/500 tabular, 20px, full round. Counts only. The `alert` variant (Danger Solid, white text) is for unread and notification counts only; tab, filter and column counts stay neutral.
 - **Badge** (`Badge`): the same pill for words: Sample data, Read only, Primary, Next, Demo, and coverage flags (AI, WVD, P&NC). Never a status, never colored.
 - **Applied filter chip** (`FilterChip`, `FilterChips`): 28px, white with ring, 8px radius, 13px text, a 20px remove button; followed by a "Clear all" link.
 
