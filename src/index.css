@@ -74,6 +74,10 @@
   html { --chrome-content: transparent; --chrome-content-solid: var(--color-canvas); --chrome-content-ring: 0 0 #0000; }
   html[data-content-bg='white'] { --chrome-content: var(--color-surface); --chrome-content-solid: var(--color-surface); --chrome-content-ring: var(--shadow-ring); }
   /* Primary colour (ThemeMenu): blue keeps the exact @theme tokens; the rest share one formula on hue --ph. */
+  /* Nav item states (Sidebar, MobileNav): a wash of the strong ink, so it darkens a light rail and lightens a dark one
+     on any sidebar/app background. Dark needs a heavier wash to show on a near-black canvas. */
+  html { --nav-hover-a: 4%; --nav-active-a: 7%; --nav-active-ink: var(--color-link); }
+  html[data-theme='dark'] { --nav-hover-a: 6%; --nav-active-a: 11%; }
   html { --ph: 260; }
   html[data-primary='red'] { --ph: 25; }
   html[data-primary='orange'] { --ph: 50; }
@@ -150,6 +154,12 @@
     --color-recessed: var(--oc-recessed);
     --color-fill: var(--oc-fill);
   }
+  /* A picked background can be any hue, so blue text on it can't be guaranteed to read: the active nav item
+     takes the solved strong ink instead, and a heavier wash so it still stands apart from hover without the blue. */
+  html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-sidebar-bg='transparent'] [data-chrome='sidebar'] {
+    --nav-active-ink: var(--oc-strong);
+    --nav-active-a: 10%;
+  }
   html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-topbar-bg='transparent'] [data-chrome='topbar'] .bg-surface,
   html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-sidebar-bg='transparent'] [data-chrome='sidebar'] .bg-surface,
   html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-content-bg='transparent'] #main .bg-surface {
@@ -204,6 +214,16 @@
       animation-duration: 0.01ms !important;
     }
   }
+}
+
+/* color-mix resolves --color-strong on the item itself, so chrome-scoped overrides (picked backgrounds) apply. */
+@utility nav-hover {
+  background-color: color-mix(in oklab, var(--color-strong) var(--nav-hover-a), transparent);
+  color: var(--color-strong);
+}
+@utility nav-active {
+  background-color: color-mix(in oklab, var(--color-strong) var(--nav-active-a), transparent);
+  color: var(--nav-active-ink);
 }
 
 @utility tabular {

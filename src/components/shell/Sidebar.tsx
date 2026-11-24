@@ -73,7 +73,7 @@ export function Sidebar() {
         aria-current={active ? 'page' : undefined}
         className={cx(
           'group flex h-8 items-center gap-2.5 rounded-md px-2.5 text-base font-medium transition-colors duration-150',
-          active ? 'bg-surface text-strong shadow-ring' : 'text-label hover:bg-recessed hover:text-strong',
+          active ? 'nav-active' : 'text-label hover:nav-hover',
         )}
       >
         <span className="relative shrink-0"><Icon aria-hidden className={cx('size-4', active ? 'opacity-100' : 'opacity-60 group-hover:opacity-100')} strokeWidth={1.75} />{it.id === 'inbox' && unread > 0 && !open && <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" />}</span>
@@ -101,8 +101,7 @@ export function Sidebar() {
           hover && !pinned ? 'bg-(--chrome-sidebar-float) shadow-pop' : 'bg-(--chrome-sidebar)',
         )}
       >
-        {/* -m-px p-px: room for the active item's 1px shadow-ring, which overflow-y-auto would clip */}
-        <div className="-m-px flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-px">
+        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           {sidebarGroups.map((g, i) => {
             const items = g.items.map(item).filter(Boolean)
             if (!items.length) return null
@@ -143,7 +142,7 @@ export function MobileNav() {
     const Icon = ICON[it.id] ?? FileText
     const active = pathname === it.route || pathname.startsWith(it.route + '/')
     return (
-      <NavLink key={it.id} to={it.route} aria-current={active ? 'page' : undefined} className={cx('flex h-10 items-center gap-3 rounded-md px-3 text-base font-medium', active ? 'bg-surface text-strong shadow-ring' : 'text-label hover:bg-recessed')}>
+      <NavLink key={it.id} to={it.route} aria-current={active ? 'page' : undefined} className={cx('flex h-10 items-center gap-3 rounded-md px-3 text-base font-medium', active ? 'nav-active' : 'text-label hover:nav-hover')}>
         <Icon aria-hidden className="size-4" strokeWidth={1.75} />
         {it.label}
       </NavLink>
