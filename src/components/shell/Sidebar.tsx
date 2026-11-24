@@ -16,7 +16,7 @@ const ICON: Record<string, LucideIcon> = {
   calendar: Calendar, reports: LineChart, product: LayoutDashboard, settings: Settings,
 }
 
-function readPinned() {
+export function readPinned() {
   if (import.meta.env.DEV && new URLSearchParams(location.search).get('sidebar') === 'pinned') return true
   try {
     return localStorage.getItem('fortify.sidebarPinned') === '1'
@@ -94,12 +94,14 @@ export function Sidebar() {
         onFocus={expandSoon}
         onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && collapse()}
         className={cx(
-          'absolute inset-y-0 left-0 z-30 flex flex-col border-r border-line bg-canvas px-2 py-3 transition-[width,box-shadow] duration-150',
+          'absolute inset-y-0 left-0 z-30 flex flex-col border-r border-line px-2 py-3 transition-[width,box-shadow] duration-150',
           open ? 'w-60' : 'w-14',
-          hover && !pinned && 'shadow-pop',
+          // Floating over the page, a transparent rail would show content through it.
+          hover && !pinned ? 'bg-(--chrome-sidebar-float) shadow-pop' : 'bg-(--chrome-sidebar)',
         )}
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+        {/* -m-px p-px: room for the active item's 1px shadow-ring, which overflow-y-auto would clip */}
+        <div className="-m-px flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-px">
           {sidebarGroups.map((g, i) => {
             const items = g.items.map(item).filter(Boolean)
             if (!items.length) return null
