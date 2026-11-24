@@ -25,7 +25,7 @@ const COLUMNS: ServiceStatus[] = ['New', 'In progress', 'Waiting on carrier', 'W
 /** US-SRV-001: board by status; Done shows the last 30 days. Scoped by role. */
 export function ServicePage() {
   const { data, user } = useApp()
-  const { account, userName, policy } = useLookups()
+  const { account, user: userById, userName, policy } = useLookups()
   const navigate = useNavigate()
   const mutate = useMutate()
   const [params, setParams] = useSearchParams()
@@ -180,7 +180,7 @@ export function ServicePage() {
                             <span className="block truncate text-sm text-label">{account(r.accountId)?.name}</span>
                             {waiting > 5 && <span className="mt-0.5 flex items-center gap-1 text-sm text-label"><Clock aria-hidden className="size-3.5" /> Waiting {waiting}d</span>}
                             <span className="mt-1.5 flex justify-between gap-2 text-sm text-muted">
-                              <Avatar labelled name={userName(r.ownerId)} />
+                              <Avatar labelled name={userName(r.ownerId)} photo={userById(r.ownerId)?.photo} />
                               {r.status !== 'Done' && <span className="shrink-0 text-sm"><DueIndicator r={r} now={now} /></span>}
                             </span>
                           </Link>

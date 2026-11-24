@@ -304,7 +304,7 @@ function AssignMenu({ ids, disabled }: { ids: string[]; disabled?: boolean }) {
             const ok = allowed(u)
             return (
               <Menu.Item key={u.id} disabled={!ok} title={ok ? undefined : 'Only Principals and Admins can assign outside the Account’s team.'} onSelect={() => mutate((s) => s.assignConversations(ids, u.id, user.id), `Assigned to ${u.name}`)} className={cx(menuItem, 'data-[disabled]:text-muted')}>
-                <Avatar name={u.name} />
+                <Avatar name={u.name} photo={u.photo} />
                 <span className="truncate">{u.name}</span>
                 <span className="ml-auto pl-3 text-sm text-muted">{ROLE[u.role]}</span>
               </Menu.Item>

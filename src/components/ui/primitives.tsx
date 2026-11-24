@@ -16,11 +16,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
         className={cx(
           'inline-flex shrink-0 items-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
           size === 'md' ? 'h-9 px-3 text-base' : 'h-8 px-2.5 text-sm',
-          variant === 'primary' && 'bg-primary text-white hover:bg-primary-hover',
+          variant === 'primary' && 'solid [--solid:var(--color-primary)]',
           // A secondary button with aria-pressed is a toggle: pressed reads as recessed with strong text.
           variant === 'secondary' && 'bg-surface text-ink shadow-ring hover:bg-recessed aria-pressed:bg-recessed aria-pressed:text-strong aria-pressed:shadow-control',
           variant === 'ghost' && 'text-label hover:bg-recessed hover:text-strong',
-          variant === 'danger' && 'bg-danger text-white hover:bg-danger-text',
+          variant === 'danger' && 'solid [--solid:var(--color-danger)]',
           className,
         )}
       />
@@ -80,12 +80,20 @@ export function Badge({ children, icon: Icon, className, title }: { children: Re
   )
 }
 
-/** Initials avatar: sm 24px for list rows, md 28px for the top bar. */
-export function Avatar({ name, size = 'sm', className, labelled }: { name: string; size?: 'sm' | 'md'; className?: string; /** Announce the name: set when no visible name sits beside the avatar. */ labelled?: boolean }) {
+/** Avatar: the person's photo, else initials on a color hashed from the name. sm 24px for list rows, md 28px for the top bar. */
+export function Avatar({ name, photo, size = 'sm', className, labelled }: { name: string; photo?: string; size?: 'sm' | 'md'; className?: string; /** Announce the name: set when no visible name sits beside the avatar. */ labelled?: boolean }) {
   const initials = name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  let h = 0
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0
   return (
-    <span {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })} title={name} className={cx('grid shrink-0 place-items-center rounded-full bg-fill text-xs font-medium text-label', size === 'sm' ? 'size-6' : 'size-7', className)}>
-      {initials}
+    <span
+      {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })}
+      title={name}
+      // L 50% keeps white initials above 4.5:1 on every hue.
+      style={photo ? undefined : { background: `oklch(50% 0.14 ${h % 360})` }}
+      className={cx('grid shrink-0 place-items-center overflow-hidden rounded-full bg-fill text-xs font-medium text-white', size === 'sm' ? 'size-6' : 'size-7', className)}
+    >
+      {photo ? <img src={photo} alt="" className="size-full object-cover" /> : initials}
     </span>
   )
 }
