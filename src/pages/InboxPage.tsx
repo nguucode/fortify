@@ -129,7 +129,7 @@ export function InboxPage() {
             return (
               <button key={k} role="tab" aria-selected={tab === k} onClick={() => setP({ tab: k === 'all' ? null : k, c: null })} className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', tab === k ? 'border-strong font-medium text-strong' : 'border-transparent text-label hover:text-strong')}>
                 {l}
-                {n > 0 && <CountPill n={n} max={99} />}
+                {n > 0 && <CountPill n={n} max={99} alert />}
               </button>
             )
           })}

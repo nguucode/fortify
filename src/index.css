@@ -43,6 +43,8 @@
   --color-danger: oklch(63.7% 0.237 25.3);
   --color-danger-text: oklch(50.5% 0.213 27.5);
   --color-danger-tint: oklch(93.6% 0.032 17.7 / 0.42);
+  /* Alert count badge fill (unread, notifications): white 12px text holds AA in both themes, so dark mode keeps it. */
+  --color-danger-solid: oklch(50.5% 0.213 27.5);
   --color-warning: oklch(73.9% 0.177 58.2);
   --color-warning-text: oklch(55% 0.13 57.5);
   --color-warning-tint: oklch(93.1% 0.107 94.6 / 0.2);

@@ -76,9 +76,9 @@ export function Sidebar() {
           active ? 'bg-surface text-strong shadow-ring' : 'text-label hover:bg-recessed hover:text-strong',
         )}
       >
-        <span className="relative shrink-0"><Icon aria-hidden className={cx('size-4', active ? 'opacity-100' : 'opacity-60 group-hover:opacity-100')} strokeWidth={1.75} />{it.id === 'inbox' && unread > 0 && !open && <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" />}</span>
+        <span className="relative shrink-0"><Icon aria-hidden className={cx('size-4', active ? 'opacity-100' : 'opacity-60 group-hover:opacity-100')} strokeWidth={1.75} />{it.id === 'inbox' && unread > 0 && !open && <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-danger-solid" />}</span>
         <span className={cx('truncate', !open && 'sr-only')}>{it.label}{it.id === 'inbox' && unread > 0 && <span className="sr-only">, {unread} unread</span>}</span>
-        {it.id === 'inbox' && unread > 0 && open && <span aria-hidden className="ml-auto"><CountPill n={unread} max={99} /></span>}
+        {it.id === 'inbox' && unread > 0 && open && <span aria-hidden className="ml-auto"><CountPill n={unread} max={99} alert /></span>}
       </NavLink>
     )
     return open ? link : <Tip key={it.id} label={it.label} side="right">{link}</Tip>
