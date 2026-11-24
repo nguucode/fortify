@@ -58,7 +58,8 @@ const applyTheme = (t: ChromeTheme) => {
   d.primary = t.primary
   d.theme = t.mode === 'system' ? (systemDark?.matches ? 'dark' : 'light') : t.mode
   const stops = bgStops(t)
-  d.canvasInk = stops ? canvasInk(stops).ink : d.theme === 'dark' ? 'light' : 'dark'
+  // Dark mode tints the chosen colours dark (index.css), so only Light mode needs to measure them.
+  d.canvasInk = d.theme === 'dark' ? 'light' : stops ? canvasInk(stops).ink : 'dark'
 }
 const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)') // absent in jsdom
 systemDark?.addEventListener('change', () => applyTheme(readTheme()))
@@ -196,7 +197,7 @@ function ThemeMenu() {
                     <HexInput label="Gradient start" value={theme.gradFrom} onChange={(v) => set({ app: 'gradient', gradFrom: v })} />
                     <ArrowRight aria-hidden className="size-4 text-muted" />
                     <HexInput label="Gradient end" value={theme.gradTo} onChange={(v) => set({ app: 'gradient', gradTo: v })} />
-                    {canvasInk([theme.gradFrom, theme.gradTo]).worst < 4.5 && (
+                    {document.documentElement.dataset.theme !== 'dark' && canvasInk([theme.gradFrom, theme.gradTo]).worst < 4.5 && (
                       <p role="status" className="basis-full text-sm text-warning-text">Text may be hard to read on part of this gradient. Bring the two colors closer in lightness.</p>
                     )}
                   </Popover.Content>
