@@ -839,6 +839,7 @@ function enrichSettings(seed: number, d: { users: User[]; carriers: Carrier[]; o
   }
   const TITLE: Record<string, string> = { producer: 'Producer', 'account-manager': 'Account Manager', principal: 'Principal', admin: 'Agency Administrator' }
   d.users.forEach((u, i) => { u.status = 'Active'; u.title = TITLE[u.role]; u.phone = `(555) 020-${String(1000 + i).padStart(4, '0')}` })
+  d.users.forEach((u) => { u.photo = avatarPhoto(u.name) })
   d.users.push({ id: `usr-${String(d.users.length + 1).padStart(4, '0')}`, name: 'Jordan Pace', role: 'account-manager', officeId: 'off-sat', email: 'jordan.pace@example.com', status: 'Invited', title: 'Account Manager', active: false, licenseRecords: [] })
   const T = (name: string, channel: Template['channel'], category: Template['category'], usedIn: string, body: string, subject?: string, status: Template['status'] = 'Active'): Template => ({ id: `tpl-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, name, channel, category, usedIn, body, subject: subject ?? null, status, editedOffset: -int(1, 200), editedById: null })
   const templates: Template[] = [
@@ -873,4 +874,25 @@ function enrichSettings(seed: number, d: { users: User[]; carriers: Carrier[]; o
     appointments.push({ carrierId: c.id, state: st, status: active ? 'Active' : terminated ? 'Terminated' : 'Not appointed', effectiveOffset: active || terminated ? -int(400, 3000) : null, terminatedOffset: terminated ? -int(10, 300) : null, lines: active ? c.lines : [] })
   }
   return { templates, settings, appointments }
+}
+
+// View as presets keep their curated Unsplash portraits.
+const PRESET_PHOTO: Record<string, string> = {
+  'Dana Whitfield': '1573496359142-b8d87734a5a2',
+  'Marisol Reyes': '1494790108377-be9c29b29330',
+  'Grant Holloway': '1500648767791-00dcc994a43e',
+  'Priya Nair': '1438761681033-6461ffad8d80',
+}
+const FEMALE = new Set(en.person!.first_name!.female)
+const MALE = new Set(en.person!.first_name!.male)
+/** Seeded coin flip per name: a portrait matching the first name, or none (colored initials).
+ *  Names faker lists as both or neither (Jordan, Priya) always get initials. */
+export function avatarPhoto(name: string): string | undefined {
+  if (PRESET_PHOTO[name]) return `https://images.unsplash.com/photo-${PRESET_PHOTO[name]}?w=64&h=64&fit=crop&crop=faces`
+  let h = 0
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  if (h % 2) return undefined
+  const first = name.split(' ').find((w) => FEMALE.has(w) || MALE.has(w)) ?? ''
+  const sex = FEMALE.has(first) && !MALE.has(first) ? 'women' : MALE.has(first) && !FEMALE.has(first) ? 'men' : null
+  return sex ? `https://randomuser.me/api/portraits/${sex}/${(h >>> 1) % 100}.jpg` : undefined
 }
