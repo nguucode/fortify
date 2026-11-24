@@ -48,9 +48,9 @@ export function Kbd({ children }: { children: ReactNode }) {
 const badgeCls = 'inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-fill px-1.5 text-xs font-medium whitespace-nowrap text-label'
 
 /** Count pill: counts only (DESIGN.md › Chips). `alert` is the red unread/notification count; plain counts stay neutral. */
-export function CountPill({ n, max, onTint, alert, className }: { n: number | null; /** Cap the display ("99+"). */ max?: number; /** On a tinted surface (a Callout): white pill, ink text. */ onTint?: boolean; /** Unread or notification count: red fill, white text. */ alert?: boolean; className?: string }) {
+export function CountPill({ n, max, onTint, alert, active, className }: { n: number | null; /** Cap the display ("99+"). */ max?: number; /** On a tinted surface (a Callout): white pill, ink text. */ onTint?: boolean; /** Inside the active tab: selection tint, link text. */ active?: boolean; /** Unread or notification count: red fill, white text. */ alert?: boolean; className?: string }) {
   const text = n === null ? '—' : max != null && n > max ? `${max}+` : n.toLocaleString('en-US')
-  return <span className={cx('tabular inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs font-medium whitespace-nowrap', alert ? 'bg-danger-solid text-white' : onTint ? 'bg-surface text-ink' : 'bg-fill text-label', className)}>{text}</span>
+  return <span className={cx('tabular inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs font-medium whitespace-nowrap', alert ? 'bg-danger-solid text-white' : active ? 'bg-selection text-link' : onTint ? 'bg-surface text-ink' : 'bg-fill text-label', className)}>{text}</span>
 }
 
 /** The 2px Action Blue progress line: refetch under a table header, sync, palette search. Solid, no pulse. */

@@ -175,7 +175,7 @@ export function TabBar({ tabs, param = 'tab' }: { tabs: { id: string; label: str
             className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', active ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
           >
             {t.label}
-            {t.count != null && t.count > 0 && <CountPill n={t.count} />}
+            {t.count != null && t.count > 0 && <CountPill n={t.count} active={active} />}
           </button>
         )
       })}
@@ -444,7 +444,7 @@ export function ViewTabs({ views, counts, param = 'view' }: { views: string[]; c
           className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', v === current ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
         >
           {v}
-          <CountPill n={counts ? (counts[v] ?? 0) : null} />
+          <CountPill n={counts ? (counts[v] ?? 0) : null} active={v === current} />
         </button>
       ))}
     </nav>
