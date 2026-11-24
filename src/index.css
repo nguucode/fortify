@@ -271,3 +271,14 @@
   .prose-fortify tr:last-child td { @apply border-b-0; }
   .prose-fortify strong { @apply font-semibold text-strong; }
 }
+
+/* Native selects draw their own chevron flush against the right edge, a few px off the control padding.
+   Unlayered so it beats the px-* utility on padding-right; one chevron (Lucide, muted) 8px in from the edge. */
+select:not([multiple]) {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 32px;
+}

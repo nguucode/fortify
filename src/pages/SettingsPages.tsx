@@ -38,13 +38,13 @@ export function SettingsLayout() {
   ]
   return (
     <div className="flex min-h-full max-md:flex-col">
-      <nav aria-label="Settings" className="w-64 shrink-0 border-r border-line px-2 py-5 max-md:w-full max-md:border-r-0 max-md:border-b">
+      <nav aria-label="Settings" className="w-68 shrink-0 border-r border-line px-2 py-5 max-md:w-full max-md:border-r-0 max-md:border-b">
         {groups.map(([g, items]) => (
           <div key={g} className="mb-4">
             <p className="px-2.5 pb-1 text-xs text-muted">{g}</p>
             {items.map(([to, label, ro]) => (
               <NavLink key={to} to={to} className={({ isActive }) => cx('flex items-center justify-between rounded-md px-2.5 py-1.5 text-base', isActive ? 'bg-surface font-medium text-strong shadow-ring' : 'text-label hover:bg-recessed hover:text-strong')}>
-                {label}
+                <span className="whitespace-nowrap">{label}</span>
                 {ro && <span className="shrink-0 pl-2 text-xs whitespace-nowrap text-muted">Read only</span>}
               </NavLink>
             ))}
