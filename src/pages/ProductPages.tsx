@@ -475,7 +475,7 @@ export function ProductStoryMap() {
           {EPIC_ORDER.map((c) => <span key={c} className="px-1.5 text-sm font-semibold text-strong">{c}</span>)}
           {rows.map(([p, label]) => (
             <div key={p} className="contents">
-              <span className="sticky left-0 z-10 bg-canvas pt-2 text-sm font-medium text-label">{label}</span>
+              <span className="sticky left-0 z-10 bg-(--chrome-content-solid) pt-2 text-sm font-medium text-label">{label}</span>
               {EPIC_ORDER.map((c) => {
                 const cell = list.filter((s) => s.epic === c && s.priority === p)
                 return (

@@ -17,9 +17,9 @@ export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base sh
 export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
 
 type ChromeBg = 'white' | 'transparent'
-type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; primary: string; mode: 'light' | 'dark' | 'system' }
+type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; content: ChromeBg; primary: string; mode: 'light' | 'dark' | 'system' }
 const THEME_KEY = 'fortify.chromeTheme'
-const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', primary: 'blue', mode: 'light' }
+const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', content: 'transparent', primary: 'blue', mode: 'light' }
 // Hues mirror html[data-primary] in index.css; blue is the exact @theme token.
 const PRIMARIES = [['red', 25], ['orange', 50], ['yellow', 85], ['green', 150], ['blue', 260], ['indigo', 280], ['violet', 310]] as const
 
@@ -34,6 +34,7 @@ const applyTheme = (t: ChromeTheme) => {
   const d = document.documentElement.dataset
   d.sidebarBg = t.sidebar
   d.topbarBg = t.topbar
+  d.contentBg = t.content
   d.primary = t.primary
   d.theme = t.mode === 'system' ? (systemDark?.matches ? 'dark' : 'light') : t.mode
 }
@@ -102,6 +103,8 @@ function ThemeMenu() {
           {group('sidebar', 'Sidebar background', bg)}
           <Menu.Separator className="my-1 h-px bg-fill" />
           {group('topbar', 'Top bar background', bg)}
+          <Menu.Separator className="my-1 h-px bg-fill" />
+          {group('content', 'Content area background', bg)}
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>
@@ -199,7 +202,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { user, setUser } = useApp()
   const toast = useToast()
   return (
-    <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line bg-(--chrome-topbar) px-4 max-sm:gap-1.5 max-sm:px-3">
+    <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-(--chrome-edge) bg-(--chrome-topbar) px-4 max-sm:gap-1.5 max-sm:px-3">
       <MobileNav />
       <span className="flex items-center gap-2 pr-1 text-lg font-semibold text-strong max-sm:[&>span:last-child]:hidden">
         <img src="/logo.svg" alt="" aria-hidden className="size-6" />

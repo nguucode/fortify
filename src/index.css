@@ -67,6 +67,12 @@
   html { --chrome-topbar: transparent; --chrome-sidebar: transparent; --chrome-sidebar-float: var(--color-canvas); }
   html[data-topbar-bg='white'] { --chrome-topbar: var(--color-surface); }
   html[data-sidebar-bg='white'] { --chrome-sidebar: var(--color-surface); --chrome-sidebar-float: var(--color-surface); }
+  /* Content Area (<main>): -solid is what sticky headers paint so they match the area under them. */
+  /* --chrome-edge: TopBar/Sidebar borders; a white Content Area already separates itself, so they drop. */
+  html { --chrome-edge: var(--color-line); }
+  html[data-content-bg='white'] { --chrome-edge: transparent; }
+  html { --chrome-content: transparent; --chrome-content-solid: var(--color-canvas); --chrome-content-ring: 0 0 #0000; }
+  html[data-content-bg='white'] { --chrome-content: var(--color-surface); --chrome-content-solid: var(--color-surface); --chrome-content-ring: var(--shadow-ring); }
   /* Primary colour (ThemeMenu): blue keeps the exact @theme tokens; the rest share one formula on hue --ph. */
   html { --ph: 260; }
   html[data-primary='red'] { --ph: 25; }

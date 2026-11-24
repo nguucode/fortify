@@ -94,7 +94,7 @@ export function Sidebar() {
         onFocus={expandSoon}
         onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && collapse()}
         className={cx(
-          'absolute inset-y-0 left-0 z-30 flex flex-col border-r border-line px-2 py-3 transition-[width,box-shadow] duration-150',
+          'absolute inset-y-0 left-0 z-30 flex flex-col border-r border-(--chrome-edge) px-2 py-3 transition-[width,box-shadow] duration-150',
           open ? 'w-60' : 'w-14',
           // Floating over the page, a transparent rail would show content through it.
           hover && !pinned ? 'bg-(--chrome-sidebar-float) shadow-pop' : 'bg-(--chrome-sidebar)',
