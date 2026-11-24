@@ -248,10 +248,11 @@ A restrained, achromatic palette with a single saturated blue and four status hu
 
 **The One Meaning Per Hue Rule.** Each status hue means one thing everywhere (tone map in `src/components/ui/status.tsx`, covered by `status.test.ts`):
 - Blue (info): open or in progress, the next move is ours. New, Contacted, Gathering info, Quoting, Proposed, Prospect, Requested, Quoted, Presented, In progress, In review, Decided, Bound, Reported, Claim # assigned, Open, Ready, In design, In build.
-- Orange (warning): waiting on someone else, or needs attention. Waiting on carrier, Waiting on client, Submitted to carrier, Referred, Needs review, Remarketing, Pending cancellation, Partial, Awaiting AMS, Terminated appointment, no SMS consent.
+- Orange (warning): waiting on someone else, or needs attention. Awaiting AMS, Waiting on carrier, Waiting on client, Submitted to carrier, Referred, Needs review, Remarketing, Pending cancellation, Partial, Terminated appointment, no SMS consent.
 - Green (success): a good outcome, or live and healthy. Qualified, Won, Accepted, Client, Active, Issued, Re-issued, Done, Succeeded, Connected, Opted in.
 - Red (danger): a bad outcome, failure, high priority, or something unread that wants you. Lost, Declined, Canceled, Non-renewed, Failed, Error, High (priority and renewal risk), Opted out, P0, notification and unread counts.
-- Neutral: not started, inactive, or settled history. Upcoming, Draft, Disqualified, Not taken, Former client, Expired, Renewed, Rewritten, Replaced, Withdrawn, Closed, Inactive, Retired, Medium, Normal, Low.
+- Neutral: not started, inactive, or settled history. Upcoming, Draft, Disqualified, Not taken, Former client, Expired, Renewed, Rewritten, Replaced, Withdrawn, Closed, Inactive, Retired, Normal.
+- Levels (priority, renewal risk): High red, Medium orange, Low green, Normal neutral. A scale where high is good passes its own tone: interest level is High green, Medium orange, Low and Closed neutral (`INTEREST_TONE`).
 
 ### Named Rules
 **The One Blue Rule.** Action Blue is the only accent. It appears on the primary action, focus, links, selection, the active nav item (as Link Blue text), progress lines, unread dots, the first chart series, ribbon ticks and the logomark; nowhere else. Active tabs use strong neutrals, not blue.
@@ -348,7 +349,7 @@ Compact and quiet; only one per toolbar is blue.
 `Avatar`: initials on a fill circle, 12px/500 label text; 24px in rows and timelines, 28px for the top-bar account menu.
 
 ### Status Cell
-An 8px colored dot plus a 13px ink label, optional muted "· reason" with a tooltip. Never a filled colored pill. Unknown statuses fall back to the neutral dot. Empty status shows a muted "—".
+An 8px colored dot plus a 13px/500 label in the hue's AA text color (info-text, success-text, warning-text, danger-text; neutral is label grey), optional muted "· reason" with a tooltip. Never a filled colored pill. Unknown statuses fall back to the neutral dot. Empty status shows a muted "—".
 
 ### Data Table
 White container, ring, 8px radius (top corners only when the pagination footer closes it). 40px header row (14/600, strong) and 40px body rows with 1px fill dividers; whole-row hover in Well Grey (100ms). Sortable headers show an arrow on the active column and go link-blue on hover. The primary column carries a kind icon, the name (14/500 strong, truncated, link on hover) and a muted 13px secondary token; for agency-scope roles that token reads "Contact · Office" because Office is not a column. Empty cells show a muted "—". Dates inside 30 days render in Warning Text at 500 with a clock icon. The pagination footer is white with a ring, a fill top divider and 13px label text.
@@ -361,7 +362,7 @@ White container, ring, 8px radius (top corners only when the pagination footer c
 
 **Premium change** (`RateChange`): a signed percent with one decimal in tabular figures (+12.4%); +10% or more is Danger Text, −5% or less is Success Text (rules.md), anything between is ink. No arrows.
 
-**Priority** is a status: dot plus label (`StatusCell`), High red, Normal and Low neutral.
+**Priority** is a status: dot plus label (`StatusCell`), High red, Medium orange, Low green, Normal neutral.
 
 **Display options:** every list's Display popover sets row density (Comfortable 40px, Compact 32px, saved per list) and column visibility; the primary column cannot be hidden.
 

@@ -27,7 +27,7 @@ export function currentTerm(terms: Term[], policyId: string): Term | undefined {
 /** US-POL-004: synced data is labelled; Won Terms say "Awaiting AMS" until the sync matches them. */
 export function AmsBadge({ term }: { term?: Term }) {
   const { amsState } = useAms()
-  if (term?.source === 'fortify-won') return <span className="inline-flex items-center gap-1.5 text-sm"><span aria-hidden className="size-2 rounded-full bg-warning" /> Awaiting AMS</span>
+  if (term?.source === 'fortify-won') return <StatusCell status="Awaiting AMS" />
   return (
     <Tip label="Policy data is read-only here; the AMS is the system of record. Changes go through a Service Request.">
       <span tabIndex={0} className="inline-flex items-center gap-1 text-sm text-muted">
