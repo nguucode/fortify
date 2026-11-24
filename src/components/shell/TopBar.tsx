@@ -285,7 +285,22 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
     <header data-chrome="topbar" className="flex h-[58px] shrink-0 items-center gap-3 border-b border-(--chrome-edge) bg-(--chrome-topbar) px-4 max-sm:gap-1.5 max-sm:px-3">
       <MobileNav />
       <span className="flex items-center gap-2 pr-1 text-lg font-semibold text-strong max-sm:[&>span:last-child]:hidden">
-        <img src="/logo.svg" alt="" aria-hidden className="size-6" />
+        {/* Squircle silhouette comes from /logo.svg as a mask; the fill follows the picked primary. */}
+        <span
+          aria-hidden
+          className="size-6 shrink-0 bg-[linear-gradient(to_bottom,color-mix(in_oklch,var(--color-primary),white_22%),var(--color-primary-hover))] [mask:url(/logo.svg)_center/contain_no-repeat]"
+        >
+          <svg viewBox="0 0 256 256" className="size-full">
+            <defs>
+              <linearGradient id="logo-hl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".22" /><stop offset=".5" stopColor="#fff" stopOpacity="0" /></linearGradient>
+            </defs>
+            <rect width="256" height="256" fill="url(#logo-hl)" />
+            <g transform="translate(43.52,43.52) scale(0.66)" fill="#fff">
+              <path d="M64,72 A32,32 0 0 1 96,40 L200,40 L200,86 L112,86 L112,216 L64,216 Z" />
+              <path d="M124,110 L184,110 L184,152 L124,152 Z" opacity="0.72" />
+            </g>
+          </svg>
+        </span>
         <span>Fortify</span>
       </span>
       <OfficeControl />
