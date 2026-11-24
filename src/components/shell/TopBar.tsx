@@ -17,7 +17,7 @@ export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base sh
 export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
 
 type ChromeBg = 'white' | 'transparent'
-type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; primary: string; mode: 'light' | 'dark' }
+type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; primary: string; mode: 'light' | 'dark' | 'system' }
 const THEME_KEY = 'fortify.chromeTheme'
 const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', primary: 'blue', mode: 'light' }
 // Hues mirror html[data-primary] in index.css; blue is the exact @theme token.
@@ -35,9 +35,13 @@ const applyTheme = (t: ChromeTheme) => {
   d.sidebarBg = t.sidebar
   d.topbarBg = t.topbar
   d.primary = t.primary
-  d.theme = t.mode
+  d.theme = t.mode === 'system' ? (systemDark?.matches ? 'dark' : 'light') : t.mode
 }
+const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)') // absent in jsdom
+systemDark?.addEventListener('change', () => applyTheme(readTheme()))
 applyTheme(readTheme()) // at import, before first paint
+
+const keepOpen = (e: Event) => e.preventDefault() // menu stays open so options can be compared
 
 function ThemeMenu() {
   const [theme, setTheme] = useState(readTheme)
@@ -53,7 +57,7 @@ function ThemeMenu() {
       {label(text)}
       <Menu.RadioGroup value={theme[part]} onValueChange={(v) => set(part, v)}>
         {Object.entries(options).map(([v, name]) => (
-          <Menu.RadioItem key={v} value={v} className={menuItem}>
+          <Menu.RadioItem key={v} value={v} className={menuItem} onSelect={keepOpen}>
             <Check aria-hidden className={cx('size-4', theme[part] === v ? 'text-primary' : 'invisible')} />
             {name}
           </Menu.RadioItem>
@@ -71,7 +75,7 @@ function ThemeMenu() {
       </Tip>
       <Menu.Portal>
         <Menu.Content align="end" sideOffset={4} className={menuContent}>
-          {group('mode', 'Theme', { light: 'Light', dark: 'Dark' })}
+          {group('mode', 'Theme', { light: 'Light', dark: 'Dark', system: 'System' })}
           <Menu.Separator className="my-1 h-px bg-fill" />
           {label('Primary color')}
           <Menu.RadioGroup value={theme.primary} onValueChange={(v) => set('primary', v)} className="flex gap-1 px-2 pb-1.5">
@@ -79,6 +83,7 @@ function ThemeMenu() {
               <Menu.RadioItem
                 key={v}
                 value={v}
+                onSelect={keepOpen}
                 aria-label={v[0].toUpperCase() + v.slice(1)}
                 title={v[0].toUpperCase() + v.slice(1)}
                 className="grid size-6 cursor-default place-items-center rounded-full outline-none data-[highlighted]:shadow-control"
