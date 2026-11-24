@@ -1,8 +1,9 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { NotificationsButton } from './Notifications'
-import { MobileNav } from './Sidebar'
+import { MobileNav, readPinned } from './Sidebar'
 import * as Popover from '@radix-ui/react-popover'
-import { Building2, Check, ChevronDown, Search, SlidersHorizontal, UserRound } from 'lucide-react'
+import { Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
+import { useState } from 'react'
 import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
 import { Badge, cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
@@ -14,6 +15,73 @@ const initials = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('
 
 export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base shadow-pop'
 export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
+
+type ChromeBg = 'white' | 'transparent'
+type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg }
+const THEME_KEY = 'fortify.chromeTheme'
+
+function readTheme(): ChromeTheme {
+  try {
+    return { sidebar: 'transparent', topbar: 'transparent', ...JSON.parse(localStorage.getItem(THEME_KEY) ?? '{}') }
+  } catch {
+    return { sidebar: 'transparent', topbar: 'transparent' }
+  }
+}
+const applyTheme = (t: ChromeTheme) => {
+  document.documentElement.dataset.sidebarBg = t.sidebar
+  document.documentElement.dataset.topbarBg = t.topbar
+}
+applyTheme(readTheme()) // at import, before first paint
+
+function ThemeMenu() {
+  const [theme, setTheme] = useState(readTheme)
+  const set = (part: keyof ChromeTheme, v: string) => {
+    const t = { ...theme, [part]: v as ChromeBg }
+    setTheme(t)
+    applyTheme(t)
+    try { localStorage.setItem(THEME_KEY, JSON.stringify(t)) } catch { /* storage blocked */ }
+  }
+  const group = (part: keyof ChromeTheme, label: string) => (
+    <>
+      <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">{label}</Menu.Label>
+      <Menu.RadioGroup value={theme[part]} onValueChange={(v) => set(part, v)}>
+        {(['white', 'transparent'] as const).map((v) => (
+          <Menu.RadioItem key={v} value={v} className={menuItem}>
+            <Check aria-hidden className={cx('size-4', theme[part] === v ? 'text-primary' : 'invisible')} />
+            {v === 'white' ? 'White' : 'Transparent'}
+          </Menu.RadioItem>
+        ))}
+      </Menu.RadioGroup>
+    </>
+  )
+  return (
+    <Menu.Root>
+      <Tip label="Theme">
+        <Menu.Trigger aria-label="Theme" className="inline-flex size-8 items-center justify-center rounded-md text-label hover:bg-recessed hover:text-strong">
+          <Palette aria-hidden className="size-4" strokeWidth={1.75} />
+        </Menu.Trigger>
+      </Tip>
+      <Menu.Portal>
+        <Menu.Content align="end" sideOffset={4} className={menuContent}>
+          <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">Sidebar</Menu.Label>
+          {/* Content mounts on open, so this reads the current pin. Toggling reuses the `[` shortcut's event. */}
+          <Menu.RadioGroup value={readPinned() ? 'expanded' : 'collapsed'} onValueChange={(v) => (v === 'expanded') !== readPinned() && window.dispatchEvent(new Event('fortify:toggle-sidebar'))}>
+            {(['expanded', 'collapsed'] as const).map((v) => (
+              <Menu.RadioItem key={v} value={v} className={menuItem}>
+                <Check aria-hidden className={cx('size-4', (v === 'expanded') === readPinned() ? 'text-primary' : 'invisible')} />
+                {v === 'expanded' ? 'Expanded' : 'Collapsed'}
+              </Menu.RadioItem>
+            ))}
+          </Menu.RadioGroup>
+          <Menu.Separator className="my-1 h-px bg-fill" />
+          {group('sidebar', 'Sidebar background')}
+          <Menu.Separator className="my-1 h-px bg-fill" />
+          {group('topbar', 'Top bar background')}
+        </Menu.Content>
+      </Menu.Portal>
+    </Menu.Root>
+  )
+}
 
 function OfficeControl() {
   const { user, data, officeFilter, setOfficeFilter } = useApp()
@@ -106,7 +174,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { user, setUser } = useApp()
   const toast = useToast()
   return (
-    <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line bg-canvas px-4 max-sm:gap-1.5 max-sm:px-3">
+    <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line bg-(--chrome-topbar) px-4 max-sm:gap-1.5 max-sm:px-3">
       <MobileNav />
       <span className="flex items-center gap-2 pr-1 text-lg font-semibold text-strong max-sm:[&>span:last-child]:hidden">
         <img src="/logo.svg" alt="" aria-hidden className="size-6" />
@@ -152,6 +220,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         </Menu.Root>
         <DemoControlsButton />
       </div>
+      <ThemeMenu />
       <Menu.Root>
         <Menu.Trigger className="grid size-7 place-items-center rounded-full bg-fill text-xs font-medium text-label hover:shadow-control">
           {initials(user.name)}

@@ -63,6 +63,10 @@
   html {
     color-scheme: light;
   }
+  /* Chrome theme (TopBar ThemeMenu): data-*-bg on <html>. */
+  html { --chrome-topbar: transparent; --chrome-sidebar: transparent; --chrome-sidebar-float: var(--color-canvas); }
+  html[data-topbar-bg='white'] { --chrome-topbar: var(--color-surface); }
+  html[data-sidebar-bg='white'] { --chrome-sidebar: var(--color-surface); --chrome-sidebar-float: var(--color-surface); }
   body {
     @apply bg-canvas text-ink font-sans text-base antialiased;
     letter-spacing: -0.16px;
