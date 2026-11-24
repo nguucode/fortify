@@ -93,6 +93,7 @@ export function Sidebar() {
         onMouseLeave={collapse}
         onFocus={expandSoon}
         onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && collapse()}
+        data-chrome="sidebar"
         className={cx(
           'absolute inset-y-0 left-0 z-30 flex flex-col border-r border-(--chrome-edge) px-2 py-3 transition-[width,box-shadow] duration-150',
           open ? 'w-60' : 'w-14',
@@ -155,7 +156,7 @@ export function MobileNav() {
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
-        <Dialog.Content aria-describedby={undefined} className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-canvas px-2 py-3 shadow-pop">
+        <Dialog.Content data-chrome="sidebar" aria-describedby={undefined} className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-canvas px-2 py-3 shadow-pop">
           <Dialog.Title className="px-3 pb-2 text-lg font-semibold text-strong">Fortify</Dialog.Title>
           <nav aria-label="Main" className="flex flex-col gap-0.5">
             {sidebarGroups.map((g, i) => {

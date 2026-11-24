@@ -2,8 +2,8 @@ import * as Menu from '@radix-ui/react-dropdown-menu'
 import { NotificationsButton } from './Notifications'
 import { MobileNav } from './Sidebar'
 import * as Popover from '@radix-ui/react-popover'
-import { Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { ArrowRight, Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
 import { Badge, cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
@@ -17,9 +17,9 @@ export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base sh
 export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
 
 type ChromeBg = 'white' | 'transparent'
-type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; content: ChromeBg; app: 'white' | 'gray' | 'custom' | 'gradient'; appColor: string; primary: string; mode: 'light' | 'dark' | 'system' }
+type ChromeTheme = { sidebar: ChromeBg; topbar: ChromeBg; content: ChromeBg; app: 'white' | 'gray' | 'custom' | 'gradient'; appColor: string; gradFrom: string; gradTo: string; primary: string; mode: 'light' | 'dark' | 'system' }
 const THEME_KEY = 'fortify.chromeTheme'
-const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', content: 'transparent', app: 'gray', appColor: '#eef2f7', primary: 'blue', mode: 'light' }
+const DEFAULT_THEME: ChromeTheme = { sidebar: 'transparent', topbar: 'transparent', content: 'transparent', app: 'gray', appColor: '#eef2f7', gradFrom: '#e8eefc', gradTo: '#fbe9f3', primary: 'blue', mode: 'light' }
 // Hues mirror html[data-primary] in index.css; blue is the exact @theme token.
 const PRIMARIES = [['red', 25], ['orange', 50], ['yellow', 85], ['green', 150], ['blue', 260], ['indigo', 280], ['violet', 310]] as const
 
@@ -30,21 +30,63 @@ function readTheme(): ChromeTheme {
     return DEFAULT_THEME
   }
 }
+// WCAG relative luminance of #rrggbb, and contrast ratio between two luminances.
+const lum = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+const INK = { light: lum('#f7f7f7'), dark: lum('#0a0a0a') }
+/** Which ink reads on these background stops: the one whose worst contrast across them is highest. */
+export function canvasInk(stops: string[]) {
+  const worst = (ink: number) => Math.min(...stops.map((s) => contrast(lum(s), ink)))
+  const light = worst(INK.light), dark = worst(INK.dark)
+  return light > dark ? { ink: 'light' as const, worst: light } : { ink: 'dark' as const, worst: dark }
+}
+const bgStops = (t: ChromeTheme) => (t.app === 'custom' ? [t.appColor] : t.app === 'gradient' ? [t.gradFrom, t.gradTo] : null)
+
 const applyTheme = (t: ChromeTheme) => {
   const d = document.documentElement.dataset
   d.sidebarBg = t.sidebar
   d.topbarBg = t.topbar
   d.contentBg = t.content
   d.appBg = t.app
-  document.documentElement.style.setProperty('--app-color', t.appColor)
+  const st = document.documentElement.style
+  st.setProperty('--app-color', t.appColor)
+  st.setProperty('--grad-from', t.gradFrom)
+  st.setProperty('--grad-to', t.gradTo)
   d.primary = t.primary
   d.theme = t.mode === 'system' ? (systemDark?.matches ? 'dark' : 'light') : t.mode
+  const stops = bgStops(t)
+  d.canvasInk = stops ? canvasInk(stops).ink : d.theme === 'dark' ? 'light' : 'dark'
 }
 const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)') // absent in jsdom
 systemDark?.addEventListener('change', () => applyTheme(readTheme()))
 applyTheme(readTheme()) // at import, before first paint
 
 const keepOpen = (e: Event) => e.preventDefault() // menu stays open so options can be compared
+const HEX = /^#[0-9a-f]{6}$/i
+const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
+const swatchCls = 'size-5 shrink-0 cursor-pointer rounded-sm border-0 bg-transparent p-0 shadow-ring [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0'
+
+/** Colour well + hex field; the field only commits a full #rrggbb. */
+function HexInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  return (
+    <span className="flex h-8 items-center gap-1.5 rounded-md bg-surface px-1.5 shadow-control">
+      <input type="color" aria-label={`${label} color`} value={value} onChange={(e) => { setDraft(e.target.value); onChange(e.target.value) }} className={swatchCls} />
+      <input
+        aria-label={`${label} hex`}
+        value={draft}
+        spellCheck={false}
+        maxLength={7}
+        onChange={(e) => { const v = e.target.value.startsWith('#') ? e.target.value : '#' + e.target.value; setDraft(v); if (HEX.test(v)) onChange(v.toLowerCase()) }}
+        onBlur={() => setDraft(value)}
+        className="w-[68px] bg-transparent font-mono text-sm text-ink uppercase outline-none"
+      />
+    </span>
+  )
+}
 
 function ThemeMenu() {
   const [theme, setTheme] = useState(readTheme)
@@ -55,16 +97,19 @@ function ThemeMenu() {
     try { localStorage.setItem(THEME_KEY, JSON.stringify(t)) } catch { /* storage blocked */ }
   }
   const label = (text: string) => <Menu.Label className="px-2 pt-1.5 pb-1 text-xs text-muted">{text}</Menu.Label>
-  const group = (part: keyof ChromeTheme, text: string, options: Record<string, ReactNode>) => (
+  const group = (part: keyof ChromeTheme, text: string, options: Record<string, ReactNode>, wrap?: Record<string, (item: ReactNode) => ReactNode>) => (
     <>
       {label(text)}
       <Menu.RadioGroup value={theme[part]} onValueChange={(v) => set({ [part]: v })}>
-        {Object.entries(options).map(([v, name]) => (
-          <Menu.RadioItem key={v} value={v} className={menuItem} onSelect={keepOpen}>
-            <Check aria-hidden className={cx('size-4', theme[part] === v ? 'text-primary' : 'invisible')} />
-            {name}
-          </Menu.RadioItem>
-        ))}
+        {Object.entries(options).map(([v, name]) => {
+          const item = (
+            <Menu.RadioItem key={v} value={v} className={menuItem} onSelect={keepOpen}>
+              <Check aria-hidden className={cx('size-4', theme[part] === v ? 'text-primary' : 'invisible')} />
+              {name}
+            </Menu.RadioItem>
+          )
+          return wrap?.[v] ? <Fragment key={v}>{wrap[v](item)}</Fragment> : item
+        })}
       </Menu.RadioGroup>
     </>
   )
@@ -77,7 +122,13 @@ function ThemeMenu() {
         </Menu.Trigger>
       </Tip>
       <Menu.Portal>
-        <Menu.Content align="end" sideOffset={4} className={menuContent}>
+        <Menu.Content
+          align="end"
+          sideOffset={4}
+          className={menuContent}
+          // The gradient editor is portalled to <body>; working in it must not close the menu.
+          onInteractOutside={(e) => (e.target as Element | null)?.closest?.('[data-gradient-editor]') && e.preventDefault()}
+        >
           {group('mode', 'Theme', { light: 'Light', dark: 'Dark', system: 'System' })}
           <Menu.Separator className="my-1 h-px bg-fill" />
           {label('Primary color')}
@@ -119,7 +170,42 @@ function ThemeMenu() {
                 />
               </>
             ),
-            gradient: 'Gradient',
+            gradient: (
+              <>
+                Gradient
+                <Popover.Trigger
+                  aria-label="Edit gradient"
+                  className="ml-auto size-5 rounded-sm shadow-ring"
+                  style={{ background: `linear-gradient(135deg, ${theme.gradFrom}, ${theme.gradTo})` }}
+                />
+                <Popover.Portal>
+                  <Popover.Content
+                    data-gradient-editor
+                    side="left"
+                    align="center"
+                    sideOffset={8}
+                    collisionPadding={8}
+                    // React bubbles portalled events to the RadioItem; keep typing and clicks from reaching it.
+                    onKeyDown={stop}
+                    onPointerMove={stop}
+                    onPointerDown={stop}
+                    onPointerUp={stop}
+                    onClick={stop}
+                    className="z-50 flex max-w-[340px] flex-wrap items-center gap-2 rounded-md bg-surface p-2 shadow-pop"
+                  >
+                    <HexInput label="Gradient start" value={theme.gradFrom} onChange={(v) => set({ app: 'gradient', gradFrom: v })} />
+                    <ArrowRight aria-hidden className="size-4 text-muted" />
+                    <HexInput label="Gradient end" value={theme.gradTo} onChange={(v) => set({ app: 'gradient', gradTo: v })} />
+                    {canvasInk([theme.gradFrom, theme.gradTo]).worst < 4.5 && (
+                      <p role="status" className="basis-full text-sm text-warning-text">Text may be hard to read on part of this gradient. Bring the two colors closer in lightness.</p>
+                    )}
+                  </Popover.Content>
+                </Popover.Portal>
+              </>
+            ),
+          }, {
+            // The editor anchors to the whole row, so it opens beside the menu rather than over it.
+            gradient: (item) => <Popover.Root><Popover.Anchor asChild>{item}</Popover.Anchor></Popover.Root>,
           })}
           <Menu.Separator className="my-1 h-px bg-fill" />
           {group('sidebar', 'Sidebar background', bg)}
@@ -224,7 +310,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { user, setUser } = useApp()
   const toast = useToast()
   return (
-    <header className="flex h-[58px] shrink-0 items-center gap-3 border-b border-(--chrome-edge) bg-(--chrome-topbar) px-4 max-sm:gap-1.5 max-sm:px-3">
+    <header data-chrome="topbar" className="flex h-[58px] shrink-0 items-center gap-3 border-b border-(--chrome-edge) bg-(--chrome-topbar) px-4 max-sm:gap-1.5 max-sm:px-3">
       <MobileNav />
       <span className="flex items-center gap-2 pr-1 text-lg font-semibold text-strong max-sm:[&>span:last-child]:hidden">
         <img src="/logo.svg" alt="" aria-hidden className="size-6" />
