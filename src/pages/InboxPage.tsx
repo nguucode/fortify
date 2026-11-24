@@ -123,11 +123,11 @@ export function InboxPage() {
     <div className="flex h-full min-h-0 max-md:flex-col">
       <h1 className="sr-only">Inbox</h1>
       <section aria-label="Conversations" className={cx('flex w-[400px] shrink-0 flex-col border-r border-line max-md:w-full', selectedId && 'max-md:hidden')}>
-        <div role="tablist" aria-label="Channel" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line px-3 pt-3">
+        <div role="tablist" aria-label="Channel" className="flex h-12 shrink-0 gap-1 overflow-x-auto overflow-y-hidden px-0.5 shadow-[inset_0_-1px_0_var(--color-line)]">
           {TABS.map(([k, l]) => {
             const n = k === 'mentions' ? mentionUnread : unread(k)
             return (
-              <button key={k} role="tab" aria-selected={tab === k} onClick={() => setP({ tab: k === 'all' ? null : k, c: null })} className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', tab === k ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}>
+              <button key={k} role="tab" aria-selected={tab === k} onClick={() => setP({ tab: k === 'all' ? null : k, c: null })} className={cx('flex h-full items-center gap-2 border-b-2 px-2.5 text-base whitespace-nowrap', tab === k ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}>
                 {l}
                 {n > 0 && <CountPill n={n} max={99} alert />}
               </button>
@@ -226,7 +226,7 @@ function ConversationRow({ c, name, account, snippet, selected, unread, checked,
     return () => clearTimeout(t)
   }, [arrivedAt])
   return (
-    <li className={cx('group relative flex h-16 items-center gap-2 border-b border-fill pr-3 pl-2 transition-colors duration-500 motion-reduce:transition-none', flash && !selected && 'bg-recessed [&_.text-muted]:text-label', selected ? 'bg-recessed shadow-[inset_2px_0_0_var(--color-primary)] [&_.text-muted]:text-label' : 'hover:bg-recessed hover:[&_.text-muted]:text-label')}>
+    <li className={cx('group relative flex h-16 items-center gap-2 border-b border-fill px-3 transition-colors duration-500 motion-reduce:transition-none', flash && !selected && 'bg-recessed [&_.text-muted]:text-label', selected ? 'bg-recessed shadow-[inset_2px_0_0_var(--color-primary)] [&_.text-muted]:text-label' : 'hover:bg-recessed hover:[&_.text-muted]:text-label')}>
       <input type="checkbox" aria-label={`Select conversation with ${name}`} checked={checked} onChange={(e) => onCheck(e.target.checked)} className="size-4 shrink-0 accent-[var(--color-strong)]" />
       <button onClick={onOpen} aria-current={selected ? 'true' : undefined} className="flex min-w-0 flex-1 items-center gap-2 text-left">
         <span aria-hidden className={cx('size-2 shrink-0 rounded-full', unread ? 'bg-primary' : 'bg-transparent')} />

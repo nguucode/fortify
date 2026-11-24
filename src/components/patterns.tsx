@@ -159,7 +159,7 @@ export function TabBar({ tabs, param = 'tab' }: { tabs: { id: string; label: str
   // An unknown value (a param carried over from another report) falls back to the first tab.
   const current = tabs.find((t) => t.id === params.get(param))?.id ?? tabs[0].id
   return (
-    <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-b border-line">
+    <nav aria-label="Sections" className="flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--color-line)]">
       {tabs.map((t) => {
         const active = t.id === current
         return (
@@ -172,7 +172,7 @@ export function TabBar({ tabs, param = 'tab' }: { tabs: { id: string; label: str
               else next.set(param, t.id)
               setParams(next, { replace: true })
             }}
-            className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', active ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
+            className={cx('flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap first:pl-0', active ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
           >
             {t.label}
             {t.count != null && t.count > 0 && <CountPill n={t.count} active={active} />}
@@ -429,7 +429,7 @@ export function ViewTabs({ views, counts, param = 'view' }: { views: string[]; c
   const slug = (v: string) => v.toLowerCase().replace(/\s+/g, '-')
   const current = views.find((v) => slug(v) === params.get(param)) ?? views[0]
   return (
-    <nav aria-label="Saved views" className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line">
+    <nav aria-label="Saved views" className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--color-line)]">
       {views.map((v) => (
         <button
           key={v}
@@ -441,7 +441,7 @@ export function ViewTabs({ views, counts, param = 'view' }: { views: string[]; c
             next.delete('page')
             setParams(next, { replace: true })
           }}
-          className={cx('-mb-px flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap', v === current ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
+          className={cx('flex items-center gap-2 border-b-2 px-2.5 py-2 text-base whitespace-nowrap first:pl-0', v === current ? 'border-primary font-medium text-link' : 'border-transparent text-label hover:text-strong')}
         >
           {v}
           <CountPill n={counts ? (counts[v] ?? 0) : null} active={v === current} />
@@ -661,8 +661,8 @@ export function SelectionBar({ count, total, onSelectAll, onClear, children, mat
 /** Small table inside a panel or sheet: the same grammar as DataTable (12px cells, 40px rows, fill dividers) without a toolbar. */
 export const mini = {
   table: 'w-full border-collapse text-left text-base',
-  th: 'h-10 px-3 text-base font-semibold whitespace-nowrap text-strong',
-  td: 'h-10 px-3',
+  th: 'h-10 px-3 text-base font-semibold whitespace-nowrap text-strong first:pl-0 last:pr-0',
+  td: 'h-10 px-3 first:pl-0 last:pr-0',
   tr: 'border-b border-fill last:border-b-0',
   head: 'border-b border-fill',
 }
@@ -726,7 +726,7 @@ export const BOARD_CAP = 50
 export function BoardColumn({ title, count, figure, children, footer }: { title: string; count: number; figure?: ReactNode; children: ReactNode; footer?: ReactNode }) {
   return (
     <section aria-label={title} className="flex min-w-0 flex-col rounded-md bg-recessed p-2">
-      <h2 className="flex items-center gap-2 px-1.5 pb-2 text-base font-semibold text-strong">
+      <h2 className="flex items-center gap-2 px-3 pb-2 text-base font-semibold text-strong">
         {title}
         <CountPill n={count} />
         {figure && <span className="tabular ml-auto text-sm font-normal text-label">{figure}</span>}
