@@ -12,7 +12,7 @@ import { LineChart } from '@/components/charts'
 import { Badge, CountPill, cx, Due, RateChange, Segmented, SubHeading, Tip } from '@/components/ui/primitives'
 import { mini } from '@/components/patterns'
 import { dueTone } from '@/domain/urgency'
-import { StatusCell } from '@/components/ui/status'
+import { INTEREST_TONE, StatusCell } from '@/components/ui/status'
 import { fmtTime, TaskSheet, useCompleteTask } from './TaskSheet'
 import { changePct, useRisk } from './RenewalsPages'
 
@@ -70,7 +70,7 @@ export function UpcomingXDates() {
                   <span className="tabular text-right text-sm">{dateOf(x.xDateOffset)}<span className="block text-muted">{inDays(x.xDateOffset)}</span></span>
                   <span className="flex items-center gap-2">
                     {x.xDateOffset <= w && <Tip label={`Quote window open.${task ? ` A Task was created on ${dateOf(task.dueOffset)}.` : ''}`}><Info aria-label="Quote window open" className="size-4 text-link" strokeWidth={1.75} /></Tip>}
-                    <StatusCell status={x.interestLevel === 'High' ? 'High' : x.interestLevel === 'Low' ? 'Low' : 'Medium'} />
+                    {(() => { const lvl = x.interestLevel === 'High' ? 'High' : x.interestLevel === 'Low' ? 'Low' : 'Medium'; return <StatusCell status={lvl} tone={INTEREST_TONE[lvl]} /> })()}
                   </span>
                 </button>
               </li>

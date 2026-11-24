@@ -10,7 +10,7 @@ import type { Account, InterestLevel, Line, XDate } from '@/domain/types'
 import { Confirm, DataTable, Field, Gate, inputCls, KeyValue, PageTitle, Sheet, SheetCancel, ViewTabs, useView, type Column, type FilterDef } from '@/components/patterns'
 import { Button, Callout, cx, Due, Tip } from '@/components/ui/primitives'
 import { dueTone } from '@/domain/urgency'
-import { StatusCell } from '@/components/ui/status'
+import { INTEREST_TONE, StatusCell } from '@/components/ui/status'
 import { EmptyState } from '@/components/ui/states'
 
 const PL: Line[] = ['Auto', 'Home', 'Umbrella', 'Renters', 'Condo', 'Flood', 'Boat']
@@ -67,7 +67,7 @@ export function XDatesPage() {
       render: (x) => (due(x) ? <Tip label={`Inside the ${quoteWindow(scoped.get(x.accountId)!)}-day quote window, no Opportunity yet`}><span tabIndex={0}><Due tone={dueTone(x.xDateOffset, quoteWindow(scoped.get(x.accountId)!))}>{x.xDateOffset}</Due></span></Tip> : x.xDateOffset < 0 ? <span className="text-muted">passed</span> : x.xDateOffset),
       csv: (x) => x.xDateOffset,
     },
-    { key: 'status', label: 'Interest', width: 100, render: (x) => x.interestLevel },
+    { key: 'status', label: 'Interest', width: 100, render: (x) => <StatusCell status={x.interestLevel} tone={INTEREST_TONE[x.interestLevel]} />, csv: (x) => x.interestLevel },
     { key: 'producer', label: 'Producer', width: 150, render: (x) => userName(scoped.get(x.accountId)!.producerId) },
     { key: 'opp', label: 'Opportunity', width: 140, render: (x) => { const o = opp(x); return o ? <Link to={`/pipeline/${o.id}`} className="text-link hover:underline"><StatusCell status={o.stage} /></Link> : <span className="text-muted">—</span> }, csv: (x) => opp(x)?.stage ?? '' },
   ]
@@ -136,7 +136,7 @@ export function XDateDrawer({ xdate, accountId: lockedAccount, onClose }: { xdat
             ['X-date', `${dateOf(xdate.xDateOffset)} (${xdate.xDateOffset < 0 ? 'passed' : `${xdate.xDateOffset} days`})`],
             ['Term', `${xdate.termMonths ?? 12} months`],
             ['Premium', xdate.premium ? usd(xdate.premium) : null],
-            ['Interest', xdate.interestLevel],
+            ['Interest', <StatusCell key="i" status={xdate.interestLevel} tone={INTEREST_TONE[xdate.interestLevel]} />],
             ['Source', xdate.source?.kind === 'lost-opportunity' && xdate.source.id ? <Link key="s" to={`/pipeline/${xdate.source.id}`} className="text-link hover:underline">{sourceLabel}</Link> : sourceLabel],
             ['Follow-up', task ? `${task.title} · ${task.status === 'Open' ? `due ${dateOf(task.dueOffset)}` : task.status === 'Canceled' ? 'Follow-up canceled' : 'Done'}` : null],
             ['Opportunity', opp ? <Link key="o" to={`/pipeline/${opp.id}`} className="text-link hover:underline">{opp.stage}</Link> : null],
