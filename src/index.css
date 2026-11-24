@@ -133,25 +133,26 @@
     --color-canvas: color-mix(in oklab, var(--grad-dark-from), var(--grad-dark-to));
     --app-bg-image: linear-gradient(135deg, var(--grad-dark-from), var(--grad-dark-to));
   }
-  /* Text on the page background (ThemeMenu). A custom colour or gradient can be dark in Light mode; TopBar.tsx
-     sets data-canvas-ink from its luminance (Dark mode always tints it dark, so it never flips there). Where chrome is transparent, text sitting on the
-     canvas flips to the readable ink; cards (.bg-surface) inside reset to the theme's own values. */
-  html[data-theme='light'][data-canvas-ink='light'][data-topbar-bg='transparent'] [data-chrome='topbar'],
-  html[data-theme='light'][data-canvas-ink='light'][data-sidebar-bg='transparent'] [data-chrome='sidebar'],
-  html[data-theme='light'][data-canvas-ink='light'][data-content-bg='transparent'] #main {
-    --color-strong: oklch(98.5% 0 0);
-    --color-ink: oklch(94% 0 0);
-    --color-label: oklch(84% 0 0);
-    --color-muted: oklch(76% 0 0);
-    --color-inactive: oklch(55% 0 0);
-    --color-line: oklch(100% 0 0 / 0.14);
-    --color-line-control: oklch(100% 0 0 / 0.38);
-    --color-recessed: oklch(100% 0 0 / 0.1);
-    --color-fill: oklch(100% 0 0 / 0.16);
+  /* Text on a picked page background (ThemeMenu → App background Color/Gradient, Light mode). TopBar.tsx solves
+     each role against the actual colours (canvasInk.ts, Leonardo-style target contrast) into --oc-*. Only chrome
+     left transparent sits on the background, so only it takes them; cards (.bg-surface) inside reset to the
+     theme's own values. Dark mode tints the picks dark, where the dark tokens already read. */
+  html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-topbar-bg='transparent'] [data-chrome='topbar'],
+  html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-sidebar-bg='transparent'] [data-chrome='sidebar'],
+  html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-content-bg='transparent'] #main {
+    --color-strong: var(--oc-strong);
+    --color-ink: var(--oc-ink);
+    --color-label: var(--oc-label);
+    --color-muted: var(--oc-muted);
+    --color-inactive: var(--oc-inactive);
+    --color-line: var(--oc-line);
+    --color-line-control: var(--oc-line-control);
+    --color-recessed: var(--oc-recessed);
+    --color-fill: var(--oc-fill);
   }
-  html[data-theme='light'][data-canvas-ink='light'][data-topbar-bg='transparent'] [data-chrome='topbar'] .bg-surface,
-  html[data-theme='light'][data-canvas-ink='light'][data-sidebar-bg='transparent'] [data-chrome='sidebar'] .bg-surface,
-  html[data-theme='light'][data-canvas-ink='light'][data-content-bg='transparent'] #main .bg-surface {
+  html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-topbar-bg='transparent'] [data-chrome='topbar'] .bg-surface,
+  html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-sidebar-bg='transparent'] [data-chrome='sidebar'] .bg-surface,
+  html[data-theme='light']:is([data-app-bg='custom'], [data-app-bg='gradient'])[data-content-bg='transparent'] #main .bg-surface {
     --color-strong: oklch(14.5% 0 0);
     --color-ink: oklch(20.5% 0 0);
     --color-label: oklch(43.9% 0 0);
