@@ -111,7 +111,7 @@ export function Shortcuts() {
   return (
     <Dialog.Root open={help} onOpenChange={setHelp}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[520px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-surface p-5 shadow-pop">
           <Dialog.Title className="text-lg font-medium text-strong">Keyboard shortcuts</Dialog.Title>
           <Dialog.Description className="mt-0.5 text-sm text-muted">Single-key shortcuts never fire while you type in a field.</Dialog.Description>

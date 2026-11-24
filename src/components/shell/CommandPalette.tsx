@@ -115,7 +115,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-strong/20" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content
           aria-describedby={undefined}
           onCloseAutoFocus={(e) => {
