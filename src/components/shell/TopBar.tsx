@@ -7,13 +7,21 @@ import * as Popover from '@radix-ui/react-popover'
 import { Building2, Check, ChevronDown, Palette, Search, SlidersHorizontal, UserRound } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { dataStore, officeName, resetData, useApp, useDemoControls, viewAsUsers } from '@/app/store'
-import { Badge, cx, Kbd, Tip } from '@/components/ui/primitives'
+import { cx, Kbd, Tip } from '@/components/ui/primitives'
 import { useToast } from '@/components/ui/toast'
 import { useLocation } from 'react-router'
 import type { Role } from '@/domain/types'
 
 export const ROLE_LABEL: Record<Role, string> = { producer: 'Producer', 'account-manager': 'Account Manager', principal: 'Principal', admin: 'Admin' }
 const initials = (n: string) => n.split(' ').map((p) => p[0]).slice(0, 2).join('')
+// Unsplash portraits for the View as presets; initials remain the fallback for anyone else.
+const PHOTO: Record<string, string> = {
+  'Dana Whitfield': '1573496359142-b8d87734a5a2',
+  'Marisol Reyes': '1494790108377-be9c29b29330',
+  'Grant Holloway': '1500648767791-00dcc994a43e',
+  'Priya Nair': '1438761681033-6461ffad8d80',
+}
+const photoUrl = (n: string) => PHOTO[n] && `https://images.unsplash.com/photo-${PHOTO[n]}?w=64&h=64&fit=crop&crop=faces`
 
 export const menuContent = 'z-50 min-w-56 rounded-md bg-surface p-1 text-base shadow-pop'
 export const menuItem = 'flex h-8 cursor-default items-center gap-2 rounded-sm px-2 outline-none data-[highlighted]:bg-recessed'
@@ -304,9 +312,6 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         <span>Fortify</span>
       </span>
       <OfficeControl />
-      <Tip label="All data in this demo is fictional.">
-        <span tabIndex={0} className="inline-flex"><Badge>Sample data</Badge></span>
-      </Tip>
       <button
         onClick={onOpenPalette}
         className="ml-2 flex h-9 w-full max-w-[420px] max-sm:ml-0 items-center gap-2 rounded-lg bg-surface px-3 text-left text-base text-muted shadow-ring hover:shadow-control max-lg:w-9 max-lg:px-2.5"
@@ -320,7 +325,6 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
       <div className="flex-1" />
       <NotificationsButton />
       <div className="flex items-center gap-1 border-l border-line pl-3 max-sm:pl-1.5">
-        <span className="pr-1 text-xs text-muted max-lg:hidden">Demo</span>
         <Menu.Root>
           <Menu.Trigger className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-ink hover:bg-recessed">
             <UserRound aria-hidden className="size-4 text-label" strokeWidth={1.75} />
@@ -345,8 +349,8 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
       </div>
       <ThemeMenu />
       <Menu.Root>
-        <Menu.Trigger className="grid size-7 place-items-center rounded-full bg-fill text-xs font-medium text-label hover:shadow-control">
-          {initials(user.name)}
+        <Menu.Trigger className="grid size-7 place-items-center overflow-hidden rounded-full bg-fill text-xs font-medium text-label hover:shadow-control">
+          {photoUrl(user.name) ? <img src={photoUrl(user.name)} alt="" className="size-full object-cover" /> : initials(user.name)}
           <span className="sr-only">Account menu for {user.name}</span>
         </Menu.Trigger>
         <Menu.Portal>

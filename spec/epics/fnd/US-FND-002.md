@@ -16,7 +16,7 @@ As any Fortify user, I want a top bar that shows which Office I am working in, g
 
 ## Acceptance criteria
 
-- Given the shell, when any route renders, then the top bar shows, left to right: the Fortify wordmark, the Office control, the Sample data badge (US-FND-009), the search field, Notifications, View as, Demo controls, and the avatar, matching the `topBar` order in `sitemap.yaml`.
+- Given the shell, when any route renders, then the top bar shows, left to right: the Fortify wordmark, the Office control, the search field, Notifications, View as, Demo controls, and the avatar (Unsplash portrait for View as presets, initials otherwise), matching the `topBar` order in `sitemap.yaml`.
 - Given I am a Producer or Account Manager, when I look at the Office control, then it is a static label with my Office (for example "Houston TX").
 - Given I am a Principal or Admin, when I open the Office control, then I can choose All offices, Houston TX, San Antonio TX, or Tampa FL, and list pages that support an Office filter apply it; the choice persists for the session.
 - Given I click the search field or press ⌘K (Ctrl+K on Windows), then the command palette opens (US-FND-003); the field itself never accepts typing.
